@@ -11,6 +11,8 @@ use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Services\WeatherService;
 
 
 class EventController extends Controller
@@ -90,60 +92,103 @@ class EventController extends Controller
     /**
      * Store a new event.
      */
-    public function store(Request $request)
-    {
-        try {
-            $token = $this->validateToken($request);
+ /**
+ * Store a new event.
+ */
+/**
+ * Store a new event.
+ */
+public function store(Request $request)
+{
+    try {
+        $token = $this->validateToken($request);
 
-            $payload = JWTAuth::setToken($token)->getPayload();
-            $userId = $payload->get('sub');
-            $userName = $payload->get('name');
+        $payload = JWTAuth::setToken($token)->getPayload();
+        $userId = $payload->get('sub');
+        $userName = $payload->get('name');
 
-            $validatedData = $request->validate([
-                'name' => 'required|string',
-                'sport_id' => 'required|exists:sports,id',
-                'date' => 'required|date',
-                'place' => 'required|string',
-                'max_participants' => 'required|integer|min:2',
-            ]);
+        // Validação dos dados de entrada, com latitude e longitude opcionais
+        $validatedData = $request->validate([
+            'name'             => 'required|string',
+            'sport_id'         => 'required|exists:sports,id',
+            'date'             => 'required|date',
+            'place'            => 'required|string',
+            'max_participants' => 'required|integer|min:2',
+            'latitude'         => 'nullable|numeric',
+            'longitude'        => 'nullable|numeric',
+        ]);
 
-            $event = Event::create([
-                'name' => $validatedData['name'],
-                'sport_id' => $validatedData['sport_id'],
-                'date' => $validatedData['date'],
-                'place' => $validatedData['place'],
-                'user_id' => $userId,
-                'user_name' => $userName,
-                'status' => 'in progress',
-                'max_participants' => $validatedData['max_participants'],
-            ]);
+        $weatherData = null;
+        $metError = null; // Variável para armazenar eventual mensagem de erro na parte de meteorologia
 
-            // Automatically join the creator as a participant
-            Participant::create([
-                'event_id' => $event->id,
-                'user_id' => $userId,
-                'user_name' => $userName,
-            ]);
-
-            // Publish a message to the 'event_joined' queue so the creator is registered in EventUser
-            $messageDataForChat = [
-                'event_id' => $event->id,
-                'event_name' => $event->name,
-                'user_id' => $userId,
-                'user_name' => $userName,
-                'message' => 'User joined the event',
-            ];
-
-            $this->publishToRabbitMQ('event_joined', json_encode($messageDataForChat));
-            
-            
-
-
-            return response()->json($event, 201);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
+        // Se as coordenadas foram fornecidas, tentar obter os dados meteorológicos
+        if (!empty($validatedData['latitude']) && !empty($validatedData['longitude'])) {
+            $weatherService = new \App\Services\WeatherService();
+            try {
+                $weatherData = $weatherService->getForecastForDate(
+                    $validatedData['latitude'],
+                    $validatedData['longitude'],
+                    $validatedData['date']
+                );
+            } catch (\Exception $e) {
+                // Em caso de erro, armazenar a mensagem e continuar a criação do evento
+                $weatherData = null;
+                $metError = $e->getMessage();
+            }
         }
+
+        // Criação do evento, incluindo as novas colunas para latitude, longitude e weather
+        $event = Event::create([
+            'name'             => $validatedData['name'],
+            'sport_id'         => $validatedData['sport_id'],
+            'date'             => $validatedData['date'],
+            'place'            => $validatedData['place'],
+            'user_id'          => $userId,
+            'user_name'        => $userName,
+            'status'           => 'in progress',
+            'max_participants' => $validatedData['max_participants'],
+            'latitude'         => $validatedData['latitude'] ?? null,
+            'longitude'        => $validatedData['longitude'] ?? null,
+            'weather'          => $weatherData ? json_encode($weatherData) : null,
+        ]);
+
+        // Junta automaticamente o criador como participante
+        Participant::create([
+            'event_id'  => $event->id,
+            'user_id'   => $userId,
+            'user_name' => $userName,
+        ]);
+
+        // Publica mensagem para a queue 'event_joined' para que o criador seja registado em EventUser
+        $messageDataForChat = [
+            'event_id'   => $event->id,
+            'event_name' => $event->name,
+            'user_id'    => $userId,
+            'user_name'  => $userName,
+            'message'    => 'User joined the event',
+        ];
+
+        $this->publishToRabbitMQ('event_joined', json_encode($messageDataForChat));
+
+        // Preparar a resposta, incluindo mensagem de erro na parte de meteorologia se houver
+        $response = [
+            'message' => 'Evento criado com sucesso!',
+            'event'   => $event,
+        ];
+
+        if ($metError) {
+            $response['weather_error'] = 'Erro na API meteorológica: ' . $metError;
+        } else {
+            $response['weather'] = $weatherData;
+        }
+
+        return response()->json($response, 201);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 401);
     }
+}
+
+
 
     /**
      * Fetch events for a user.
@@ -449,10 +494,10 @@ private function getUserNameFromToken($token)
     {
         try {
             $token = $this->validateToken($request);
-    
+
             // Get authenticated user ID from token payload
             $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
-    
+
             // Fetch events where the user is either the creator or a participant
             $events = Event::with('sport')
                 ->where('user_id', $userId)
@@ -460,42 +505,53 @@ private function getUserNameFromToken($token)
                     $query->where('user_id', $userId);
                 })
                 ->get();
-    
+
             // Transform and return events with participant ratings
             $response = $events->map(function ($event) {
                 // Fetch participants and their ratings
                 $participants = DB::table('event_user')
                     ->where('event_id', $event->id)
                     ->get(['user_id', 'user_name', 'rating']);
-    
-                return [
-                    'id' => $event->id,
-                    'name' => $event->name,
-                    'sport' => $event->sport->name ?? null,
-                    'date' => $event->date,
-                    'place' => $event->place,
-                    'status' => $event->status,
-                    'max_participants' => $event->max_participants,
-                    'creator' => [
-                        'id' => $event->user_id,
-                        'name' => $event->user_name,
-                    ],
-                    'participants' => $participants->map(function ($participant) {
-                        return [
-                            'id' => $participant->user_id,
-                            'name' => $participant->user_name,
-                            'rating' => $participant->rating,
+
+
+                      // Decode the weather data and extract only the temperature
+                      $weatherData = json_decode($event->weather, true);
+
+                    return [
+                        'id' => $event->id,
+                        'name' => $event->name,
+                        'sport' => $event->sport->name ?? null,
+                        'date' => $event->date,
+                        'place' => $event->place,
+                        'status' => $event->status,
+                        'max_participants' => $event->max_participants,
+                        'creator' => [
+                            'id' => $event->user_id,
+                            'name' => $event->user_name,
+                        ],
+                          'weather' => [
+                    'app_max_temp' => $weatherData['app_max_temp'] ?? 'N/A',
+                    'app_min_temp' => $weatherData['app_min_temp'] ?? 'N/A',
+                    'temp' => $weatherData['temp'] ?? 'N/A',
+                    'high_temp' => $weatherData['high_temp'] ?? 'N/A',
+                    'low_temp' => $weatherData['low_temp'] ?? 'N/A',
+                    'description' => $weatherData['weather']['description'] ?? 'N/A',
+                ],
+                        'participants' => $participants->map(function ($participant) {
+                            return [
+                                'id' => $participant->user_id,
+                                'name' => $participant->user_name,
+                                'rating' => $participant->rating,
                         ];
                     }),
                 ];
             });
-    
+
             return response()->json($response, 200);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
-    
     /**
      * Search for events.
      */
