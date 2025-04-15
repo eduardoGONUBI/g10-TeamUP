@@ -206,12 +206,12 @@ public function store(Request $request)
                 ->where('user_id', $userId)
                 ->get();
     
-            // Transform and return events with participant ratings
+            // Transform and return events
             $response = $events->map(function ($event) {
-                // Fetch participants and their ratings
+                // Fetch participants 
                 $participants = DB::table('event_user')
                     ->where('event_id', $event->id)
-                    ->get(['user_id', 'user_name', 'rating']);
+                    ->get(['user_id', 'user_name']);
     
                 return [
                     'id' => $event->id,
@@ -229,7 +229,6 @@ public function store(Request $request)
                         return [
                             'id' => $participant->user_id,
                             'name' => $participant->user_name,
-                            'rating' => $participant->rating,
                         ];
                     }),
                 ];
@@ -457,15 +456,14 @@ private function getUserNameFromToken($token)
                 return response()->json(['error' => 'Unauthorized: You do not have access to view this event'], 403);
             }
     
-            // Retrieve participants along with their ratings
+            // Retrieve participants 
             $participants = DB::table('event_user')
                 ->where('event_id', $id)
-                ->get(['user_id', 'rating']);
+                ->get(['user_id']);
     
             $participantDetails = $participants->map(function ($participant) {
                 return [
                     'id' => $participant->user_id,
-                    'rating' => $participant->rating,
                 ];
             });
     
@@ -506,12 +504,12 @@ private function getUserNameFromToken($token)
                 })
                 ->get();
 
-            // Transform and return events with participant ratings
+            // Transform and return events 
             $response = $events->map(function ($event) {
-                // Fetch participants and their ratings
+                // Fetch participants 
                 $participants = DB::table('event_user')
                     ->where('event_id', $event->id)
-                    ->get(['user_id', 'user_name', 'rating']);
+                    ->get(['user_id', 'user_name']);
 
 
                       // Decode the weather data and extract only the temperature
@@ -541,7 +539,6 @@ private function getUserNameFromToken($token)
                             return [
                                 'id' => $participant->user_id,
                                 'name' => $participant->user_name,
-                                'rating' => $participant->rating,
                         ];
                     }),
                 ];
@@ -605,14 +602,14 @@ private function getUserNameFromToken($token)
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        // Fetch all events with participants and their ratings
+        // Fetch all events with participants 
         $events = Event::with(['sport'])->get();
 
         // Transform and return response
         $response = $events->map(function ($event) {
             $participants = DB::table('event_user')
                 ->where('event_id', $event->id)
-                ->get(['user_id', 'rating']);
+                ->get(['user_id']);
 
             return [
                 'id' => $event->id,
@@ -629,7 +626,6 @@ private function getUserNameFromToken($token)
                 'participants' => $participants->map(function ($participant) {
                     return [
                         'id' => $participant->user_id,
-                        'rating' => $participant->rating,
                     ];
                 }),
             ];
@@ -850,50 +846,7 @@ public function kickParticipant(Request $request, $event_id, $user_id)
 }
 
 
-    public function rateUser(Request $request, $event_id)
-    {
-        try {
-            // Validate token and get authenticated user's ID
-            $token = $this->validateToken($request);
-            $payload = JWTAuth::setToken($token)->getPayload();
-            $authUserId = $payload->get('sub'); // Get the authenticated user's ID
-    
-            // Validate incoming data
-            $validated = $request->validate([
-                'user_id' => 'required|exists:event_user,user_id', // Ensure the user being rated exists in event_user
-                'rating' => 'required|integer|min:1|max:5',        // Ensure rating is an integer between 1 and 5
-            ]);
-    
-            // Find the event
-            $event = Event::findOrFail($event_id);
-    
-            // Check if the event is concluded
-            if ($event->status !== 'concluded') {
-                return response()->json(['error' => 'Event must be concluded to rate participants'], 400);
-            }
-    
-            // Check if the authenticated user participated in the event
-            if (!Participant::where('event_id', $event_id)->where('user_id', $authUserId)->exists()) {
-                return response()->json(['error' => 'You did not participate in this event'], 403);
-            }
-    
-            // Check if the user being rated participated in the event
-            if (!Participant::where('event_id', $event_id)->where('user_id', $validated['user_id'])->exists()) {
-                return response()->json(['error' => 'The user being rated did not participate in this event'], 403);
-            }
-    
-            // Update the rating in the event_user table
-            DB::table('event_user')
-                ->where('event_id', $event_id)
-                ->where('user_id', $validated['user_id'])
-                ->update(['rating' => $validated['rating']]);
-    
-            return response()->json(['message' => 'Rating updated successfully'], 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-    
+   
 
 
 
