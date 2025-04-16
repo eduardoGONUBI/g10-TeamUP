@@ -5,7 +5,7 @@ Como correr os microserviços
     docker compose up -d
     docker compose exec app php artisan migrate --seed
 
-    No microserviço do RabbitMQ só é necessário correr o primeiro comando:
+    No microserviço do RabbitMQ e API Gateway só é necessário correr o primeiro comando:
 
 Como testar as funcionalidades
 
