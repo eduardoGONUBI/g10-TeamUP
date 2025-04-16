@@ -80,7 +80,6 @@ class NotificationController extends Controller
             echo 'Error in listenToNotifications: ' . $e->getMessage() . "\n";
         }
     }
-
     /**
      * Get all notifications for the authenticated user.
      */
@@ -88,18 +87,18 @@ class NotificationController extends Controller
     {
         try {
             $token = $this->validateToken($request);
-            Log::info('Token validated successfully:', ['token' => $token]);
+           /* Log::info('Token validated successfully:', ['token' => $token]);*/
 
             $payload = JWTAuth::setToken($token)->getPayload();
             $userId = (int) $payload->get('sub');
-            Log::info('User ID obtained from token:', ['user_id' => $userId]);
+           // Log::info('User ID obtained from token:', ['user_id' => $userId]);
 
             $notifications = Notification::where('user_id', $userId)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             if ($notifications->isEmpty()) {
-                Log::info('No notifications found for user:', ['user_id' => $userId]);
+              //  Log::info('No notifications found for user:', ['user_id' => $userId]);
                 return response()->json(['message' => 'No notifications found'], 404);
             }
 
@@ -111,17 +110,17 @@ class NotificationController extends Controller
                 ];
             })->toArray();
 
-            Log::info('Notifications fetched for user:', [
+         /*   Log::info('Notifications fetched for user:', [
                 'user_id'       => $userId,
                 'notifications' => $notificationMessages
-            ]);
+            ]);*/
 
             return response()->json(['notifications' => $notificationMessages], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching notifications:', [
+          /*  Log::error('Error fetching notifications:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-            ]);
+            ]);*/
             return response()->json(['error' => 'Failed to fetch notifications', 'details' => $e->getMessage()], 500);
         }
     }
@@ -141,10 +140,10 @@ class NotificationController extends Controller
 
             return response()->json(['message' => 'All notifications deleted successfully'], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting notifications:', [
+         /*   Log::error('Error deleting notifications:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-            ]);
+            ]);*/
             return response()->json(['error' => 'Failed to delete notifications', 'details' => $e->getMessage()], 500);
         }
     }
