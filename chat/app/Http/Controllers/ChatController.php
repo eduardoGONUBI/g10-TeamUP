@@ -39,7 +39,7 @@ class ChatController extends Controller
                 echo 'Message received: ', $msg->body, "\n";
 
                 // Log the received message
-                \Log::info('Message received by RabbitMQ listener:', ['message' => $msg->body]);
+               // \Log::info('Message received by RabbitMQ listener:', ['message' => $msg->body]);
 
                 // Decode the message body
                 $messageData = json_decode($msg->body, true);
@@ -69,7 +69,7 @@ class ChatController extends Controller
             $channel->close();
             $connection->close();
         } catch (\Exception $e) {
-            \Log::error('Error in listenRabbitMQ:', ['error' => $e->getMessage()]);
+            //\Log::error('Error in listenRabbitMQ:', ['error' => $e->getMessage()]);
         }
     }
 
@@ -101,10 +101,10 @@ public function sendMessage(Request $request, $id)
             ->exists();
 
         if (!$isParticipating) {
-            \Log::warning('Unauthorized attempt to send a message to an event:', [
+           /* \Log::warning('Unauthorized attempt to send a message to an event:', [
                 'user_id' => $userId,
                 'event_id' => $id,
-            ]);
+            ]);*/
             return response()->json(['error' => 'Unauthorized: User is not participating in this event'], 403);
         }
 
@@ -146,7 +146,7 @@ public function sendMessage(Request $request, $id)
             'errors' => $e->errors(),
         ], 422);
     } catch (\Exception $e) {
-        \Log::error('Error in sendMessage:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+       // \Log::error('Error in sendMessage:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         return response()->json(['error' => $e->getMessage()], 401);
     }
 }
@@ -180,9 +180,9 @@ private function publishToRabbitMQ($queueName, $messageBody)
         $channel->close();
         $connection->close();
 
-        \Log::info('Message published to RabbitMQ:', ['queue' => $queueName, 'message' => $messageBody]);
+       // \Log::info('Message published to RabbitMQ:', ['queue' => $queueName, 'message' => $messageBody]);
     } catch (\Exception $e) {
-        \Log::error('Error publishing message to RabbitMQ:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+      //  \Log::error('Error publishing message to RabbitMQ:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     }
 }
 
@@ -207,10 +207,10 @@ private function publishToRabbitMQ($queueName, $messageBody)
                 ->exists();
 
             if (!$isParticipating) {
-                \Log::warning('Unauthorized attempt to fetch messages for an event:', [
+             /*   \Log::warning('Unauthorized attempt to fetch messages for an event:', [
                     'user_id' => $userId,
                     'event_id' => $id,
-                ]);
+                ]);*/
                 return response()->json(['error' => 'Unauthorized: User is not participating in this event'], 403);
             }
 
@@ -219,7 +219,7 @@ private function publishToRabbitMQ($queueName, $messageBody)
 
             return response()->json(['messages' => $messages], 200);
         } catch (\Exception $e) {
-            \Log::error('Error in fetchMessages:', ['error' => $e->getMessage()]);
+          //  \Log::error('Error in fetchMessages:', ['error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
