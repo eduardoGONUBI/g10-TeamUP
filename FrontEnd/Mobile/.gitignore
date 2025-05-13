@@ -1,0 +1,27 @@
+# Ficheiros de projeto específicos do Android Studio
+*.iml
+.gradle/
+.idea/
+local.properties
+
+# Subpastas específicas dentro de .idea (opcional, pois .idea/ já cobre)
+# /.idea/caches
+# /.idea/libraries
+# /.idea/modules.xml
+# /.idea/workspace.xml
+# /.idea/navEditor.xml
+# /.idea/assetWizardSettings.xml
+
+# macOS
+.DS_Store
+
+# Build output
+/build/
+app/build/
+.externalNativeBuild/
+.cxx/
+captures/
+
+# Outros
+*.apk
+*.ap_  # ficheiros compilados do Android Asset Packaging Tool
