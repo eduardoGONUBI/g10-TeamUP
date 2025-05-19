@@ -1,85 +1,227 @@
 package com.example.teamup.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.*
 import com.example.teamup.R
 import com.example.teamup.ui.screens.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RootScaffold(start: String = "chats") {
+fun RootScaffold(startRoute: String = "chats") {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
+    val currentRoute = backStack?.destination?.route
 
-    /* -------- Scaffold base -------- */
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_launcher_foreground),
-                        contentDescription = "Logo",
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .size(40.dp)
-                    )
-                },
-                actions = {
-                    IconButton(onClick = {}) {
-                        Icon(
-                            painter = painterResource(R.drawable.baseline_access_alarm_24),
-                            contentDescription = "Notificações"
-                        )
-                    }
-                }
-            )
-        },
+        topBar = { TopBar(navController) },
         bottomBar = {
-            NavigationBar {
-                val items = listOf(
-                    NavItem("home",   R.drawable.baseline_home_24),
-                    NavItem("agenda", R.drawable.baseline_calendar_month_24),
-                    NavItem("chats",  R.drawable.baseline_chat_bubble_24),
-                    NavItem("perfil", R.drawable.baseline_person_24)
-                )
-                items.forEach { item ->
-                    NavigationBarItem(
-                        selected = backStack?.destination?.route == item.route,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon  = { Icon(painterResource(item.icon), contentDescription = item.route) },
-                        label = { Text(item.route.replaceFirstChar { it.uppercase() }) }
-                    )
-                }
-            }
+            BottomNavigationBar(
+                navController = navController,
+                currentRoute = currentRoute
+            )
         }
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = start,
+            startDestination = startRoute,
             modifier = Modifier.padding(padding)
         ) {
-            composable("home")   { HomeScreen() }
-            composable("agenda") { ativityScreen() }
+            composable("home") {
+                HomeScreen(
+                    activities = emptyList(),
+                    onActivityClick = {}
+                )
+            }
+            composable("agenda") { AtivityScreen() }
             composable("chats")  { UpChatScreens() }
             composable("perfil") { PerfilScreen() }
+            composable("activityDetail") {
+                EditActivityScreen(
+                    onSave   = { navController.popBackStack() },
+                    onDelete = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
 
-private data class NavItem(val route: String, val icon: Int)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TopBar(navController: NavHostController) {
+    Column {
+        TopAppBar(
+            title = {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clickable {
+                            navController.navigate("home") {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                ) {
+                    Image(
+                        painter           = painterResource(id = R.drawable.icon_up),
+                        contentDescription = "App Logo",
+                        modifier          = Modifier.size(48.dp),
+                        contentScale      = ContentScale.Fit
+                    )
+                }
+            },
+            actions = {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clickable { /* TODO: notifications */ }
+                        .padding(12.dp)
+                ) {
+                    Icon(
+                        painter           = painterResource(id = R.drawable.notifications),
+                        contentDescription = "Notifications",
+                        modifier          = Modifier.size(24.dp),
+                        tint              = Color(0xFF335EB5)
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background
+            )
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.1f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BottomNavigationBar(
+    navController: NavHostController,
+    currentRoute: String?
+) {
+    data class NavItem(val route: String, val title: String, val drawableRes: Int)
+    val items = listOf(
+        NavItem("home",   "Home",       R.drawable.main),
+        NavItem("agenda", "Activities", R.drawable.atividades),
+        NavItem("chats",  "Chats",      R.drawable.chat),
+        NavItem("perfil", "Profile",    R.drawable.profileuser)
+    )
+    val selectedColor = Color(0xFF3629B7)
+    val unselectedColor = Color(0xFF023499)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(bottom = 16.dp),
+        color = Color.White
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.1f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.forEach { item ->
+                    val selected = currentRoute == item.route
+
+                    Box(
+                        modifier = Modifier
+                            .clickable {
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                    ) {
+                        if (selected) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(
+                                        color = selectedColor,
+                                        shape = RoundedCornerShape(50)
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = item.drawableRes),
+                                    contentDescription = item.title,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = item.title,
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        } else {
+                            Icon(
+                                painter = painterResource(id = item.drawableRes),
+                                contentDescription = item.title,
+                                modifier = Modifier.size(24.dp),
+                                tint = unselectedColor
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class NavItem(
+    val route: String,
+    val icon: ImageVector? = null,
+    val drawableRes: Int? = null
+)

@@ -4,7 +4,7 @@ package com.example.teamup.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Cores principais
-val Primary       = Color(0xFF00796B) // verde-teal
+val Primary       = Color(0xFF023499) // 0xFF023499
 val OnPrimary     = Color(0xFFFFFFFF) // branco
 
 // Cores secundárias / acentuação
