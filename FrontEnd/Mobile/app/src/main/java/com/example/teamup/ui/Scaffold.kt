@@ -7,20 +7,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.*
 import com.example.teamup.R
 import com.example.teamup.ui.screens.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RootScaffold(start: String = "chats") {
+fun RootScaffold(
+    appNav: NavHostController,       // controlador global (AppNavGraph)
+    start: String = "chats"
+) {
+    // controlador interno para as tabs E notificações
     val navController = rememberNavController()
-    val backStack by navController.currentBackStackEntryAsState()
+    val backStack     by navController.currentBackStackEntryAsState()
+    val currentRoute  = backStack?.destination?.route
 
-    /* -------- Scaffold base -------- */
     Scaffold(
         topBar = {
             TopAppBar(
@@ -35,7 +36,8 @@ fun RootScaffold(start: String = "chats") {
                     )
                 },
                 actions = {
-                    IconButton(onClick = {}) {
+                    // 🔔 usa navController, não appNav
+                    IconButton(onClick = { navController.navigate("notifications") }) {
                         Icon(
                             painter = painterResource(R.drawable.baseline_access_alarm_24),
                             contentDescription = "Notificações"
@@ -44,6 +46,7 @@ fun RootScaffold(start: String = "chats") {
                 }
             )
         },
+
         bottomBar = {
             NavigationBar {
                 val items = listOf(
@@ -54,12 +57,19 @@ fun RootScaffold(start: String = "chats") {
                 )
                 items.forEach { item ->
                     NavigationBarItem(
-                        selected = backStack?.destination?.route == item.route,
+                        selected = currentRoute == item.route,
                         onClick = {
+                            // 1. Se a rota no topo é "notifications", remove-a
+                            if (currentRoute == "notifications") {
+                                navController.popBackStack("notifications", inclusive = true)
+                            }
                             navController.navigate(item.route) {
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                popUpTo(navController.graph.id) {
+                                    saveState = true
+                                    inclusive = false
+                                }
                                 launchSingleTop = true
-                                restoreState = true
+                                restoreState    = true
                             }
                         },
                         icon  = { Icon(painterResource(item.icon), contentDescription = item.route) },
@@ -68,16 +78,19 @@ fun RootScaffold(start: String = "chats") {
                 }
             }
         }
+
     ) { padding ->
         NavHost(
-            navController = navController,
+            navController    = navController,
             startDestination = start,
-            modifier = Modifier.padding(padding)
+            modifier         = Modifier.padding(padding)
         ) {
-            composable("home")   { HomeScreen() }
-            composable("agenda") { ativityScreen() }
-            composable("chats")  { UpChatScreens() }
-            composable("perfil") { PerfilScreen() }
+            composable("home")          { HomeScreen() }
+            composable("agenda")        { ativityScreen() }
+            // o "chats" usa appNav para saltar para chatDetail
+            composable("chats")         { UpChatScreens(navController = appNav) }
+            composable("perfil")        { PerfilScreen() }
+            composable("notifications") { NotificationScreen() }
         }
     }
 }
