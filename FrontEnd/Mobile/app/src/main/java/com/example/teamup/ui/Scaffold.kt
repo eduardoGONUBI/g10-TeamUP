@@ -25,10 +25,17 @@ import com.example.teamup.ui.screens.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RootScaffold(appNav: NavHostController,startRoute: String = "chats") {
+fun RootScaffold(appNav: NavHostController,startRoute: String = "Home") {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+
+
+    val sampleActivities = listOf(
+        Activity("1", "Futebolada : Football",   "Complexo Desportivo da Rodovia", "Feb 5, 5:00 PM", 14, 14),
+        Activity("2", "BarcelosBasket : Basketball", "Escola Secundária de Barcelos", "Feb 6, 7:00 PM", 5, 10),
+        Activity("3", "Semana Ténis 2 : Tennis","Parque Municipal de Barcelos",  "Feb 7, 11:00 AM", 2, 2)
+    )
 
     Scaffold(
         topBar = { TopBar(navController) },
@@ -46,8 +53,8 @@ fun RootScaffold(appNav: NavHostController,startRoute: String = "chats") {
         ) {
             composable("home") {
                 HomeScreen(
-                    activities = emptyList(),
-                    onActivityClick = {}
+                    activities      = sampleActivities,
+                    onActivityClick = {navController.navigate("creator_activity")}
                 )
             }
             composable("agenda") { AtivityScreen() }
@@ -61,6 +68,11 @@ fun RootScaffold(appNav: NavHostController,startRoute: String = "chats") {
             }
             composable("notifications") {
                 NotificationScreen()
+            }
+            composable("creator_activity") {
+                CreatorActivityScreen(
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }

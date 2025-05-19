@@ -4,6 +4,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.teamup.ui.screens.ChatDetailScreen
+import com.example.teamup.ui.screens.CreatorActivityScreen
 import com.example.teamup.ui.screens.SplashLogoScreen
 
 @Composable
@@ -28,6 +29,7 @@ fun AppNavGraph() {
             val title = backStack.arguments?.getString("chatTitle") ?: ""
             ChatDetailScreen(chatTitle = title, onBack = { nav.popBackStack() })
         }
+        composable("creator_activity") { CreatorActivityScreen() }
 
 
         // Conjunto de ecrãs COM scaffold
