@@ -59,7 +59,7 @@ fun RootScaffold(appNav: NavHostController,startRoute: String = "Home") {
             }
             composable("agenda") { AtivityScreen() }
             composable("chats")  { UpChatScreens(navController) }
-            composable("perfil") { PerfilScreen() }
+            composable("perfil") { ProfileScreen() }
             composable("activityDetail") {
                 EditActivityScreen(
                     onSave   = { navController.popBackStack() },
@@ -149,7 +149,7 @@ fun BottomNavigationBar(
         NavItem("home",   "Home",       R.drawable.main),
         NavItem("agenda", "Activities", R.drawable.atividades),
         NavItem("chats",  "Chats",      R.drawable.chat),
-        NavItem("perfil", "Profile",    R.drawable.profileuser)
+        NavItem("perfil", "com/example/teamup/ui/screens/Profile",    R.drawable.profileuser)
     )
     val selectedColor = Color(0xFF3629B7)
     val unselectedColor = Color(0xFF023499)

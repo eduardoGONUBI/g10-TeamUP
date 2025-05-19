@@ -5,6 +5,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.teamup.ui.screens.ChatDetailScreen
 import com.example.teamup.ui.screens.CreatorActivityScreen
+import com.example.teamup.ui.screens.EditProfileScreen
 import com.example.teamup.ui.screens.SplashLogoScreen
 
 @Composable
@@ -30,6 +31,11 @@ fun AppNavGraph() {
             ChatDetailScreen(chatTitle = title, onBack = { nav.popBackStack() })
         }
         composable("creator_activity") { CreatorActivityScreen() }
+        composable("edit_profile") {
+            EditProfileScreen(
+                onBack = { nav.popBackStack() }
+            )
+        }
 
 
         // Conjunto de ecrãs COM scaffold
