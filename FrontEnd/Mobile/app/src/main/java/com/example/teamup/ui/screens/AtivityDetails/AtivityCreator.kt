@@ -65,14 +65,17 @@ fun CreatorActivityScreen(
                 title = { Text("Creator See Activity") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(R.drawable.arrow_back, contentDescription = "Voltar")
+                        Icon(painter = painterResource(
+                            id = R.drawable.arrow_back),
+                            contentDescription = "join")
                     }
                 },
                 actions = {
                     IconButton(onClick = { /* share */ }) {
                         Icon(
-                            painter = painterResource(id = R.drawable.arrow_back),
-                            contentDescription = "Voltar"
+                            painter = painterResource(
+                                id = R.drawable.join_activity),
+                            contentDescription = "join"
                         )
                     }
                     IconButton(onClick = { /* edit */ }) {
