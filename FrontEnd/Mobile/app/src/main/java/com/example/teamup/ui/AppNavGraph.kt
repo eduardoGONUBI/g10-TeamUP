@@ -2,6 +2,8 @@ package com.example.teamup.ui
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
+import androidx.navigation.navArgument
+import com.example.teamup.ui.screens.ChatDetailScreen
 import com.example.teamup.ui.screens.SplashLogoScreen
 
 @Composable
@@ -19,7 +21,16 @@ fun AppNavGraph() {
             )
         }
 
+        composable(
+            "chatDetail/{chatTitle}",
+            arguments = listOf(navArgument("chatTitle") { type = NavType.StringType })
+        ) { backStack ->
+            val title = backStack.arguments?.getString("chatTitle") ?: ""
+            ChatDetailScreen(chatTitle = title, onBack = { nav.popBackStack() })
+        }
+
+
         // Conjunto de ecrãs COM scaffold
-        composable("main") { RootScaffold() }
+        composable("main") { RootScaffold(appNav = nav) }
     }
 }

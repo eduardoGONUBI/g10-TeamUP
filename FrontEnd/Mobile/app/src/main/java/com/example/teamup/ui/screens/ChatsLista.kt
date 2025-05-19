@@ -1,6 +1,7 @@
 package com.example.teamup.ui.screens
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 import com.example.teamup.R
 
@@ -39,7 +41,7 @@ private val archive = listOf(
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun UpChatScreens(modifier: Modifier = Modifier) {
+fun UpChatScreens(navController: NavHostController, modifier: Modifier = Modifier) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
     val tabs = listOf("Chats", "Archive")
@@ -62,8 +64,8 @@ fun UpChatScreens(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
-                0 -> ChatList(chats)
-                1 -> ChatList(archive)
+                0 -> ChatList(chats, navController)
+                1 -> ChatList(archive, navController)
             }
         }
     }
@@ -71,21 +73,22 @@ fun UpChatScreens(modifier: Modifier = Modifier) {
 
 /* ---------- lista simples de Chats ---------- */
 @Composable
-private fun ChatList(items: List<ChatItem>) {
+private fun ChatList(items: List<ChatItem>, nav: NavHostController) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        items(items) { ChatCard(it) }
+        items(items) { ChatCard(it, nav=nav) }
     }
 }
 
 /* ---------- cartão de cada chat ---------- */
 @Composable
-private fun ChatCard(item: ChatItem) {
+private fun ChatCard(item: ChatItem,  nav: NavHostController  ) {
     Card(
         modifier = Modifier
             .padding(horizontal = 12.dp, vertical = 6.dp)
+            .clickable { nav.navigate("chatDetail/${item.title}") }
             .fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -109,22 +112,3 @@ private fun ChatCard(item: ChatItem) {
     }
 }
 
-/* ---------- Previews para o Android Studio ---------- */
-@OptIn(ExperimentalFoundationApi::class)
-@Preview(showBackground = true, widthDp = 360, heightDp = 640)
-@Composable
-fun UpChatScreensPreview() {
-    UpChatScreens()
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 300)
-@Composable
-fun ChatListPreview() {
-    ChatList(
-        listOf(
-            ChatItem("Futebolada",      "Football",   R.drawable.baseline_sports_soccer_24),
-            ChatItem("BarcelosBasket",  "Basketball", R.drawable.baseline_sports_basketball_24),
-            ChatItem("Semana Ténis 2",  "Tennis",     R.drawable.baseline_sports_tennis_24)
-        )
-    )
-}
