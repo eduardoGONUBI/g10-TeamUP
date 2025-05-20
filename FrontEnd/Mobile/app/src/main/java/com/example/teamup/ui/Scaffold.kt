@@ -58,7 +58,7 @@ fun RootScaffold(appNav: NavHostController,startRoute: String = "Home") {
                 )
             }
             composable("agenda") { AtivityScreen() }
-            composable("chats")  { UpChatScreens(navController) }
+            composable("chats")  { UpChatScreens(navController = appNav) }
             composable("perfil") { ProfileScreen() }
             composable("activityDetail") {
                 EditActivityScreen(
