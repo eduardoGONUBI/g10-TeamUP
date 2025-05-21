@@ -1,8 +1,6 @@
-package com.example.teamup.ui.screens
+package com.example.teamup.ui.screens.Ativity
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,18 +11,17 @@ import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.Indicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.teamup.R
+import com.example.teamup.ui.screens.Activity
+import com.example.teamup.ui.screens.ActivityCard
 import kotlinx.coroutines.launch
 
 /** Re-use your Activity model and ActivityCard from HomeScreen file **/
-import com.example.teamup.ui.screens.Activity
-import com.example.teamup.ui.screens.ActivityCard
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable

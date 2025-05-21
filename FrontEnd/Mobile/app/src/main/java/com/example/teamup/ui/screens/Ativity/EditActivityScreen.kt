@@ -1,4 +1,4 @@
-package com.example.teamup.ui.screens
+package com.example.teamup.ui.screens.Ativity
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
