@@ -54,7 +54,7 @@ fun RootScaffold(appNav: NavHostController,startRoute: String = "Home") {
             composable("home") {
                 HomeScreen(
                     activities      = sampleActivities,
-                    onActivityClick = {navController.navigate("creator_activity")}
+                    onActivityClick = {appNav.navigate("creator_activity")}
                 )
             }
             composable("agenda") { AtivityScreen() }
@@ -69,11 +69,7 @@ fun RootScaffold(appNav: NavHostController,startRoute: String = "Home") {
             composable("notifications") {
                 NotificationScreen()
             }
-            composable("creator_activity") {
-                CreatorActivityScreen(
-                    onBack = { navController.popBackStack() }
-                )
-            }
+
         }
     }
 }
