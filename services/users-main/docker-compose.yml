@@ -30,7 +30,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: testing
+    container_name: app
     restart: unless-stopped
     working_dir: /var/www
     volumes:

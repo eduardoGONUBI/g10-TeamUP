@@ -20,4 +20,6 @@ Route::middleware('validate.jwt')->group(function () {
     Route::put('/admin/events/{id}/conclude', [EventController::class, 'concludeEvent']);
     Route::delete('/events/{event_id}/participants/{user_id}', [EventController::class, 'kickParticipant']);
     Route::post('/events/{event_id}/rate', [EventController::class, 'rateUser']);
+    Route::put('/events/{id}/conclude', [EventController::class, 'concludeByCreator']);
+    Route::get('/stats', [EventController::class, 'overview']);
 });
