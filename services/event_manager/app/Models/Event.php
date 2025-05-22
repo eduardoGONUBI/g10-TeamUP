@@ -23,6 +23,9 @@ class Event extends Model
         'user_name',
         'status',
         'max_participants',
+        'latitude',       // adicionado
+        'longitude',      // adicionado
+        'weather',        // adicionado
     ];
     
 
