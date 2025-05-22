@@ -12,25 +12,50 @@ use PhpAmqpLib\Connection\AMQPStreamConnection;
 class NotificationController extends Controller
 {
     /**
-     * Listen to RabbitMQ queue and store notifications for all event participants.
+     * Listen to RabbitMQ fanout exchange and store notifications for all event participants.
      */
     public function listenToNotifications()
     {
-        $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
-        $rabbitmqPort = env('RABBITMQ_PORT', 5672);
-        $rabbitmqUser = env('RABBITMQ_USER', 'guest');
+        $rabbitmqHost     = env('RABBITMQ_HOST', 'rabbitmq');
+        $rabbitmqPort     = env('RABBITMQ_PORT', 5672);
+        $rabbitmqUser     = env('RABBITMQ_USER', 'guest');
         $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
-        $queueName = env('RABBITMQ_QUEUE', 'notification');
+
+        // Hardcoded exchange to consume (the "other" fanout)
+        $exchangeName = 'notification_fanout_2';
 
         try {
             // Connect to RabbitMQ
-            $connection = new AMQPStreamConnection($rabbitmqHost, $rabbitmqPort, $rabbitmqUser, $rabbitmqPassword);
+            $connection = new AMQPStreamConnection(
+                $rabbitmqHost,
+                $rabbitmqPort,
+                $rabbitmqUser,
+                $rabbitmqPassword
+            );
             $channel = $connection->channel();
 
-            // Declare the queue
-            $channel->queue_declare($queueName, false, true, false, false);
+            // Declare the fanout exchange
+            $channel->exchange_declare(
+                $exchangeName,  // name
+                'fanout',       // type
+                false,          // passive
+                true,           // durable
+                false           // auto_delete
+            );
 
-            echo "Waiting for notifications. To exit press CTRL+C\n";
+            // Create a temporary, exclusive queue
+            list($queueName,,) = $channel->queue_declare(
+                '',      // let server generate a random queue name
+                false,   // passive
+                true,    // durable
+                false,   // exclusive
+                true     // auto_delete
+            );
+
+            // Bind the queue to the exchange
+            $channel->queue_bind($queueName, $exchangeName);
+
+            echo "Waiting for notifications in exchange '{$exchangeName}'. To exit press CTRL+C\n";
 
             // Callback for consuming messages
             $callback = function ($msg) {
@@ -38,12 +63,17 @@ class NotificationController extends Controller
 
                 $messageData = json_decode($msg->body, true);
 
-                if ($messageData && isset($messageData['event_id'], $messageData['participants'], $messageData['event_name'], $messageData['message'])) {
+                if ($messageData && isset(
+                    $messageData['event_id'],
+                    $messageData['participants'],
+                    $messageData['event_name'],
+                    $messageData['message']
+                )) {
                     try {
                         $initiatorId = $messageData['user_id'] ?? null;
 
                         foreach ($messageData['participants'] as $participant) {
-                            // Skip the initiator (the user who triggered the event)
+                            // Skip the initiator
                             if ((int)$participant['user_id'] === (int)$initiatorId) {
                                 continue;
                             }
@@ -54,6 +84,7 @@ class NotificationController extends Controller
                                 'event_name' => $messageData['event_name'],
                                 'message'    => $messageData['message'],
                             ]);
+
                             echo "Notification saved for user_id: " . $participant['user_id'] . "\n";
                         }
                     } catch (\Exception $e) {
@@ -67,9 +98,18 @@ class NotificationController extends Controller
                 $msg->ack();
             };
 
-            // Start consuming messages
-            $channel->basic_consume($queueName, '', false, false, false, false, $callback);
+            // Start consuming from the bound queue
+            $channel->basic_consume(
+                $queueName,
+                '',
+                false,
+                false,
+                false,
+                false,
+                $callback
+            );
 
+            // loop
             while ($channel->is_consuming()) {
                 $channel->wait();
             }
@@ -80,6 +120,7 @@ class NotificationController extends Controller
             echo 'Error in listenToNotifications: ' . $e->getMessage() . "\n";
         }
     }
+
     /**
      * Get all notifications for the authenticated user.
      */
@@ -87,18 +128,16 @@ class NotificationController extends Controller
     {
         try {
             $token = $this->validateToken($request);
-           /* Log::info('Token validated successfully:', ['token' => $token]);*/
+            Log::info('Token validated successfully:', ['token' => $token]);
 
-            $payload = JWTAuth::setToken($token)->getPayload();
-            $userId = (int) $payload->get('sub');
-           // Log::info('User ID obtained from token:', ['user_id' => $userId]);
-
+            $payload     = JWTAuth::setToken($token)->getPayload();
+            $userId      = (int)$payload->get('sub');
             $notifications = Notification::where('user_id', $userId)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             if ($notifications->isEmpty()) {
-              //  Log::info('No notifications found for user:', ['user_id' => $userId]);
+                Log::info('No notifications found for user:', ['user_id' => $userId]);
                 return response()->json(['message' => 'No notifications found'], 404);
             }
 
@@ -110,17 +149,17 @@ class NotificationController extends Controller
                 ];
             })->toArray();
 
-         /*   Log::info('Notifications fetched for user:', [
+            Log::info('Notifications fetched for user:', [
                 'user_id'       => $userId,
                 'notifications' => $notificationMessages
-            ]);*/
+            ]);
 
             return response()->json(['notifications' => $notificationMessages], 200);
         } catch (\Exception $e) {
-          /*  Log::error('Error fetching notifications:', [
+            Log::error('Error fetching notifications:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-            ]);*/
+            ]);
             return response()->json(['error' => 'Failed to fetch notifications', 'details' => $e->getMessage()], 500);
         }
     }
@@ -131,19 +170,18 @@ class NotificationController extends Controller
     public function deleteNotifications(Request $request)
     {
         try {
-            $token = $this->validateToken($request);
+            $token   = $this->validateToken($request);
             $payload = JWTAuth::setToken($token)->getPayload();
-            $userId = (int) $payload->get('sub');
+            $userId  = (int)$payload->get('sub');
 
-            // Delete all notifications for this user
             Notification::where('user_id', $userId)->delete();
 
             return response()->json(['message' => 'All notifications deleted successfully'], 200);
         } catch (\Exception $e) {
-         /*   Log::error('Error deleting notifications:', [
+            Log::error('Error deleting notifications:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-            ]);*/
+            ]);
             return response()->json(['error' => 'Failed to delete notifications', 'details' => $e->getMessage()], 500);
         }
     }
@@ -173,7 +211,6 @@ class NotificationController extends Controller
             throw new \Exception('Token is required.');
         }
 
-        // Strip "Bearer " prefix if present
         if (str_starts_with($token, 'Bearer ')) {
             $token = substr($token, 7);
         }
