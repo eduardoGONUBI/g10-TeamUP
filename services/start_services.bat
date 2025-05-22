@@ -1,15 +1,12 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM Diretórios dos microserviços (ajustados aos nomes reais)
-set services=auth API_Gateway chat notifications event_manager rating achievements users-main websocket
+REM Ordem definida dos microserviços (nomes de pasta reais)
+set servicos=users-main event_manager chat notifications rabbit achievements
 
-REM Microserviços que precisam de migrate --seed
-set needs_migration=notifications event_manager rating achievements users-main chat
+echo 🚀 A iniciar microserviços na ordem definida...
 
-echo 🚀 A iniciar todos os microserviços...
-
-for %%s in (%services%) do (
+for %%s in (%servicos%) do (
     if exist "%%s\docker-compose.yml" (
         echo Iniciando %%s...
         cd %%s
@@ -20,18 +17,18 @@ for %%s in (%services%) do (
     )
 )
 
-echo 🛠️ A correr migrations nos serviços necessários...
+echo 🛠️ A correr migrations na mesma ordem...
 
-for %%m in (%needs_migration%) do (
-    if exist "%%m\docker-compose.yml" (
-        echo Migrating %%m...
-        cd %%m
+for %%s in (%servicos%) do (
+    if exist "%%s\docker-compose.yml" (
+        echo Migrating %%s...
+        cd %%s
         docker compose exec app php artisan migrate --seed
         cd ..
     ) else (
-        echo ⚠️  Pasta %%m ou docker-compose.yml não encontrado. A saltar...
+        echo ⚠️  Pasta %%s ou docker-compose.yml não encontrado. A saltar...
     )
 )
 
-echo ✅ Todos os serviços foram iniciados com sucesso!
+echo ✅ Todos os serviços foram iniciados e migrados com sucesso!
 pause
