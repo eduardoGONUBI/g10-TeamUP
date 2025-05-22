@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 REM Ordem definida dos microserviços (nomes de pasta reais)
-set servicos=users-main event_manager chat notifications rabbit achievements
+set servicos=users-main event_manager chat notifications rabbit achievements rating websocket
 
 echo 🚀 A iniciar microserviços na ordem definida...
 
