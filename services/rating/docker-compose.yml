@@ -41,16 +41,16 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: password
     ports:
-      - "3506:3306"  # Expose MySQL on a non-standard port
+      - "3507:3306"  # Expose MySQL on a non-standard port
     networks:
       - test2
 
   redis:
     image: redis:alpine
-    container_name: redis3
+    container_name: redis_rating
     restart: unless-stopped
     ports:
-      - "6679:6379" # Correctly map host port 6479 to container port 6379
+      - "6678:6379" # Correctly map host port 6479 to container port 6379
     networks:
       - test2
       - shared
