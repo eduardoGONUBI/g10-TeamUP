@@ -16,8 +16,9 @@ import {
   Area,
   Tooltip as AreaTooltip,
 } from "recharts";
+import Sidebar from "./components/Sidebar";
+import Topbar from "./components/Topbar";
 import "./Dashboard.css";
-import logo from "./assets/up.png";
 
 interface Stats {
   user_id: string;
@@ -35,8 +36,8 @@ interface NotificationPayload {
   type: string;
   event_id: number;
   event_name: string;
-  user_id: number;       // initiator
-  user_name: string;     // initiator name
+  user_id: number;
+  user_name: string;
   message: string;
   timestamp: string;
 }
@@ -63,7 +64,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Extract user_id from JWT in storage
+  // Extrair user_id do JWT
   const getUserId = (): number | null => {
     const token =
       localStorage.getItem("auth_token") ||
@@ -77,7 +78,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // WebSocket connection
+  // Conexão WebSocket (mantive tudo igual)
   useEffect(() => {
     const token =
       localStorage.getItem("auth_token") ||
@@ -101,11 +102,9 @@ const Dashboard: React.FC = () => {
         return;
       }
 
-      // Only process if addressed to this user (server filters but extra safety)
       const myId = getUserId();
       if (myId == null) return;
 
-      // Create display item
       const item: NotificationItem = {
         id: `${msg.timestamp}-${msg.event_id}`,
         title: `${msg.user_name} → ${msg.event_name}`,
@@ -113,8 +112,6 @@ const Dashboard: React.FC = () => {
       };
 
       setNotifications((prev) => [item, ...prev]);
-
-      // trigger bell glow
       setBellGlow(true);
       setTimeout(() => setBellGlow(false), 3000);
     };
@@ -124,7 +121,7 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
-  // Fetch dashboard stats
+  // Função para buscar estatísticas
   const fetchStats = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -136,6 +133,7 @@ const Dashboard: React.FC = () => {
       setLoading(false);
       return;
     }
+
     fetch("http://127.0.0.1:8081/api/stats", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -155,18 +153,33 @@ const Dashboard: React.FC = () => {
     fetchStats();
   }, [fetchStats]);
 
+  // Handlers do UI
   const handleBellClick = () => setNotifOpen((open) => !open);
   const handleLogoClick = () => {
     if (location.pathname === "/dashboard") fetchStats();
     else navigate("/dashboard");
   };
+  const handleClearNotifications = () => setNotifications([]);
 
-  // Dropdown sizing
-  const itemHeight = 80;
-  const maxItemsVisible = 4;
-  const dropdownMaxH = itemHeight * maxItemsVisible;
+  // Se há erro, mostramos já uma mensagem de emergência
+  if (error) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          height: "100vh",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "red",
+          fontSize: "1.2rem",
+        }}
+      >
+        🚨 Ocorreu um erro: {error}
+      </div>
+    );
+  }
 
-  // Chart data
+  // Preparação de dados para os gráficos
   const weeklyBars = [
     { name: "This Week", value: stats?.created_this_week ?? 0 },
     { name: "Same Week ’24", value: stats?.created_this_week_last_year ?? 0 },
@@ -203,79 +216,25 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="app-container">
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="sidebar-logo" onClick={handleLogoClick} style={{ cursor: "pointer" }}>
-          <img src={logo} alt="TeamUP Logo" className="logo-icon" />
-          TeamUP
-        </div>
-        <nav className="sidebar-nav">
-          <ul>
-            <li className="active">Dashboard</li>
-            <li>My Activities</li>
-            <li>Notifications</li>
-            <li>Chat</li>
-            <li>Account</li>
-          </ul>
-        </nav>
-      </aside>
+      <Sidebar onLogoClick={handleLogoClick} />
 
-      {/* Main */}
       <div className="main">
-        <header className="topbar">
-          <div className="search">
-            <input type="text" placeholder="Search…" />
-          </div>
-          <div className="profile">
-            <div className="avatar">S</div>
-            <span className="username">sad3</span>
-            <svg
-              onClick={handleBellClick}
-              className={`bell-icon ${bellGlow ? "glow" : ""}`}
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill={BRAND}
-              style={{ cursor: "pointer", marginLeft: "0.5rem", width: 20, height: 20 }}
-            >
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-
-            {notifOpen && (
-              <div
-                className="notifications-dropdown"
-                style={
-                  notifications.length > maxItemsVisible
-                    ? { maxHeight: `${dropdownMaxH}px`, overflowY: "auto" }
-                    : undefined
-                }
-              >
-                <h4>Notifications</h4>
-                <div className="notifications-list">
-                  {notifications.length === 0 ? (
-                    <p style={{ padding: "1rem" }}>No new notifications</p>
-                  ) : (
-                    notifications.map((n) => (
-                      <div className="notification-item" key={n.id}>
-                        <strong>{n.title}</strong>
-                        <p>{n.subtitle}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <button className="clear-btn" onClick={() => setNotifications([])}>
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-        </header>
+        <Topbar
+          username="sad3"
+          notifications={notifications}
+          notifOpen={notifOpen}
+          bellGlow={bellGlow}
+          onBellClick={handleBellClick}
+          onClearNotifications={handleClearNotifications}
+        />
 
         <main className="dashboard-container">
           {/* Total Activities */}
           <div className="card">
             <h3>Total Activities</h3>
-            <p className="big">{loading ? "…" : stats?.total_active_activities ?? 0}</p>
+            <p className="big">
+              {loading ? "…" : stats?.total_active_activities ?? 0}
+            </p>
           </div>
 
           {/* Created This Week */}
@@ -316,7 +275,12 @@ const Dashboard: React.FC = () => {
                   endAngle={-180}
                 >
                   <RadialBar background dataKey="value" cornerRadius={6} />
-                  <Legend iconSize={12} layout="vertical" verticalAlign="middle" align="right" />
+                  <Legend
+                    iconSize={12}
+                    layout="vertical"
+                    verticalAlign="middle"
+                    align="right"
+                  />
                   <BarTooltip />
                 </RadialBarChart>
               </ResponsiveContainer>
@@ -356,7 +320,7 @@ const Dashboard: React.FC = () => {
               <p>Loading…</p>
             ) : (
               <ul>
-                {stats!.top_sports.map((s) => (
+                {(stats?.top_sports ?? []).map((s) => (
                   <li key={s.sport_id}>
                     {s.sport_name} — {s.total}
                   </li>
