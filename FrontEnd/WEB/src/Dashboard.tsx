@@ -1,6 +1,4 @@
-// src/Dashboard.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import {
   ResponsiveContainer,
   BarChart,
@@ -16,8 +14,6 @@ import {
   Area,
   Tooltip as AreaTooltip,
 } from "recharts";
-import Sidebar from "./components/Sidebar";
-import Topbar from "./components/Topbar";
 import "./Dashboard.css";
 
 interface Stats {
@@ -61,8 +57,6 @@ const Dashboard: React.FC = () => {
   const [bellGlow, setBellGlow] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const navigate = useNavigate();
-  const location = useLocation();
 
   // Extrair user_id do JWT
   const getUserId = (): number | null => {
@@ -78,7 +72,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Conexão WebSocket (mantive tudo igual)
+  // Conexão WebSocket
   useEffect(() => {
     const token =
       localStorage.getItem("auth_token") ||
@@ -89,19 +83,13 @@ const Dashboard: React.FC = () => {
     const ws = new WebSocket(`ws://localhost:${port}/?token=${token}`);
     wsRef.current = ws;
 
-    ws.onopen = () => console.log("🟢 WS connected");
-    ws.onclose = () => console.log("⚪ WS disconnected");
-    ws.onerror = (e) => console.error("🔴 WS error", e);
-
     ws.onmessage = ({ data }) => {
       let msg: NotificationPayload;
       try {
         msg = JSON.parse(data);
       } catch {
-        console.warn("Invalid WS payload:", data);
         return;
       }
-
       const myId = getUserId();
       if (myId == null) return;
 
@@ -110,18 +98,15 @@ const Dashboard: React.FC = () => {
         title: `${msg.user_name} → ${msg.event_name}`,
         subtitle: `${msg.message} • ${new Date(msg.timestamp).toLocaleString()}`,
       };
-
       setNotifications((prev) => [item, ...prev]);
       setBellGlow(true);
       setTimeout(() => setBellGlow(false), 3000);
     };
 
-    return () => {
-      ws.close();
-    };
+    return () => ws.close();
   }, []);
 
-  // Função para buscar estatísticas
+  // Fetch das estatísticas
   const fetchStats = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -133,7 +118,6 @@ const Dashboard: React.FC = () => {
       setLoading(false);
       return;
     }
-
     fetch("/api/stats", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -142,10 +126,7 @@ const Dashboard: React.FC = () => {
         return (await res.json()) as Stats;
       })
       .then(setStats)
-      .catch((err) => {
-        console.error(err);
-        setError(err.message);
-      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -153,15 +134,6 @@ const Dashboard: React.FC = () => {
     fetchStats();
   }, [fetchStats]);
 
-  // Handlers do UI
-  const handleBellClick = () => setNotifOpen((open) => !open);
-  const handleLogoClick = () => {
-    if (location.pathname === "/dashboard") fetchStats();
-    else navigate("/dashboard");
-  };
-  const handleClearNotifications = () => setNotifications([]);
-
-  // Se há erro, mostramos já uma mensagem de emergência
   if (error) {
     return (
       <div
@@ -179,14 +151,14 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Preparação de dados para os gráficos
+  // Dados para os gráficos
   const weeklyBars = [
     { name: "This Week", value: stats?.created_this_week ?? 0 },
     { name: "Same Week ’24", value: stats?.created_this_week_last_year ?? 0 },
   ];
   const radialData = [
     { name: "Joined", value: stats?.participants_joined_this_month ?? 0, fill: BRAND },
-    { name: "Left", value: stats?.participants_left_this_month ?? 0, fill: WARNING },
+    { name: "Left",   value: stats?.participants_left_this_month ?? 0, fill: WARNING },
   ];
   const locationBars = (stats?.top_locations ?? [])
     .sort((a, b) => b.total - a.total)
@@ -215,158 +187,141 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <div className="app-container">
-      <Sidebar onLogoClick={handleLogoClick} />
-
-      <div className="main">
-        <Topbar
-          username="sad3"
-          notifications={notifications}
-          notifOpen={notifOpen}
-          bellGlow={bellGlow}
-          onBellClick={handleBellClick}
-          onClearNotifications={handleClearNotifications}
-        />
-
-        <main className="dashboard-container">
-          {/* Total Activities */}
-          <div className="card">
-            <h3>Total Activities</h3>
-            <p className="big">
-              {loading ? "…" : stats?.total_active_activities ?? 0}
-            </p>
-          </div>
-
-          {/* Created This Week */}
-          <div className="chart-card">
-            <h3>Created This Week</h3>
-            {loading ? (
-              <div className="chart-loading">Loading chart…</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={weeklyBars} barCategoryGap={25}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" />
-                  <YAxis allowDecimals={false} />
-                  <BarTooltip />
-                  <Bar
-                    dataKey="value"
-                    radius={[8, 8, 0, 0]}
-                    label={{ position: "top", fill: BRAND }}
-                    fill={BRAND}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Participants This Month */}
-          <div className="chart-card">
-            <h3>Participants This Month</h3>
-            {loading ? (
-              <div className="chart-loading">Loading chart…</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={180}>
-                <RadialBarChart
-                  innerRadius="45%"
-                  outerRadius="80%"
-                  data={radialData}
-                  startAngle={180}
-                  endAngle={-180}
-                >
-                  <RadialBar background dataKey="value" cornerRadius={6} />
-                  <Legend
-                    iconSize={12}
-                    layout="vertical"
-                    verticalAlign="middle"
-                    align="right"
-                  />
-                  <BarTooltip />
-                </RadialBarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Top Locations */}
-          <div className="chart-card">
-            <h3>Top Locations</h3>
-            {loading ? (
-              <div className="chart-loading">Loading chart…</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart
-                  layout="vertical"
-                  data={locationBars}
-                  margin={{ top: 5, right: 20, bottom: 5, left: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} />
-                  <YAxis dataKey="name" type="category" width={80} />
-                  <BarTooltip />
-                  <Bar
-                    dataKey="total"
-                    fill={ACCENT}
-                    label={{ position: "right", fill: BRAND }}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Top Sports */}
-          <div className="card list-card">
-            <h3>Top Sports</h3>
-            {loading ? (
-              <p>Loading…</p>
-            ) : (
-              <ul>
-                {(stats?.top_sports ?? []).map((s) => (
-                  <li key={s.sport_id}>
-                    {s.sport_name} — {s.total}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Monthly Joins Trend */}
-          <div className="chart-card">
-            <h3>Monthly Joins Trend</h3>
-            {loading ? (
-              <div className="chart-loading">Loading chart…</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={180}>
-                <AreaChart data={joinTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="period" />
-                  <YAxis allowDecimals={false} />
-                  <AreaTooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="thisMonth"
-                    stroke={BRAND}
-                    fill="none"
-                    name="This Month"
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 5 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="lastMonth"
-                    stroke="#d3d3d3"
-                    fill="none"
-                    name="Last Month"
-                    strokeDasharray="5 5"
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 5 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </main>
+    <section className="dashboard-container">
+      {/* Total Activities */}
+      <div className="card">
+        <h3>Total Activities</h3>
+        <p className="big">{loading ? "…" : stats?.total_active_activities ?? 0}</p>
       </div>
-    </div>
+
+      {/* Created This Week */}
+      <div className="chart-card">
+        <h3>Created This Week</h3>
+        {loading ? (
+          <div className="chart-loading">Loading chart…</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={weeklyBars} barCategoryGap={25}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <BarTooltip />
+              <Bar
+                dataKey="value"
+                radius={[8, 8, 0, 0]}
+                label={{ position: "top", fill: BRAND }}
+                fill={BRAND}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Participants This Month */}
+      <div className="chart-card">
+        <h3>Participants This Month</h3>
+        {loading ? (
+          <div className="chart-loading">Loading chart…</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <RadialBarChart
+              innerRadius="45%"
+              outerRadius="80%"
+              data={radialData}
+              startAngle={180}
+              endAngle={-180}
+            >
+              <RadialBar background dataKey="value" cornerRadius={6} />
+              <Legend
+                iconSize={12}
+                layout="vertical"
+                verticalAlign="middle"
+                align="right"
+              />
+              <BarTooltip />
+            </RadialBarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Top Locations */}
+      <div className="chart-card">
+        <h3>Top Locations</h3>
+        {loading ? (
+          <div className="chart-loading">Loading chart…</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart
+              layout="vertical"
+              data={locationBars}
+              margin={{ top: 5, right: 20, bottom: 5, left: 20 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" allowDecimals={false} />
+              <YAxis dataKey="name" type="category" width={80} />
+              <BarTooltip />
+              <Bar
+                dataKey="total"
+                fill={ACCENT}
+                label={{ position: "right", fill: BRAND }}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Top Sports */}
+      <div className="card list-card">
+        <h3>Top Sports</h3>
+        {loading ? (
+          <p>Loading…</p>
+        ) : (
+          <ul>
+            {(stats?.top_sports ?? []).map((s) => (
+              <li key={s.sport_id}>
+                {s.sport_name} — {s.total}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Monthly Joins Trend */}
+      <div className="chart-card">
+        <h3>Monthly Joins Trend</h3>
+        {loading ? (
+          <div className="chart-loading">Loading chart…</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={joinTrend}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="period" />
+              <YAxis allowDecimals={false} />
+              <AreaTooltip />
+              <Area
+                type="monotone"
+                dataKey="thisMonth"
+                stroke={BRAND}
+                fill="none"
+                name="This Month"
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="lastMonth"
+                stroke="#d3d3d3"
+                fill="none"
+                name="Last Month"
+                strokeDasharray="5 5"
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </section>
   );
 };
 
