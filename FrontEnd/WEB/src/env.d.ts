@@ -2,7 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_WS_PORT: string;
-  // add other VITE_ variables here if needed
+  readonly VITE_GOOGLE_MAPS_API_KEY: string; 
+ 
 }
 
 interface ImportMeta {

@@ -436,17 +436,18 @@ class EventController extends Controller
                 return response()->json(['error' => 'Unauthorized: You do not have access to view this event'], 403);
             }
 
-            // Retrieve participants along with their ratings
-            $participants = DB::table('event_user')
-                ->where('event_id', $id)
-                ->get(['user_id', 'rating']);
+            // Retrieve participants along with their name and  ratings
+         $participants = DB::table('event_user')
+        ->where('event_id', $id)
+        ->get(['user_id', 'user_name', 'rating']);
 
-            $participantDetails = $participants->map(function ($participant) {
-                return [
-                    'id' => $participant->user_id,
-                    'rating' => $participant->rating,
-                ];
-            });
+            $participantDetails = $participants->map(function ($p) {
+        return [
+            'id'     => $p->user_id,
+            'name'   => $p->user_name,
+            'rating' => $p->rating,
+        ];
+    });
 
             // Include creator details
             $creatorDetails = [
