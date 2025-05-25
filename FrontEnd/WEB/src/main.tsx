@@ -9,7 +9,9 @@ import Dashboard from "./Dashboard";             // página /dashboard já exist
 
 import RequireAuth from "./RequireAuth";         // protecção
 import Layout from "./components/Layout"; // sidebar + topbar + <Outlet />
-import MyActivities from "./Events/ActivitiesList"; // nova página
+import MyActivities from "./Events/ActivitiesList";
+import EventDetails from "./Events/EventDetails";
+import ChatList from "./Chat/ChatList";
 
 import "./index.css";
 
@@ -29,9 +31,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             </RequireAuth>
           }
         >
-          <Route path="/dashboard"     element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/my-activities" element={<MyActivities />} />
-          {/* adiciona aqui outras rotas protegidas… */}
+          <Route path="/events/:id" element={<EventDetails />} />
+          <Route path="/chat" element={<ChatList />} />
+
         </Route>
 
         {/* fallback 404 -------------------------------------------------------- */}
