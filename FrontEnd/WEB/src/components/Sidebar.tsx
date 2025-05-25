@@ -10,6 +10,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ onLogoClick }) => {
   const location = useLocation();
+  const nav = useNavigate();
 
   return (
     <aside className="sidebar">
@@ -23,10 +24,18 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogoClick }) => {
       </div>
       <nav className="sidebar-nav">
         <ul>
-          <li className={location.pathname === "/dashboard" ? "active" : ""}>
+         <li
+            className={location.pathname === "/dashboard" ? "active" : ""}
+            onClick={() => nav("/dashboard")}
+          >
             Dashboard
           </li>
-          <li>My Activities</li>
+          <li
+            className={location.pathname === "/my-activities" ? "active" : ""}
+            onClick={() => nav("/my-activities")}
+          >
+            My Activities
+          </li>
           <li>Notifications</li>
           <li>Chat</li>
           <li>Account</li>

@@ -1,0 +1,71 @@
+/* ==================================================
+   Container da página
+   ================================================== */
+.page-body {
+  background-color: #f5f6f8;
+  color: #333;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+
+  flex: 1;
+  padding: 2rem 3rem;
+  overflow-y: auto;
+}
+
+.page-body h2,
+.page-body h3,
+.page-body p {
+  color: #222;
+}
+
+/* ==================================================
+   Grelha de eventos
+   ================================================== */
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+/* ==================================================
+   Cartões de evento
+   ================================================== */
+.event-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #111;
+}
+
+.event-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+
+.event-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* ==================================================
+   Botão “See Activity”
+   ================================================== */
+.see-btn {
+  align-self: flex-end;
+  background: transparent;
+  border: none;
+  color: #0d47ff;
+  cursor: pointer;
+  font-weight: 600;
+}

@@ -11,6 +11,27 @@ body,
   font-family: sans-serif;
 }
 
+/* ─── Fundo e texto da área de conteúdo ─────────────────────────────────── */
+.page-body {
+  background-color: #f5f6f8; /* cinzento muito claro */
+  color: #333;               /* texto escuro */
+  /*max-width: 1200px;         /* limita largura e centra abaixo 
+  margin: 0 auto;*/
+
+  /* mantém também o padding e o scroll */
+  flex: 1;
+  padding: 2rem 3rem;
+  overflow-y: auto;
+}
+
+/* reforça títulos e parágrafos */
+.page-body h2,
+.page-body h3,
+.page-body p {
+  color: #222;  /* um pouco mais escuro para títulos */
+}
+
+
 /* ================
    App Layout (two-column viewport)
    ================ */
@@ -304,3 +325,57 @@ body,
 }
 
 
+/* Envolve tudo excepto a sidebar */
+.layout { display: flex; height: 100vh; }
+
+/* Coluna da direita (topbar + página)  */
+.content-area {
+  flex: 1 0 0;      /* 0 = “dá-me todo o espaço disponível”   */
+  min-width: 0;     /* permite ao conteúdo encolher se preciso */
+  display: flex;
+  flex-direction: column;
+}
+
+
+/*EVENT LIST */
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.event-card {
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+   color: #111;  /* assegura contraste dentro do cartão */
+}
+
+.event-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: .5rem;
+}
+
+.event-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem 0;
+  font-size: .9rem;
+  line-height: 1.4;
+}
+
+.see-btn {
+  align-self: flex-end;
+  background: transparent;
+  border: none;
+  color: #0d47ff;
+  cursor: pointer;
+  font-weight: 600;
+}
