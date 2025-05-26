@@ -69,3 +69,28 @@
   cursor: pointer;
   font-weight: 600;
 }
+
+/* ─── Cabeçalho com botão ─────────────────────────────────────────── */
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.create-btn {
+  background: #0d47ff;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* Opcional: cor de erro */
+.err {
+  color: red;
+  margin-bottom: 1rem;
+}
+
+/* …restante do teu CSS existente… */

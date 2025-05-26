@@ -12,6 +12,7 @@ import Layout from "./components/Layout"; // sidebar + topbar + <Outlet />
 import MyActivities from "./Events/ActivitiesList";
 import EventDetails from "./Events/EventDetails";
 import ChatList from "./Chat/ChatList";
+import CreateEvent from "./Events/CreateEvent";
 
 import "./index.css";
 
@@ -35,6 +36,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/my-activities" element={<MyActivities />} />
           <Route path="/events/:id" element={<EventDetails />} />
           <Route path="/chat" element={<ChatList />} />
+          <Route path="/events/create" element={<CreateEvent />} />
+
 
         </Route>
 
