@@ -13,6 +13,8 @@ import MyActivities from "./Events/ActivitiesList";
 import EventDetails from "./Events/EventDetails";
 import ChatList from "./Chat/ChatList";
 import CreateEvent from "./Events/CreateEvent";
+import Account from "./Perfil/Perfil"
+import UserProfile from "./Perfil/userProfile";
 
 import "./index.css";
 
@@ -37,7 +39,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/events/:id" element={<EventDetails />} />
           <Route path="/chat" element={<ChatList />} />
           <Route path="/events/create" element={<CreateEvent />} />
-
+          <Route path="/account" element={<Account />} />
+          <Route path="/profile/:id" element={<UserProfile />} />
 
         </Route>
 

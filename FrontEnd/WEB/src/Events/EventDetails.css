@@ -78,3 +78,49 @@
   color: #ffb400;         /* dourado para a estrelinha */
   font-size: 0.9rem;
 }
+
+.participant { cursor:pointer; }
+
+.participants-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.participant {
+  cursor: pointer;
+  padding: 1rem;
+  text-align: center;
+  position: relative;
+  width: 120px;
+}
+
+.participant-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.participant-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eee;
+}
+
+.participant-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.participant-rating {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 0.9rem;
+}

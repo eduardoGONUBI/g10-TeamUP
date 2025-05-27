@@ -28,7 +28,7 @@ body {
   min-height: 100vh;
 }
 html, body {
-  overflow-x: hidden;   /* corta qualquer resto de overflow */
+  overflow-x: hidden;   
 }
 
 h1 {

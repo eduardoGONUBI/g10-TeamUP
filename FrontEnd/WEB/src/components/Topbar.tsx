@@ -1,6 +1,6 @@
-// src/components/Layout/Topbar.tsx
 import React from "react";
 import "../Dashboard.css";
+import avatarDefault from "../assets/avatar-default.jpg";
 
 interface NotificationItem {
   id: string;
@@ -10,6 +10,8 @@ interface NotificationItem {
 
 interface TopbarProps {
   username: string;
+  // agora aceita string | undefined | null
+  avatarUrl?: string | null;
   notifications: NotificationItem[];
   notifOpen: boolean;
   bellGlow: boolean;
@@ -21,6 +23,7 @@ const BRAND = "#0d47ff";
 
 const Topbar: React.FC<TopbarProps> = ({
   username,
+  avatarUrl,
   notifications,
   notifOpen,
   bellGlow,
@@ -36,9 +39,15 @@ const Topbar: React.FC<TopbarProps> = ({
       <div className="search">
         <input type="text" placeholder="Search…" />
       </div>
+
       <div className="profile">
-        <div className="avatar">{username.charAt(0).toUpperCase()}</div>
+        <img
+          src={avatarUrl ?? avatarDefault}
+          alt="Avatar"
+          className="topbar-avatar"
+        />
         <span className="username">{username}</span>
+
         <svg
           onClick={onBellClick}
           className={`bell-icon ${bellGlow ? "glow" : ""}`}
