@@ -19,11 +19,11 @@ import {
 
 const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [event, setEvent]               = useState<Event | null>(null);
+  const [event, setEvent] = useState<Event | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [me, setMe]                     = useState<Me | null>(null);
-  const [loading, setLoading]           = useState(true);
-  const nav     = useNavigate();
+  const [me, setMe] = useState<Me | null>(null);
+  const [loading, setLoading] = useState(true);
+  const nav = useNavigate();
 
   const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
 
@@ -31,11 +31,11 @@ const EventDetails: React.FC = () => {
 
   function pickIcon(desc: string) {
     const d = desc.toLowerCase();
-    if (d.includes("fog") || d.includes("mist"))          return <WiFog size={32} />;
-    if (d.includes("drizzle"))                            return <WiRainMix size={32} />;
-    if (d.includes("rain") || d.includes("shower"))       return <WiRain size={32} />;
-    if (d.includes("thunder") || d.includes("storm"))     return <WiStormShowers size={32} />;
-    if (d.includes("snow")  || d.includes("sleet"))       return <WiSnow size={32} />;
+    if (d.includes("fog") || d.includes("mist")) return <WiFog size={32} />;
+    if (d.includes("drizzle")) return <WiRainMix size={32} />;
+    if (d.includes("rain") || d.includes("shower")) return <WiRain size={32} />;
+    if (d.includes("thunder") || d.includes("storm")) return <WiStormShowers size={32} />;
+    if (d.includes("snow") || d.includes("sleet")) return <WiSnow size={32} />;
     if (d.includes("clear")) {
       // simple day/night check
       const hour = new Date(event?.date ?? "").getHours();
@@ -43,8 +43,8 @@ const EventDetails: React.FC = () => {
         ? <WiDaySunny size={32} />
         : <WiNightClear size={32} />;
     }
-    if (d.includes("cloud") && d.includes("night"))       return <WiNightAltCloudy size={32} />;
-    if (d.includes("cloud"))                              return <WiCloudy size={32} />;
+    if (d.includes("cloud") && d.includes("night")) return <WiNightAltCloudy size={32} />;
+    if (d.includes("cloud")) return <WiCloudy size={32} />;
     return <WiDaySunny size={32} />;
   }
 
@@ -57,12 +57,14 @@ const EventDetails: React.FC = () => {
       .catch(console.error);
   }, [token]);
 
-  /** 2) Load event details */
+  // 2) Load event details 
   useEffect(() => {
     if (!id || !token) return;
-    fetch(`/api/events/search?id=${id}`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`/api/events/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then(r => r.json())
-      .then(arr => setEvent(arr[0] ?? null))
+      .then(setEvent)
       .catch(console.error);
   }, [id, token]);
 
@@ -129,13 +131,13 @@ const EventDetails: React.FC = () => {
   }
 
   if (loading || !me) return <p className="loading">Loading…</p>;
-  if (!event)         return <p>Evento não encontrado.</p>;
+  if (!event) return <p>Evento não encontrado.</p>;
 
-  const start   = new Date(event.date);
+  const start = new Date(event.date);
   const dateStr = start.toLocaleDateString();
   const timeStr = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const isOwner = me.id === event.user_id;
-  const isDone  = event.status === "concluded";
+  const isDone = event.status === "concluded";
 
   return (
     <section className="event-page">
@@ -199,16 +201,17 @@ const EventDetails: React.FC = () => {
       {event.weather && (
         <div className="weather-card">
           <div className="weather-main">
-            {pickIcon(event.weather.weather?.description ?? "")}
+          {pickIcon(event.weather.description ?? "")}
             <span className="weather-temp">{fmt(event.weather.temp)}</span>
           </div>
           <div className="weather-extra">
             <span>H {fmt(event.weather.high_temp)}</span>
             <span>L {fmt(event.weather.low_temp)}</span>
           </div>
-          <small className="weather-desc">
-            {event.weather.weather?.description ?? "—"}
-          </small>
+        
+ <small className="weather-desc">
+   {event.weather.description ?? "—"}
+ </small>
         </div>
       )}
 

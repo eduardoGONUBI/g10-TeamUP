@@ -89,3 +89,8 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.create-form .row label.place-label {
+  flex: 9;
+  min-width: 0; 
+}
