@@ -29,4 +29,4 @@ Route::get('/userAverage/{id}', [ChatController::class, 'showUserAverage']);
 
 Route::post('/events/{event_id}/feedback', [ChatController::class, 'giveFeedback']);
 
-Route::get('/fbi/{id}', [ChatController::class, 'showReputation']);
+Route::get('/rating/{id}', [ChatController::class, 'showReputation']);

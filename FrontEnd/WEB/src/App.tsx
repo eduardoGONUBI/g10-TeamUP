@@ -23,7 +23,7 @@ const App: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:80/api/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, remember }),
@@ -54,7 +54,7 @@ const App: React.FC = () => {
     }
 
     try {
-      const res = await fetch("http://127.0.0.1:80/api/password/email", {
+      const res = await fetch("/api/password/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

@@ -1,0 +1,56 @@
+.account-page {
+  padding: 2rem;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 3rem;
+}
+.avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto;              /* centra na coluna */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  background-color: #f0f0f0;    /* fallback enquanto carrega */
+}
+.avatar-col {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+.level {
+  display: block;
+  margin-top: .5rem;
+  font-weight: 700;
+}
+
+.info-col .row {
+  margin-bottom: 1rem;
+}
+.info-col .row strong {
+  display: inline-block;
+  width: 160px;
+}
+
+.achievements .icons img {
+  width: 30px;
+  margin-right: .5rem;
+}
+
+.actions button {
+  margin-right: 1rem;
+  padding: .5rem 1rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+.actions .danger {
+  background: #c43030;
+  color: #fff;
+}
+
+.info-col .row small,
+.info-col .row span.behaviour-label { color: #777; }

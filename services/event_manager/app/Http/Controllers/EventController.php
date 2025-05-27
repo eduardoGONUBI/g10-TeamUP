@@ -415,56 +415,62 @@ class EventController extends Controller
         }
     }
 
-    public function participants(Request $request, $id)
-    {
-        try {
-            $token = $this->validateToken($request);
 
-            $payload = JWTAuth::setToken($token)->getPayload();
-            $userId = $payload->get('sub');
+public function participants(Request $request, $id)
+{
+    try {
+        /* ─── 1. Autenticação ──────────────────────────────────────────────── */
+        $token   = $this->validateToken($request);
+        $userId  = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-            $event = Event::find($id);
-
-            if (!$event) {
-                return response()->json(['error' => 'Event not found'], 404);
-            }
-
-            // Check if the user is authorized
-            $isAuthorized = ($event->user_id === $userId) || Participant::where('event_id', $id)->where('user_id', $userId)->exists();
-
-            if (!$isAuthorized) {
-                return response()->json(['error' => 'Unauthorized: You do not have access to view this event'], 403);
-            }
-
-            // Retrieve participants along with their name and  ratings
-         $participants = DB::table('event_user')
-        ->where('event_id', $id)
-        ->get(['user_id', 'user_name', 'rating']);
-
-            $participantDetails = $participants->map(function ($p) {
-        return [
-            'id'     => $p->user_id,
-            'name'   => $p->user_name,
-            'rating' => $p->rating,
-        ];
-    });
-
-            // Include creator details
-            $creatorDetails = [
-                'id' => $event->user_id,
-                'name' => $event->user_name,
-            ];
-
-            return response()->json([
-                'event_id' => $event->id,
-                'event_name' => $event->name,
-                'creator' => $creatorDetails,
-                'participants' => $participantDetails,
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+        /* ─── 2. Evento & permissão ────────────────────────────────────────── */
+        $event = Event::find($id);
+        if (!$event) {
+            return response()->json(['error' => 'Event not found'], 404);
         }
+
+        $isAuthorized =
+            ($event->user_id == $userId) ||
+            Participant::where('event_id', $id)
+                       ->where('user_id', $userId)
+                       ->exists();
+
+        if (!$isAuthorized) {
+            return response()->json(
+                ['error' => 'Unauthorized: You do not have access to view this event'],
+                403
+            );
+        }
+
+        /* ─── 3. Participantes (apenas event_user) ────────────────────────── */
+        $participants = DB::table('event_user')
+            ->where('event_id', $id)
+            ->get(['user_id', 'user_name', 'rating'])   // same columns as antes
+            ->map(function ($p) {
+                return [
+                    'id'         => $p->user_id,
+                    'name'       => $p->user_name,
+                    'rating'     => $p->rating,
+                    'avatar_url' => null,          // falta avatar → React usa default
+                ];
+            });
+
+        /* ─── 4. Resposta ─────────────────────────────────────────────────── */
+        return response()->json([
+            'event_id'     => $event->id,
+            'event_name'   => $event->name,
+            'creator'      => [
+                'id'   => $event->user_id,
+                'name' => $event->user_name,
+            ],
+            'participants' => $participants,
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
+
 
 
     /**

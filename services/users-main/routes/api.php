@@ -46,3 +46,10 @@ Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) 
 // Password Reset Routes
 Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 Route::post('/password/reset', [ResetPasswordController::class, 'reset']);
+
+
+Route::middleware('auth:api')->get('/users/{id}', function ($id) {
+    return \App\Models\User::with('sports:id,name')
+        ->select('id','name','avatar_url','location')
+        ->findOrFail($id);
+});

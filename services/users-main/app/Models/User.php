@@ -23,6 +23,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         'email',
         'password',
         'sport',
+        'location',
     ];
 
     /**
@@ -80,7 +81,12 @@ public function sports()
     return $this->belongsToMany(Sport::class, 'user_sports');
 }
 
-
+ public function getAvatarUrlAttribute($value)
+    {
+        return $value
+            ? Storage::url($value)                       // /storage/avatars/xxxx.png
+            : asset('/images/avatar-default.jpg');       // default em public/images
+    }
 
 
 }

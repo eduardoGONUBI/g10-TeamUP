@@ -24,7 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogoClick }) => {
       </div>
       <nav className="sidebar-nav">
         <ul>
-         <li
+          <li
             className={location.pathname === "/dashboard" ? "active" : ""}
             onClick={() => nav("/dashboard")}
           >
@@ -37,13 +37,18 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogoClick }) => {
             My Activities
           </li>
           <li>Notifications</li>
-        <li
-  className={location.pathname === "/chat" ? "active" : ""}
-  onClick={() => nav("/chat")}
->
-  Chat
-</li>
-          <li>Account</li>
+          <li
+            className={location.pathname === "/chat" ? "active" : ""}
+            onClick={() => nav("/chat")}
+          >
+            Chat
+          </li>
+          <li
+            className={location.pathname === "/account" ? "active" : ""}
+            onClick={() => nav("/account")}
+          >
+            Account
+          </li>
         </ul>
       </nav>
     </aside>

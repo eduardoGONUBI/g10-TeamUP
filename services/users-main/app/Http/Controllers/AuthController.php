@@ -17,6 +17,7 @@ class AuthController extends Controller
             'name' => 'required|string|unique:users|regex:/^\w+$/|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
+            'location' => 'nullable|string|max:255',
             'sports' => 'array',
         ]);
 
@@ -25,6 +26,7 @@ class AuthController extends Controller
             'email' => $validatedData['email'],
             'password' => bcrypt($validatedData['password']),
             'sport' => $validatedData['sport'] ?? null,
+            'location' => $validatedData['location'] ?? null,
         ]);
 
         if ($request->has('sports')) {
@@ -67,6 +69,7 @@ class AuthController extends Controller
         return $this->respondWithToken($token, [
             'id' => $user->id,
             'name' => $user->name,
+            'location' => $user->location,
         ]);
     }
 
@@ -185,6 +188,7 @@ class AuthController extends Controller
                 'max:255',
                 'unique:users,email,' . auth()->id()
             ],
+            'location' => 'sometimes|nullable|string|max:255',
             'sports' => 'sometimes|array',
             'sports.*' => 'exists:sports,id', // Validate that each sport ID exists
         ]);
@@ -198,6 +202,9 @@ class AuthController extends Controller
         }
         if (isset($validatedData['email'])) {
             $user->email = $validatedData['email'];
+        }
+        if (isset($validatedData['location'])) {
+            $user->location = $validatedData['location'];
         }
 
         // Sync sports if provided
