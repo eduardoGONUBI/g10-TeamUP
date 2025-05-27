@@ -291,6 +291,7 @@ class EventController extends Controller
                 'date' => 'date|nullable',
                 'place' => 'string|nullable',
                 'max_participants' => 'integer|min:2|nullable',
+                'status'           => 'in:in progress,concluded|nullable',
             ]);
 
             $event->update($validatedData);

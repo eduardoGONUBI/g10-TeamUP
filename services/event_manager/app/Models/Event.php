@@ -27,6 +27,11 @@ class Event extends Model
         'longitude',      // adicionado
         'weather',        // adicionado
     ];
+
+        protected $casts = [
+        'weather' => 'array',   
+        'date'    => 'datetime', 
+    ];
     
 
  

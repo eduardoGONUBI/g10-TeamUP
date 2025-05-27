@@ -4,6 +4,7 @@ export interface Participant {
   id: number
   name: string
   rating: number | null
+  avatar_url?: string | null;
 }
 
 export interface Event {
@@ -15,9 +16,11 @@ export interface Event {
   status: string
   max_participants: number
   creator: { id: number; name: string }
+  user_id: number;   
   participants: Participant[]
   latitude: number
   longitude: number
+  weather?: Weather;
 }
 
 // shape of the form on the front-end
@@ -30,6 +33,20 @@ export interface NewEventData {
   latitude: number
   longitude: number
 }
+
+export interface Weather {
+  temp?: number;
+  high_temp?: number;
+  low_temp?: number;
+  app_max_temp?: number;
+  app_min_temp?: number;
+  weather?: { description?: string };
+}
+export interface Me {
+  id: number;
+  name: string;
+}
+
 
 async function authFetch(input: RequestInfo, init: RequestInit = {}) {
   const token =

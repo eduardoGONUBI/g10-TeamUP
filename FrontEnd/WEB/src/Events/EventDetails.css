@@ -2,11 +2,29 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1rem;
+  margin: 0.5rem 0;
+}
+
+/* header split into two flex columns */
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.event-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.event-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .event-header h2 {
-  margin: 0 0 0.25rem;
+  margin: 0;
   font-size: 1.4rem;
 }
 .event-header p {
@@ -14,15 +32,44 @@
   color: #555;
 }
 
-/* mapa com cantos arredondados e sombra */
+/* badge: larger and on right */
+.event-concluded-badge {
+  display: inline-block;
+  margin-left: 1rem;
+  font-size: 1.2rem;
+  padding: 0.4rem 0.8rem;
+  background: #0d47ff;    /* match chat-button blue */
+  color: #fff;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+/* owner action buttons */
+.event-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.btn-danger { background: #dc3545; color: white; }
+.btn-success { background: #28a745; color: white; }
+.btn-warning { background: #f0ad4e; color: white; }
+.btn:hover { opacity: 0.9; }
+
+/* map styling */
 .map-wrapper iframe {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,.2);
 }
 
-/* botão flutuante */
+/* chat FAB */
 .chat-fab {
-  position: fixed;        /* flutua na viewport */
+  position: fixed;
   right: 2rem;
   bottom: 2rem;
   width: 56px;
@@ -36,59 +83,17 @@
   box-shadow: 0 4px 10px rgba(0,0,0,.3);
 }
 
-/* grelha 2 colunas */
+/* participants grid */
 .participants-grid {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill,minmax(320px,1fr));
-  gap: .75rem 2rem;
-   color: #111;  
-}
-
-.participants-grid li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #ececec;
-}
-
-.avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #e6f0ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-}
-
-/* estilo para o nome ao lado do avatar */
-.participant-name {
-  margin-left: 0.5rem;
-  font-weight: 500;
-}
-
-/* estilo para o rating */
-.participant-rating {
-  margin-left: 1rem;
-  color: #ffb400;         /* dourado para a estrelinha */
-  font-size: 0.9rem;
-}
-
-.participant { cursor:pointer; }
-
-.participants-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 2rem;
   justify-content: center;
   margin-top: 2rem;
 }
-
 .participant {
   cursor: pointer;
   padding: 1rem;
@@ -96,14 +101,12 @@
   position: relative;
   width: 120px;
 }
-
 .participant-info {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
 }
-
 .participant-avatar {
   width: 72px;
   height: 72px;
@@ -111,16 +114,60 @@
   object-fit: cover;
   background: #eee;
 }
-
 .participant-name {
   font-size: 0.9rem;
   font-weight: 500;
   color: #333;
 }
-
 .participant-rating {
   position: absolute;
   bottom: 8px;
   right: 8px;
   font-size: 0.9rem;
+  color: #ffb400;
+}
+.weather-forecast-header {
+  font-size: 0.95rem;
+  color: #333;
+  text-align: center;
+  
+}
+
+.weather-card {
+ 
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: .75rem 1.25rem;
+  border-radius: 8px;
+  background: #f5f8ff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  font-family: Inter, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.weather-main {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.weather-temp { 
+  font-size: 1.6rem; 
+}
+
+.weather-extra {
+  display: flex;
+  gap: 1rem;
+  font-size: .9rem;
+  margin-top: .25rem;
+  color: #333;
+}
+
+.weather-desc {
+  margin-top: .25rem;
+  font-size: .8rem;
+  color: #666;
+  text-transform: capitalize;
 }
