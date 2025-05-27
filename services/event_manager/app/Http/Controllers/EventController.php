@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use App\Models\Event;
 use App\Models\Participant;
 use Illuminate\Support\Facades\Cache;
@@ -107,23 +108,58 @@ class EventController extends Controller
             $userId = $payload->get('sub');
             $userName = $payload->get('name');
 
+            // Only validate the things the user really submits now
             $validatedData = $request->validate([
                 'name' => 'required|string',
                 'sport_id' => 'required|exists:sports,id',
                 'date' => 'required|date',
                 'place' => 'required|string',
                 'max_participants' => 'required|integer|min:2',
-                'latitude' => 'required|numeric',
-                'longitude' => 'required|numeric',
             ]);
 
-            // 2. Obter previsão meteorológica
-            $eventDate = \Carbon\Carbon::parse($validatedData['date'])->format('Y-m-d');
-            $weatherData = $this->weatherService->getForecastForDate(
-                $validatedData['latitude'],
-                $validatedData['longitude'],
-                $eventDate
-            );
+            //
+            // ─── Geocode the place ───────────────────────────────────────────────
+            //
+            $geoKey = config('services.google_maps.key')
+                ?? env('GOOGLE_MAPS_GEOCODE_API_KEY');
+            if (!$geoKey) {
+                throw new \Exception('Missing Google Geocoding API key');
+            }
+
+            $geoRes = Http::get('https://maps.googleapis.com/maps/api/geocode/json', [
+                'address' => $validatedData['place'],
+                'key' => $geoKey,
+            ])->json();
+
+             if (($geoRes['status'] ?? '') === 'ZERO_RESULTS') {
+            // user typed something Google doesn't recognize
+            return response()->json([
+                'error' => 'Address not found. Please enter a valid location.'
+            ], 422);
+        }
+
+        if (($geoRes['status'] ?? '') !== 'OK' ||
+            empty($geoRes['results'][0]['geometry']['location'])) {
+            $status = $geoRes['status'] ?? 'UNKNOWN';
+            return response()->json([
+                'error' => "Error while searching for the address: {$status}. Please try again."
+            ], 422);
+        }
+
+            $loc = $geoRes['results'][0]['geometry']['location'];
+            $lat = $loc['lat'];
+            $lng = $loc['lng'];
+
+            //
+            // ─── Fetch weather for that lat/lng + date ────────────────────────────
+            //
+            $eventDate = Carbon::parse($validatedData['date'])->format('Y-m-d');
+            $weatherData = $this->weatherService
+                ->getForecastForDate($lat, $lng, $eventDate);
+
+            //
+            // ─── Finally, create the event ───────────────────────────────────────
+            //
             $event = Event::create([
                 'name' => $validatedData['name'],
                 'sport_id' => $validatedData['sport_id'],
@@ -133,42 +169,93 @@ class EventController extends Controller
                 'user_name' => $userName,
                 'status' => 'in progress',
                 'max_participants' => $validatedData['max_participants'],
-                'latitude' => $validatedData['latitude'],
-                'longitude' => $validatedData['longitude'],
+                'latitude' => $lat,
+                'longitude' => $lng,
                 'weather' => json_encode($weatherData),
             ]);
 
-            // Automatically join the creator as a participant
+            // auto-join creator
             Participant::create([
                 'event_id' => $event->id,
                 'user_id' => $userId,
                 'user_name' => $userName,
             ]);
 
-            // Publish a message to the 'event_joined' queue so the creator is registered in EventUser
-            $messageDataForChat = [
+            // push to RabbitMQ
+            $msg = [
                 'event_id' => $event->id,
                 'event_name' => $event->name,
                 'user_id' => $userId,
                 'user_name' => $userName,
                 'message' => 'User joined the event',
             ];
-
-            $this->publishToRabbitMQ('event_joined', json_encode($messageDataForChat));
-
-
-
+            $this->publishToRabbitMQ('event_joined', json_encode($msg));
 
             return response()->json([
                 'message' => 'Evento criado com sucesso!',
                 'event' => $event,
-              
             ], 201);
+
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
+            // if logging still fails, you'll see the error returned here
+            return response()->json(['error' => $e->getMessage()], 400);
         }
     }
 
+
+    private function geocodePlace(string $place): array
+    {
+        $resp = Http::get(
+            'https://maps.googleapis.com/maps/api/geocode/json',
+            ['address' => $place, 'key' => env('GOOGLE_GEOCODE_KEY')]
+        );
+
+        if (!$resp->ok() || empty($resp['results'][0]['geometry']['location'])) {
+            return [null, null];
+        }
+
+        $loc = $resp['results'][0]['geometry']['location'];
+        return [$loc['lat'], $loc['lng']];
+    }
+
+     public function show(Request $request, $id)
+    {
+        // reuse your validateToken helper if you need auth
+        $token = $this->validateToken($request);
+
+        $event = Event::findOrFail($id);
+
+        // decode the JSON string into an array
+        $raw = is_array($event->weather)
+             ? $event->weather
+             : json_decode($event->weather, true) ?? [];
+
+        // pick out the bits your UI needs
+        $weather = [
+            'temp'      => $raw['temp']      ?? null,
+            'high_temp' => $raw['high_temp'] ?? null,
+            'low_temp'  => $raw['low_temp']  ?? null,
+            'description' => $raw['weather']['description'] ?? null,
+        ];
+
+        return response()->json([
+            'id'               => $event->id,
+            'name'             => $event->name,
+            'sport'            => $event->sport->name ?? null,
+            'date'             => $event->date,
+            'place'            => $event->place,
+            'status'           => $event->status,
+            'max_participants' => $event->max_participants,
+            'latitude'         => $event->latitude,
+            'longitude'        => $event->longitude,
+            'user_id'          => $event->user_id,
+            'creator'          => [
+                'id'   => $event->user_id,
+                'name' => $event->user_name,
+            ],
+            'weather'          => $weather,
+        ], 200);
+    }
     /**
      * Fetch events for a user.
      */
@@ -291,7 +378,7 @@ class EventController extends Controller
                 'date' => 'date|nullable',
                 'place' => 'string|nullable',
                 'max_participants' => 'integer|min:2|nullable',
-                'status'           => 'in:in progress,concluded|nullable',
+                'status' => 'in:in progress,concluded|nullable',
             ]);
 
             $event->update($validatedData);
@@ -417,60 +504,60 @@ class EventController extends Controller
     }
 
 
-public function participants(Request $request, $id)
-{
-    try {
-        /* ─── 1. Autenticação ──────────────────────────────────────────────── */
-        $token   = $this->validateToken($request);
-        $userId  = JWTAuth::setToken($token)->getPayload()->get('sub');
+    public function participants(Request $request, $id)
+    {
+        try {
+            /* ─── 1. Autenticação ──────────────────────────────────────────────── */
+            $token = $this->validateToken($request);
+            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-        /* ─── 2. Evento & permissão ────────────────────────────────────────── */
-        $event = Event::find($id);
-        if (!$event) {
-            return response()->json(['error' => 'Event not found'], 404);
+            /* ─── 2. Evento & permissão ────────────────────────────────────────── */
+            $event = Event::find($id);
+            if (!$event) {
+                return response()->json(['error' => 'Event not found'], 404);
+            }
+
+            $isAuthorized =
+                ($event->user_id == $userId) ||
+                Participant::where('event_id', $id)
+                    ->where('user_id', $userId)
+                    ->exists();
+
+            if (!$isAuthorized) {
+                return response()->json(
+                    ['error' => 'Unauthorized: You do not have access to view this event'],
+                    403
+                );
+            }
+
+            /* ─── 3. Participantes (apenas event_user) ────────────────────────── */
+            $participants = DB::table('event_user')
+                ->where('event_id', $id)
+                ->get(['user_id', 'user_name', 'rating'])   // same columns as antes
+                ->map(function ($p) {
+                    return [
+                        'id' => $p->user_id,
+                        'name' => $p->user_name,
+                        'rating' => $p->rating,
+                        'avatar_url' => null,          // falta avatar → React usa default
+                    ];
+                });
+
+            /* ─── 4. Resposta ─────────────────────────────────────────────────── */
+            return response()->json([
+                'event_id' => $event->id,
+                'event_name' => $event->name,
+                'creator' => [
+                    'id' => $event->user_id,
+                    'name' => $event->user_name,
+                ],
+                'participants' => $participants,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        $isAuthorized =
-            ($event->user_id == $userId) ||
-            Participant::where('event_id', $id)
-                       ->where('user_id', $userId)
-                       ->exists();
-
-        if (!$isAuthorized) {
-            return response()->json(
-                ['error' => 'Unauthorized: You do not have access to view this event'],
-                403
-            );
-        }
-
-        /* ─── 3. Participantes (apenas event_user) ────────────────────────── */
-        $participants = DB::table('event_user')
-            ->where('event_id', $id)
-            ->get(['user_id', 'user_name', 'rating'])   // same columns as antes
-            ->map(function ($p) {
-                return [
-                    'id'         => $p->user_id,
-                    'name'       => $p->user_name,
-                    'rating'     => $p->rating,
-                    'avatar_url' => null,          // falta avatar → React usa default
-                ];
-            });
-
-        /* ─── 4. Resposta ─────────────────────────────────────────────────── */
-        return response()->json([
-            'event_id'     => $event->id,
-            'event_name'   => $event->name,
-            'creator'      => [
-                'id'   => $event->user_id,
-                'name' => $event->user_name,
-            ],
-            'participants' => $participants,
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
     }
-}
 
 
 

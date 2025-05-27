@@ -22,4 +22,5 @@ Route::middleware('validate.jwt')->group(function () {
     Route::post('/events/{event_id}/rate', [EventController::class, 'rateUser']);
     Route::put('/events/{id}/conclude', [EventController::class, 'concludeByCreator']);
     Route::get('/stats', [EventController::class, 'overview']);
+    Route::get('/events/{id}', [EventController::class, 'show']);
 });

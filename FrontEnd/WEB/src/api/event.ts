@@ -30,17 +30,14 @@ export interface NewEventData {
   date: string
   place: string
   max_participants: number
-  latitude: number
-  longitude: number
+
 }
 
 export interface Weather {
-  temp?: number;
-  high_temp?: number;
-  low_temp?: number;
-  app_max_temp?: number;
-  app_min_temp?: number;
-  weather?: { description?: string };
+  temp: number;
+  high_temp: number;
+  low_temp: number;
+  description: string;
 }
 export interface Me {
   id: number;
