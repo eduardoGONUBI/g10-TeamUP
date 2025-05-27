@@ -94,3 +94,8 @@
   flex: 9;
   min-width: 0; 
 }
+
+.create-form .row label select {
+  width: 100%;
+  box-sizing: border-box;
+}

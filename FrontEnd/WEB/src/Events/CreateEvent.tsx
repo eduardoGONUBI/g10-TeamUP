@@ -1,46 +1,74 @@
 // src/Events/CreateEvent.tsx
-import React, { useState, useRef } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { LoadScript, Autocomplete } from "@react-google-maps/api";
 import type { LoadScriptProps } from "@react-google-maps/api";
 import { createEvent, type NewEventData } from "../api/event";
+import { fetchSports, type Sport } from "../api/sports";
 import "./CreateEvent.css";
 
-// define once, outside the component, as a mutable Library[]
+// load-script needs a mutable array reference
 const LIBRARIES: LoadScriptProps["libraries"] = ["places"];
 
 const CreateEvent: React.FC = () => {
   const [form, setForm] = useState<NewEventData>({
     name: "",
-    sport_id: 1,
+    sport_id: 0,          // we'll require the user pick one
     date: "",
     place: "",
     max_participants: 2,
   });
+  const [sports, setSports]   = useState<Sport[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const navigate              = useNavigate();
 
-  // keep the Autocomplete widget in a ref
+  // for the Google Autocomplete widget
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
+  // wider typing: handles both input and select
   const handleChange =
     <K extends keyof NewEventData>(key: K) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (
+      e: ChangeEvent<HTMLInputElement> |
+         ChangeEvent<HTMLSelectElement>
+    ) => {
       const val =
-        e.target.type === "number" ? Number(e.target.value) : e.target.value;
+        e.target.type === "number"
+          ? Number(e.target.value)
+          : e.target.value;
       setForm(f => ({ ...f, [key]: val } as NewEventData));
     };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  // load sports once
+  useEffect(() => {
+    fetchSports()
+      .then(setSports)
+      .catch(err => {
+        console.error(err);
+        setError("Failed to load sports list");
+      });
+  }, []);
+
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
+      // ensure they actually picked a sport
+      if (!form.sport_id) {
+        throw new Error("Please choose a sport");
+      }
       await createEvent(form);
       navigate("/my-activities");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to create event");
     } finally {
       setLoading(false);
     }
@@ -51,7 +79,7 @@ const CreateEvent: React.FC = () => {
     autocompleteRef.current = autocomplete;
   };
 
-  // when the user picks a suggestion
+  // when user picks a place from the dropdown
   const onPlaceChanged = () => {
     const ac = autocompleteRef.current;
     if (!ac) return;
@@ -73,6 +101,7 @@ const CreateEvent: React.FC = () => {
         {error && <div className="err">{error}</div>}
 
         <form onSubmit={onSubmit} className="create-form">
+          {/* — Name + Sport select — */}
           <div className="row">
             <label>
               Name
@@ -85,17 +114,25 @@ const CreateEvent: React.FC = () => {
             </label>
 
             <label>
-              Sport ID
-              <input
-                type="number"
-                min={1}
-                value={form.sport_id}
+              Sport
+              <select
+                value={form.sport_id || ""}
                 onChange={handleChange("sport_id")}
                 required
-              />
+              >
+                <option value="" disabled>
+                  — choose a sport —
+                </option>
+                {sports.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 
+          {/* — Date & Place Autocomplete — */}
           <div className="row">
             <label>
               Date &amp; Time
@@ -107,9 +144,12 @@ const CreateEvent: React.FC = () => {
               />
             </label>
 
-             <label className="place-label">
+            <label className="place-label">
               Place
-              <Autocomplete onLoad={onLoad} onPlaceChanged={onPlaceChanged}>
+              <Autocomplete
+                onLoad={onLoad}
+                onPlaceChanged={onPlaceChanged}
+              >
                 <input
                   type="text"
                   value={form.place}
@@ -121,6 +161,7 @@ const CreateEvent: React.FC = () => {
             </label>
           </div>
 
+          {/* — Max participants — */}
           <div className="row">
             <label>
               Max Participants
