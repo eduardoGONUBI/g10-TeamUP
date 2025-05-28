@@ -3,8 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./EventDetails.css";
+
 import avatarDefault from "../assets/avatar-default.jpg";
 import type { Event, Me, Participant } from "../api/event";
+
+// weather icons
 import {
   WiDaySunny,
   WiNightClear,
@@ -17,6 +20,16 @@ import {
   WiNightAltCloudy,
 } from "react-icons/wi";
 
+// your bitmap sport icons
+import FootballIcon   from "../assets/Sports_Icon/Football.png";
+import FutsalIcon     from "../assets/Sports_Icon/futsal.jpg";
+import CyclingIcon    from "../assets/Sports_Icon/ciclismo.jpg";
+import SurfIcon       from "../assets/Sports_Icon/surf.jpg";
+import VolleyballIcon from "../assets/Sports_Icon/voleyball.jpg";
+import BasketballIcon from "../assets/Sports_Icon/Basketball.png";
+import TennisIcon     from "../assets/Sports_Icon/Tennis.png";
+import HandballIcon   from "../assets/Sports_Icon/handball.jpg";
+
 const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
@@ -25,60 +38,110 @@ const EventDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const nav = useNavigate();
 
-  const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+  const token =
+    localStorage.getItem("auth_token") ||
+    sessionStorage.getItem("auth_token");
 
-  const fmt = (n?: number) => n != null ? `${Math.round(n)}°C` : "—";
+  // temp formatter
+  const fmt = (n?: number) => (n != null ? `${Math.round(n)}°C` : "—");
 
+  // weather icon picker
   function pickIcon(desc: string) {
     const d = desc.toLowerCase();
     if (d.includes("fog") || d.includes("mist")) return <WiFog size={32} />;
     if (d.includes("drizzle")) return <WiRainMix size={32} />;
     if (d.includes("rain") || d.includes("shower")) return <WiRain size={32} />;
-    if (d.includes("thunder") || d.includes("storm")) return <WiStormShowers size={32} />;
+    if (d.includes("thunder") || d.includes("storm"))
+      return <WiStormShowers size={32} />;
     if (d.includes("snow") || d.includes("sleet")) return <WiSnow size={32} />;
     if (d.includes("clear")) {
-      // simple day/night check
       const hour = new Date(event?.date ?? "").getHours();
-      return hour >= 6 && hour < 18
-        ? <WiDaySunny size={32} />
-        : <WiNightClear size={32} />;
+      return hour >= 6 && hour < 18 ? (
+        <WiDaySunny size={32} />
+      ) : (
+        <WiNightClear size={32} />
+      );
     }
-    if (d.includes("cloud") && d.includes("night")) return <WiNightAltCloudy size={32} />;
+    if (d.includes("cloud") && d.includes("night"))
+      return <WiNightAltCloudy size={32} />;
     if (d.includes("cloud")) return <WiCloudy size={32} />;
     return <WiDaySunny size={32} />;
   }
 
-  /** 1) Load current user */
+  // sport icons map
+  const sportIcons: Record<string, string> = {
+    futebol:     FootballIcon,
+    futsal:      FutsalIcon,
+    ciclismo:    CyclingIcon,
+    surf:        SurfIcon,
+    voleibol:    VolleyballIcon,
+    basquetebol: BasketballIcon,
+    ténis:       TennisIcon,
+    tenis:       TennisIcon,
+    andebol:     HandballIcon,
+  };
+
+  // render your sport icon or fallback
+  const renderSportIcon = (sportName: string | null) => {
+    const key = sportName?.toLowerCase() ?? "";
+    const src = sportIcons[key];
+    if (src) {
+      return <img src={src} alt={sportName || ""} className="sport-icon-img" />;
+    }
+    return <span role="img" aria-label="sport">🏅</span>;
+  };
+
+  // format date as DD/MM/YY
+  const formatDate = (iso: string) => {
+    const d  = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${dd}/${mm}/${yy}`;
+  };
+
+  // format time as HH:MM
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], {
+      hour:   "2-digit",
+      minute: "2-digit",
+    });
+
+  // 1) load current user
   useEffect(() => {
     if (!token) return;
-    fetch(`/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+    fetch(`/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
       .then(setMe)
       .catch(console.error);
   }, [token]);
 
-  // 2) Load event details 
+  // 2) load event details
   useEffect(() => {
     if (!id || !token) return;
     fetch(`/api/events/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(r => r.json())
+      .then((r) => r.json())
       .then(setEvent)
       .catch(console.error);
   }, [id, token]);
 
-  /** 3) Load participants */
+  // 3) load participants
   useEffect(() => {
     if (!id || !token) return;
-    fetch(`/api/events/${id}/participants`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => setParticipants(data.participants ?? []))
+    fetch(`/api/events/${id}/participants`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setParticipants(data.participants ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id, token]);
 
-  /** 4) Cancel event */
+  // 4) cancel
   async function cancelEvent() {
     if (!id || !token) return;
     if (!window.confirm("Cancel this activity?")) return;
@@ -86,45 +149,45 @@ const EventDetails: React.FC = () => {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.ok) {
-      alert("Activity cancelled.");
-      nav("/my-activities");
-    } else {
+    if (res.ok) nav("/my-activities");
+    else {
       const j = await res.json().catch(() => ({}));
       alert(j.error ?? "Failed to cancel.");
     }
   }
 
-  /** 5) Conclude event */
+  // 5) conclude
   async function concludeEvent() {
     if (!id || !token) return;
-    if (!window.confirm("Mark this activity as concluded?")) return;
+    if (!window.confirm("Mark as concluded?")) return;
     const res = await fetch(`/api/events/${id}/conclude`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
-    if (res.ok) {
-      setEvent(e => e ? { ...e, status: "concluded" } : e);
-      alert("Activity concluded!");
-    } else {
+    if (res.ok) setEvent((e) => (e ? { ...e, status: "concluded" } : e));
+    else {
       const j = await res.json().catch(() => ({}));
       alert(j.error ?? "Failed to conclude.");
     }
   }
 
-  /** 6) Reopen event */
+  // 6) reopen
   async function reopenEvent() {
     if (!id || !token) return;
-    if (!window.confirm("Reopen this activity?")) return;
+    if (!window.confirm("Reopen activity?")) return;
     const res = await fetch(`/api/events/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ status: "in progress" }),
     });
-    if (res.ok) {
-      setEvent(e => e ? { ...e, status: "in progress" } : e);
-      alert("Activity reopened!");
-    } else {
+    if (res.ok) setEvent((e) => (e ? { ...e, status: "in progress" } : e));
+    else {
       const j = await res.json().catch(() => ({}));
       alert(j.error ?? "Failed to reopen.");
     }
@@ -133,35 +196,45 @@ const EventDetails: React.FC = () => {
   if (loading || !me) return <p className="loading">Loading…</p>;
   if (!event) return <p>Evento não encontrado.</p>;
 
-  const start = new Date(event.date);
-  const dateStr = start.toLocaleDateString();
-  const timeStr = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // apply new format here
+  const dateStr = formatDate(event.date);
+  const timeStr = formatTime(event.date);
+
   const isOwner = me.id === event.user_id;
-  const isDone = event.status === "concluded";
+  const isDone  = event.status === "concluded";
 
   return (
     <section className="event-page">
       <header className="event-header">
         <div className="event-header-main">
-          <h2>
-            {event.name} <span role="img" aria-label="sport">⚽</span>
+          <h2 className="event-title">
+            {renderSportIcon(event.sport)}{" "}
+            <span className="event-name">{event.name}</span>
           </h2>
-          <p>
-            {participants.length}/{event.max_participants}&nbsp;participantes,&nbsp;
-            {dateStr}&nbsp;{timeStr}
+          <div className="sport-name">{event.sport}</div>
+          <p className="event-meta">
+            {participants.length}/{event.max_participants} participantes,{" "}
+            {dateStr} {timeStr}
           </p>
         </div>
+
         <div className="event-header-actions">
           {isDone && <span className="event-concluded-badge">Concluded</span>}
           {isOwner && (
             <div className="event-actions">
               {!isDone ? (
                 <>
-                  <button className="btn btn-danger" onClick={cancelEvent}>Cancel</button>
-                  <button className="btn btn-success" onClick={concludeEvent}>Conclude</button>
+                  <button className="btn btn-danger" onClick={cancelEvent}>
+                    Cancel
+                  </button>
+                  <button className="btn btn-success" onClick={concludeEvent}>
+                    Conclude
+                  </button>
                 </>
               ) : (
-                <button className="btn btn-warning" onClick={reopenEvent}>Reopen</button>
+                <button className="btn btn-warning" onClick={reopenEvent}>
+                    Reopen
+                  </button>
               )}
             </div>
           )}
@@ -178,7 +251,7 @@ const EventDetails: React.FC = () => {
             style={{
               borderRadius: 8,
               boxShadow: "0 2px 8px rgba(0,0,0,.2)",
-              border: 0
+              border: 0,
             }}
             referrerPolicy="no-referrer-when-downgrade"
             src={`https://www.google.com/maps/embed/v1/place?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
@@ -190,41 +263,37 @@ const EventDetails: React.FC = () => {
         )}
       </div>
 
-      {/* Forecast header */}
       {event.weather && (
-        <div className="weather-forecast-header">
-          Forecast for <strong>{dateStr}</strong> at <strong>{timeStr}</strong>
-        </div>
-      )}
-
-      {/* Weather card */}
-      {event.weather && (
-        <div className="weather-card">
-          <div className="weather-main">
-          {pickIcon(event.weather.description ?? "")}
-            <span className="weather-temp">{fmt(event.weather.temp)}</span>
+        <>
+          <div className="weather-forecast-header">
+            Forecast for <strong>{dateStr}</strong> at <strong>{timeStr}</strong>
           </div>
-          <div className="weather-extra">
-            <span>H {fmt(event.weather.high_temp)}</span>
-            <span>L {fmt(event.weather.low_temp)}</span>
+          <div className="weather-card">
+            <div className="weather-main">
+              {pickIcon(event.weather.description || "")}
+              <span className="weather-temp">{fmt(event.weather.temp)}</span>
+            </div>
+            <div className="weather-extra">
+              <span>H {fmt(event.weather.high_temp)}</span>
+              <span>L {fmt(event.weather.low_temp)}</span>
+            </div>
+            <small className="weather-desc">
+              {event.weather.description || "—"}
+            </small>
           </div>
-        
- <small className="weather-desc">
-   {event.weather.description ?? "—"}
- </small>
-        </div>
+        </>
       )}
 
       <button
         className="chat-fab"
         onClick={() => nav(`/chat/${event.id}`)}
-        title="Ir para o chat"
+        title="Go to chat"
       >
         💬
       </button>
 
       <ul className="participants-grid">
-        {participants.map(p => (
+        {participants.map((p) => (
           <li
             key={p.id}
             className="participant"
@@ -232,7 +301,7 @@ const EventDetails: React.FC = () => {
           >
             <div className="participant-info">
               <img
-                src={p.avatar_url ?? avatarDefault}
+                src={p.avatar_url || avatarDefault}
                 alt={p.name}
                 className="participant-avatar"
               />
