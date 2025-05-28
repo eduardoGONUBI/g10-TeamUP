@@ -101,3 +101,33 @@
 .event-card.archived {
   opacity: 0.6;
 }
+.event-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sport-icon {
+  display: inline-flex;
+}
+.sport-icon-img {
+  width: 32px;
+  height: 32px;
+  background-color: #fff;
+  border-radius: 50%;
+  object-fit: contain;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.event-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.event-time {
+  font-size: 0.9rem;
+  color: #555;
+}

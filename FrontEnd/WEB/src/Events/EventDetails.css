@@ -171,3 +171,30 @@
   color: #666;
   text-transform: capitalize;
 }
+
+.event-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.event-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.sport-name {
+  font-size: 0.9rem;
+  color: #555;
+}
+.sport-icon-img {
+  width: 32px;
+  height: 32px;
+  background-color: #fff;
+  border-radius: 50%;
+  object-fit: contain;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
