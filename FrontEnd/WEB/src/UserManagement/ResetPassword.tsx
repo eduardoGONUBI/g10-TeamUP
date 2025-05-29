@@ -1,8 +1,8 @@
 // src/ResetPassword.tsx
 import React, { useState, type FormEvent, type ChangeEvent, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import logo from "./assets/logo.png";
-import "./App.css";
+import logo from "../assets/logo.png"
+import "../UserManagement/Login";
 
 const ResetPassword = () => {
   const [search] = useSearchParams();
@@ -37,7 +37,7 @@ const ResetPassword = () => {
     }
 
     try {
-      const res = await fetch("http://127.0.0.1:80/api/password/reset", {
+      const res = await fetch("/api/password/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
