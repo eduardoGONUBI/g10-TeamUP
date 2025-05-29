@@ -1,5 +1,4 @@
-// src/pages/EventDetails.tsx
-
+// ─── src/pages/EventDetails.tsx ──────────────────────────────────────────────
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./EventDetails.css";
@@ -7,7 +6,7 @@ import "./EventDetails.css";
 import avatarDefault from "../assets/avatar-default.jpg";
 import type { Event, Me, Participant } from "../api/event";
 
-// weather icons
+// ── weather icons ────────────────────────────────────────────────────────────
 import {
   WiDaySunny,
   WiNightClear,
@@ -20,15 +19,15 @@ import {
   WiNightAltCloudy,
 } from "react-icons/wi";
 
-// your bitmap sport icons
-import FootballIcon   from "../assets/Sports_Icon/Football.png";
-import FutsalIcon     from "../assets/Sports_Icon/futsal.jpg";
-import CyclingIcon    from "../assets/Sports_Icon/ciclismo.jpg";
-import SurfIcon       from "../assets/Sports_Icon/surf.jpg";
+// ── sport icons ──────────────────────────────────────────────────────────────
+import FootballIcon from "../assets/Sports_Icon/Football.png";
+import FutsalIcon from "../assets/Sports_Icon/futsal.jpg";
+import CyclingIcon from "../assets/Sports_Icon/ciclismo.jpg";
+import SurfIcon from "../assets/Sports_Icon/surf.jpg";
 import VolleyballIcon from "../assets/Sports_Icon/voleyball.jpg";
 import BasketballIcon from "../assets/Sports_Icon/Basketball.png";
-import TennisIcon     from "../assets/Sports_Icon/Tennis.png";
-import HandballIcon   from "../assets/Sports_Icon/handball.jpg";
+import TennisIcon from "../assets/Sports_Icon/Tennis.png";
+import HandballIcon from "../assets/Sports_Icon/handball.jpg";
 
 const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,15 +41,28 @@ const EventDetails: React.FC = () => {
     localStorage.getItem("auth_token") ||
     sessionStorage.getItem("auth_token");
 
-  // temp formatter
+  // format helpers
   const fmt = (n?: number) => (n != null ? `${Math.round(n)}°C` : "—");
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${dd}/${mm}/${yy}`;
+  };
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   // weather icon picker
   function pickIcon(desc: string) {
     const d = desc.toLowerCase();
     if (d.includes("fog") || d.includes("mist")) return <WiFog size={32} />;
     if (d.includes("drizzle")) return <WiRainMix size={32} />;
-    if (d.includes("rain") || d.includes("shower")) return <WiRain size={32} />;
+    if (d.includes("rain") || d.includes("shower"))
+      return <WiRain size={32} />;
     if (d.includes("thunder") || d.includes("storm"))
       return <WiStormShowers size={32} />;
     if (d.includes("snow") || d.includes("sleet")) return <WiSnow size={32} />;
@@ -70,15 +82,15 @@ const EventDetails: React.FC = () => {
 
   // sport icons map
   const sportIcons: Record<string, string> = {
-    futebol:     FootballIcon,
-    futsal:      FutsalIcon,
-    ciclismo:    CyclingIcon,
-    surf:        SurfIcon,
-    voleibol:    VolleyballIcon,
+    futebol: FootballIcon,
+    futsal: FutsalIcon,
+    ciclismo: CyclingIcon,
+    surf: SurfIcon,
+    voleibol: VolleyballIcon,
     basquetebol: BasketballIcon,
-    ténis:       TennisIcon,
-    tenis:       TennisIcon,
-    andebol:     HandballIcon,
+    ténis: TennisIcon,
+    tenis: TennisIcon,
+    andebol: HandballIcon,
   };
 
   // render your sport icon or fallback
@@ -90,22 +102,6 @@ const EventDetails: React.FC = () => {
     }
     return <span role="img" aria-label="sport">🏅</span>;
   };
-
-  // format date as DD/MM/YY
-  const formatDate = (iso: string) => {
-    const d  = new Date(iso);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yy = String(d.getFullYear()).slice(-2);
-    return `${dd}/${mm}/${yy}`;
-  };
-
-  // format time as HH:MM
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString([], {
-      hour:   "2-digit",
-      minute: "2-digit",
-    });
 
   // 1) load current user
   useEffect(() => {
@@ -193,15 +189,34 @@ const EventDetails: React.FC = () => {
     }
   }
 
+  // 7) kick participant
+  async function kickParticipant(userId: number) {
+    if (!window.confirm("Tens a certeza que queres remover este participante?")) {
+      return;
+    }
+    const res = await fetch(
+      `/api/events/${id}/participants/${userId}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    if (res.ok) {
+      setParticipants((prev) => prev.filter((p) => p.id !== userId));
+      alert("Participante removido com sucesso.");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error ?? "Falha ao remover participante.");
+    }
+  }
+
   if (loading || !me) return <p className="loading">Loading…</p>;
   if (!event) return <p>Evento não encontrado.</p>;
 
-  // apply new format here
   const dateStr = formatDate(event.date);
   const timeStr = formatTime(event.date);
 
-  const isOwner = me.id === event.user_id;
-  const isDone  = event.status === "concluded";
+  const isDone = event.status === "concluded";
 
   return (
     <section className="event-page">
@@ -220,7 +235,7 @@ const EventDetails: React.FC = () => {
 
         <div className="event-header-actions">
           {isDone && <span className="event-concluded-badge">Concluded</span>}
-          {isOwner && (
+          {
             <div className="event-actions">
               {!isDone ? (
                 <>
@@ -233,11 +248,11 @@ const EventDetails: React.FC = () => {
                 </>
               ) : (
                 <button className="btn btn-warning" onClick={reopenEvent}>
-                    Reopen
-                  </button>
+                  Reopen
+                </button>
               )}
             </div>
-          )}
+          }
         </div>
       </header>
 
@@ -309,6 +324,20 @@ const EventDetails: React.FC = () => {
             </div>
             {p.rating != null && (
               <span className="participant-rating">⭐{p.rating}</span>
+            )}
+
+            {/* só mostra o botão de kick se o evento NÃO estiver concluído */}
+            {!isDone  && (
+              <button
+                className="kick-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  kickParticipant(p.id);
+                }}
+                title="Remover participante"
+              >
+                ✖
+              </button>
             )}
           </li>
         ))}

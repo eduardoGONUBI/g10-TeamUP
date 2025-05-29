@@ -198,3 +198,13 @@
   margin-right: 0.5rem;
   vertical-align: middle;
 }
+
+.kick-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.2rem;     /* ícone maiorzinho */
+  margin-left: 0.5rem;
+  color: #c00;
+}
+.kick-btn:hover { color: #900; }
