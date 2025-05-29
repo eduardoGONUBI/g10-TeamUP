@@ -3,7 +3,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { fetchMe, type User } from "../api/user";
-import "../Dashboard.css";
+import "./Layout.css";
 
 const Layout: React.FC = () => {
   // ─── Estado do perfil autenticado ─────────────────────────
@@ -44,6 +44,7 @@ const Layout: React.FC = () => {
           bellGlow={bellGlow}
           onBellClick={toggleBell}
           onClearNotifications={clearNotifs}
+          userId={user?.id ?? 0}
         />
 
         <main className="page-body">

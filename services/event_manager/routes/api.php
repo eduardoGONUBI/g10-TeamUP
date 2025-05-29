@@ -4,6 +4,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\SportsController;
 
 Route::middleware('validate.jwt')->group(function () {
     Route::post('/events', [EventController::class, 'store']);
@@ -23,4 +24,5 @@ Route::middleware('validate.jwt')->group(function () {
     Route::put('/events/{id}/conclude', [EventController::class, 'concludeByCreator']);
     Route::get('/stats', [EventController::class, 'overview']);
     Route::get('/events/{id}', [EventController::class, 'show']);
+    Route::get('/sports', [SportsController::class, 'index']);
 });

@@ -19,5 +19,6 @@ class SportsTableSeeder extends Seeder
             ['name' => 'Ténis'],
             ['name' => 'Andebol'],
         ]);
+        
     }
 }

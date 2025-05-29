@@ -7,6 +7,8 @@ use App\Models\User;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use Illuminate\Validation\Rules\Password as PasswordRule; 
+use Illuminate\Support\Facades\Hash;   
 
 class AuthController extends Controller
 {
@@ -221,4 +223,55 @@ class AuthController extends Controller
             'user' => $user->load('sports'), // Include sports in the response
         ], 200);
     }
+
+
+       /**  Alterar password  */
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required'],
+            'new_password'     => ['required', 'confirmed', PasswordRule::defaults()],
+        ]);
+
+        $user = JWTAuth::user();                       // usa o mesmo guard JWT
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'Password actual incorreta'], 422);
+        }
+
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        // ⚠ NÃO existe apagador de sessões em ambiente JWT
+        // auth()->logoutOtherDevices($request->new_password);
+
+        return response()->json(['message' => 'Password alterada com sucesso'], 200);
+    }
+
+    /**  Alterar e-mail  */
+    public function changeEmail(Request $request)
+    {
+        $request->validate([
+            'new_email' => 'required|email|unique:users,email',
+            'password'  => ['required'],
+        ]);
+
+        $user = JWTAuth::user();
+
+        if (! Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Password incorreta'], 422);
+        }
+
+        $user->email = $request->new_email;
+        $user->email_verified_at = null;
+        $user->save();
+
+        $user->sendEmailVerificationNotification();
+
+        return response()->json([
+            'message' => 'E-mail alterado. Verifique a nova caixa de correio.',
+        ], 200);
+    }
+
+
 }
