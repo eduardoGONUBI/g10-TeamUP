@@ -1,61 +1,148 @@
-// AppNavGraph.kt
 package com.example.teamup.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.example.teamup.data.remote.AuthRepositoryImpl
+import com.example.teamup.data.domain.usecase.LoginUseCase
+import com.example.teamup.data.remote.AuthApi
+import com.example.teamup.ui.screens.*
+import com.example.teamup.ui.screens.Ativity.EditActivityScreen
 import com.example.teamup.ui.screens.Chat.ChatDetailScreen
-import com.example.teamup.ui.screens.CreatorActivityScreen
-import com.example.teamup.ui.screens.EditProfileScreen
-import com.example.teamup.ui.screens.SplashLogoScreen
+import com.example.teamup.ui.screens.main.Main.LoginViewModel
+import com.example.teamup.ui.screens.main.Main.LoginViewModelFactory
+import java.net.URLDecoder
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @Composable
 fun AppNavGraph() {
-    // Cria o controlador de navegação
     val nav = rememberNavController()
 
-    // Define o host de navegação, com o ecrã inicial "splash"
-    NavHost(navController = nav, startDestination = "splash") {
+    NavHost(navController = nav, startDestination = "login") {
 
-        // Ecrã sem scaffold (Splash)
-        composable("splash") {
+        /* ─── Login ───────────────────────────────────────────── */
+        composable("login") {
+            val loginVM: LoginViewModel = viewModel(
+                factory = remember {
+                    val repo   = AuthRepositoryImpl(AuthApi.create())
+                    val useCase = LoginUseCase(repo)
+                    LoginViewModelFactory(useCase)
+                }
+            )
+
+            LoginScreen(
+                loginViewModel = loginVM,
+                onLoginSuccess = { token ->
+                    val enc = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
+                    nav.navigate("splash/$enc") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onForgotPasswordClick = {},
+                onRegisterClick      = {}
+            )
+        }
+
+        /* ─── Splash ──────────────────────────────────────────── */
+        composable(
+            route = "splash/{token}",
+            arguments = listOf(navArgument("token") { type = NavType.StringType })
+        ) { back ->
+            val enc   = back.arguments!!.getString("token")!!
+            val token = URLDecoder.decode(enc, StandardCharsets.UTF_8.toString())
+
             SplashLogoScreen(
                 onContinue = {
-                    // Quando continuar, navega para "main" e remove o "splash" da pilha
-                    nav.navigate("main") { popUpTo("splash") { inclusive = true } }
+                    val re = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
+                    nav.navigate("main/$re") {
+                        popUpTo("splash/$enc") { inclusive = true }
+                    }
                 }
             )
         }
 
-        // Ecrã de detalhe de chat com argumento "chatTitle"
+        /* ─── Main scaffold ───────────────────────────────────── */
         composable(
-            "chatDetail/{chatTitle}",
+            route = "main/{token}",
+            arguments = listOf(navArgument("token") { type = NavType.StringType })
+        ) { back ->
+            val token = URLDecoder.decode(
+                back.arguments!!.getString("token")!!,
+                StandardCharsets.UTF_8.toString()
+            )
+
+            RootScaffold(appNav = nav, token = token)
+        }
+
+        /* ─── Chats detail (global) ───────────────────────────── */
+        composable(
+            route = "chatDetail/{chatTitle}",
             arguments = listOf(navArgument("chatTitle") { type = NavType.StringType })
-        ) { backStack ->
-            // Obtém o título do chat a partir dos argumentos
-            val title = backStack.arguments?.getString("chatTitle") ?: ""
+        ) { back ->
+            val title = back.arguments!!.getString("chatTitle")!!
             ChatDetailScreen(
                 chatTitle = title,
-                onBack = { nav.popBackStack() } // Volta ao ecrã anterior
+                onBack    = { nav.popBackStack() }
             )
         }
 
-        // Ecrã para criar atividade
-        composable("creator_activity") {
-            CreatorActivityScreen()
+        /* ─── Creator activity (deep-link) ───────────────────── */
+        composable(
+            route = "creator_activity/{eventId}/{token}",
+            arguments = listOf(
+                navArgument("eventId") { type = NavType.IntType },
+                navArgument("token")   { type = NavType.StringType }
+            )
+        ) { back ->
+            val id    = back.arguments!!.getInt("eventId")
+            val token = URLDecoder.decode(
+                back.arguments!!.getString("token")!!,
+                StandardCharsets.UTF_8.toString()
+            )
+
+            CreatorActivityScreen(
+                eventId = id,
+                token   = token,
+                onBack  = { nav.popBackStack() },
+                onEdit  = { eid ->
+                    val re = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
+                    nav.navigate("edit_activity/$eid/$re")
+                }
+            )
         }
 
-        // Ecrã para editar perfil
+        /* ─── Edit activity (deep-link) ──────────────────────── */
+        composable(
+            route = "edit_activity/{eventId}/{token}",
+            arguments = listOf(
+                navArgument("eventId") { type = NavType.IntType },
+                navArgument("token")   { type = NavType.StringType }
+            )
+        ) { back ->
+            val id    = back.arguments!!.getInt("eventId")
+            val token = URLDecoder.decode(
+                back.arguments!!.getString("token")!!,
+                StandardCharsets.UTF_8.toString()
+            )
+
+            EditActivityScreen(
+                eventId = id,
+                token   = token,
+                onBack   = { nav.popBackStack() },
+                onSave   = { nav.popBackStack() },
+                onDelete = { nav.popBackStack() }
+            )
+        }
+
+        /* ─── Edit profile (no params) ───────────────────────── */
         composable("edit_profile") {
             EditProfileScreen(
-                onBack = { nav.popBackStack() } // Volta ao ecrã anterior
+                onBack = { nav.popBackStack() }
             )
-        }
-
-        //  Ecrãs com scaffold
-        composable("main") {
-            RootScaffold(appNav = nav)
         }
     }
 }

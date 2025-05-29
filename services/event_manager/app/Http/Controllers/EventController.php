@@ -190,6 +190,7 @@ class EventController extends Controller
                 'message' => 'User joined the event',
             ];
             $this->publishToRabbitMQ('event_joined', json_encode($msg));
+            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($msg));
 
             return response()->json([
                 'message' => 'Evento criado com sucesso!',
@@ -495,6 +496,8 @@ class EventController extends Controller
 
             // Publish this to the 'event_joined' queue (or whichever queue the chat microservice listens to)
             $this->publishToRabbitMQ('event_joined', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+
 
 
             return response()->json(['message' => 'You have successfully joined the event'], 200);
@@ -565,63 +568,68 @@ class EventController extends Controller
      * Fetch user events.
      */
     public function userEvents(Request $request)
-    {
-        try {
-            $token = $this->validateToken($request);
+{
+    try {
+        $token = $this->validateToken($request);
+        $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-            // Get authenticated user ID from token payload
-            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
+        $events = Event::with('sport')
+            ->where('user_id', $userId)
+            ->orWhereHas('participants', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
+            ->get();
 
-            // Fetch events where the user is either the creator or a participant
-            $events = Event::with('sport')
-                ->where('user_id', $userId)
-                ->orWhereHas('participants', function ($query) use ($userId) {
-                    $query->where('user_id', $userId);
-                })
-                ->get();
+        $response = $events->map(function ($event) {
+            // Decode weather if it's a string
+            $weatherData = is_array($event->weather)
+                ? $event->weather
+                : json_decode($event->weather, true) ?? [];
 
-            // Transform and return events with participant ratings
-            $response = $events->map(function ($event) {
-                // Fetch participants and their ratings
-                $participants = DB::table('event_user')
-                    ->where('event_id', $event->id)
-                    ->get(['user_id', 'user_name', 'rating']);
+            // Fetch participants
+            $participants = DB::table('event_user')
+                ->where('event_id', $event->id)
+                ->whereNull('deleted_at')
+                ->get(['user_id', 'user_name', 'rating']);
 
-                return [
-                    'id' => $event->id,
-                    'name' => $event->name,
-                    'sport' => $event->sport->name ?? null,
-                    'date' => $event->date,
-                    'place' => $event->place,
-                    'status' => $event->status,
-                    'max_participants' => $event->max_participants,
-                    'creator' => [
-                        'id' => $event->user_id,
-                        'name' => $event->user_name,
-                    ],
-                    'weather' => [
-                        'app_max_temp' => $event->weather['app_max_temp'] ?? 'N/A',
-                        'app_min_temp' => $event->weather['app_min_temp'] ?? 'N/A',
-                        'temp' => $event->weather['temp'] ?? 'N/A',
-                        'high_temp' => $event->weather['high_temp'] ?? 'N/A',
-                        'low_temp' => $event->weather['low_temp'] ?? 'N/A',
-                        'description' => $event->weather['weather']['description'] ?? 'N/A',
-                    ],
-                    'participants' => $participants->map(function ($participant) {
-                        return [
-                            'id' => $participant->user_id,
-                            'name' => $participant->user_name,
-                            'rating' => $participant->rating,
-                        ];
-                    }),
-                ];
-            });
+            return [
+                'id' => $event->id,
+                'name' => $event->name,
+                'sport' => $event->sport->name ?? null,
+                'date' => $event->date,
+                'place' => $event->place,
+                'status' => $event->status,
+                'max_participants' => $event->max_participants,
+                'latitude' => $event->latitude,
+                'longitude' => $event->longitude,
+                'creator' => [
+                    'id' => $event->user_id,
+                    'name' => $event->user_name,
+                ],
+                'weather' => [
+                    'app_max_temp' => $weatherData['app_max_temp'] ?? 'N/A',
+                    'app_min_temp' => $weatherData['app_min_temp'] ?? 'N/A',
+                    'temp' => $weatherData['temp'] ?? 'N/A',
+                    'high_temp' => $weatherData['high_temp'] ?? 'N/A',
+                    'low_temp' => $weatherData['low_temp'] ?? 'N/A',
+                    'description' => $weatherData['weather']['description'] ?? 'N/A',
+                ],
+                'participants' => $participants->map(function ($participant) {
+                    return [
+                        'id' => $participant->user_id,
+                        'name' => $participant->user_name,
+                        'rating' => $participant->rating,
+                    ];
+                }),
+            ];
+        });
 
-            return response()->json($response, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
-        }
+        return response()->json($response, 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 401);
     }
+}
+
 
     /**
      * Search for events.
@@ -823,6 +831,7 @@ class EventController extends Controller
                 'message' => 'Event concluded by creator',
             ];
             $this->publishToRabbitMQ('event_concluded', json_encode($lifecycleMessage));
+            $this->publishToRabbitMQ('rating_event_concluded', json_encode($lifecycleMessage));
 
             // (2) A chat/notification fan‑out just like join(), leave(), etc.
             $participants = Participant::where('event_id', $id)
@@ -888,6 +897,7 @@ class EventController extends Controller
             ];
 
             $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
 
             // Fetch all remaining participants to notify
             $remainingParticipants = Participant::where('event_id', $id)->get(['user_id', 'user_name'])->toArray();
@@ -961,6 +971,7 @@ class EventController extends Controller
 
             // Using the same queue as the "leave" method
             $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
 
             // Fetch all remaining participants to notify
             $remainingParticipants = Participant::where('event_id', $event_id)->get(['user_id', 'user_name'])->toArray();
