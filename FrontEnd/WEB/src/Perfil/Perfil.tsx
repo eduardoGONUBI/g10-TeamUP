@@ -11,6 +11,8 @@ import {
 } from "../api/user"
 import "./perfil.css"
 
+
+
 function behaviourLabel(score: number): string {
   if (score >= 90) return "Excellent"
   if (score >= 75) return "Very Good"
@@ -20,15 +22,15 @@ function behaviourLabel(score: number): string {
 }
 
 export default function Account() {
-  const [user, setUser]             = useState<any>(null)
-  const [achievements, setAch]      = useState<any[]>([])
-  const [xp, setXp]                 = useState<number | null>(null)
-  const [level, setLevel]           = useState<number | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const [achievements, setAch] = useState<any[]>([])
+  const [xp, setXp] = useState<number | null>(null)
+  const [level, setLevel] = useState<number | null>(null)
   const [reputation, setReputation] = useState<{ score: number; badges: string[] } | null>(null)
   const nav = useNavigate()
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       const me = await fetchMe()
       setUser(me)
 
@@ -118,13 +120,13 @@ export default function Account() {
           )}
 
           <div className="actions">
-            <button onClick={() => alert("TODO: alterar password")}>
+            <button onClick={() => nav("/change-password")}>
               Change Password
             </button>
-            <button onClick={() => alert("TODO: alterar email")}>
+            <button onClick={() => nav("/change-email")}>
               Change Email
             </button>
-            <button className="danger" onClick={handleDelete}>
+            <button className="danger" onClick={() => nav("/delete-account")}>
               Delete Account
             </button>
           </div>

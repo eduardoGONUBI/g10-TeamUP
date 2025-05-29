@@ -1,0 +1,92 @@
+import React, { useState, type FormEvent, type ChangeEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { changePassword } from "../api/user";
+import logo from "../assets/logo.png";
+import "../Perfil/perfil.css";
+
+export default function ChangePasswordPage() {
+  const navigate = useNavigate();
+  const [current, setCurrent]     = useState("");
+  const [next, setNext]           = useState("");
+  const [confirm, setConfirm]     = useState("");
+  const [msg, setMsg]             = useState<string | null>(null);
+  const [err, setErr]             = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setMsg(null);
+
+    if (next !== confirm) {
+      setErr("A nova password não coincide.");
+      return;
+    }
+
+    try {
+      const json = await changePassword(current, next, confirm);
+      setMsg(json.message);
+      setCurrent(""); setNext(""); setConfirm("");
+    } catch (e: any) {
+      setErr(e.message);
+    }
+  };
+
+  return (
+    <div className="container">
+      <div className="form-panel">
+        <h1>Alterar Password</h1>
+        <p>Introduz a tua password actual e define uma nova.</p>
+
+        {msg && <div className="success">{msg}</div>}
+        {err && <div className="error">{err}</div>}
+
+        <form onSubmit={onSubmit}>
+          <label>
+            Password actual
+            <input
+              type="password"
+              value={current}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setCurrent(e.target.value)
+              }
+              required
+            />
+          </label>
+
+          <label>
+            Nova password
+            <input
+              type="password"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            Confirmar nova password
+            <input
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+            />
+          </label>
+
+          <button type="submit">Alterar Password</button>
+        </form>
+
+        <button
+          style={{ marginTop: "1rem" }}
+          onClick={() => navigate("/account")}
+        >
+          Voltar ao Perfil
+        </button>
+      </div>
+
+      <div className="logo-panel">
+        <img src={logo} alt="TeamUP logo" className="logo" />
+      </div>
+    </div>
+  );
+}

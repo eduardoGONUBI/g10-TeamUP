@@ -16,6 +16,10 @@ import CreateEvent from "./Events/CreateEvent";
 import Account from "./Perfil/Perfil"
 import UserProfile from "./Perfil/userProfile";
 
+import ChangePassword from "./UserManagement/ChangePassword";
+import ChangeEmail from "./UserManagement/ChangeEmail";
+import DeleteAccountPage from "./UserManagement/DeleteAccount";
+
 import "./main.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -41,6 +45,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/events/create" element={<CreateEvent />} />
           <Route path="/account" element={<Account />} />
           <Route path="/profile/:id" element={<UserProfile />} />
+          <Route path="/change-password" element={<ChangePassword />} />
+          +         <Route path="/change-email" element={<ChangeEmail />} />
+          <Route path="/delete-account" element={<DeleteAccountPage />} />
 
         </Route>
 

@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import "./Login.css";
 
+
 const App: React.FC = () => {
  // Limpa tokens antigos ao montar o componente
     useEffect(() => {
