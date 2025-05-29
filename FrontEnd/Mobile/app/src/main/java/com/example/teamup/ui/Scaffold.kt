@@ -8,8 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -19,100 +18,186 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.example.teamup.R
+import com.example.teamup.data.remote.ActivityApi
+import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.screens.*
-import com.example.teamup.ui.screens.Ativity.AtivityScreen
 import com.example.teamup.ui.screens.Ativity.EditActivityScreen
 import com.example.teamup.ui.screens.Chat.UpChatScreens
+import java.net.URLDecoder
+import java.net.URLEncoder
+
+/* ───────────────────────── Root scaffold ───────────────────────── */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootScaffold(
-    appNav: NavHostController,           // Controlador principal de navegação da app
-    startRoute: String = "Home"          // Rota inicial dentro deste scaffold
+    appNav: NavHostController,
+    token: String,
+    startRoute: String = "home"
 ) {
-    // Cria um NavController local para navegar entre ecrãs dentro deste scaffold
     val navController = rememberNavController()
+    val homeViewModel = remember { HomeViewModel(ActivityApi.create()) }
 
-    // Observa a back stack atual para saber qual a rota ativa
     val backStack by navController.currentBackStackEntryAsState()
-    val currentRoute = backStack?.destination?.route  // Extrai o nome da rota ativa
+    val currentRoute = backStack?.destination?.route
 
-    // Dados de exemplo: lista de atividades para passar ao HomeScreen
-    val sampleActivities = listOf(
-        Activity("1", "Futebolada : Football",   "Complexo Desportivo da Rodovia", "Feb 5, 5:00 PM", 14, 14),
-        Activity("2", "BarcelosBasket : Basketball", "Escola Secundária de Barcelos", "Feb 6, 7:00 PM", 5, 10),
-        Activity("3", "Semana Ténis 2 : Tennis",   "Parque Municipal de Barcelos",  "Feb 7, 11:00 AM", 2, 2)
-    )
-
-    // Scaffold define a estrutura base: topBar, bottomBar e content
     Scaffold(
         topBar = {
-            TopBar(navController)  // Barra superior personalizada
+            TopBar(navController, token, homeViewModel)
         },
         bottomBar = {
             BottomNavigationBar(
-                navController = navController,  // Passa o controlador local
-                currentRoute = currentRoute     // Para destacar o item selecionado
+                navController = navController,
+                currentRoute = currentRoute,
+                token        = token                        // ← needed for perfil route
             )
         }
     ) { padding ->
-        // Área de navegação interna ao scaffold, com o padding aplicado
         NavHost(
             navController = navController,
-            startDestination = startRoute,    // Começa no ecrã definido
-            modifier = Modifier.padding(padding)  // Garante não sobrepor barras
+            startDestination = startRoute,
+            modifier = Modifier.padding(padding)
         ) {
-            // Cada composable define um ecrã e a sua rota
+
+            /* ─── Home ──────────────────────────────────────────── */
             composable("home") {
                 HomeScreen(
-                    activities      = sampleActivities,
-                    onActivityClick = { appNav.navigate("creator_activity") }
+                    token = token,
+                    viewModel = homeViewModel,
+                    onActivityClick = { activity ->
+                        if (activity.isCreator) {
+                            navController.navigate("creator_activity/${activity.id}")
+                        } else {
+                            navController.navigate("viewer_activity/${activity.id}")
+                        }
+                    }
                 )
             }
-            composable("agenda") {
-                AtivityScreen()  // Ecrã de agenda de atividades
+
+            /* ─── Agenda & Chats placeholders ─────────────────── */
+            composable("agenda") { /* … */ }
+            composable("chats")  { UpChatScreens(navController = appNav) }
+
+            /* ─── Profile (token in route) ─────────────────────── */
+            composable(
+                route = "perfil/{token}",
+                arguments = listOf(navArgument("token") { type = NavType.StringType })
+            ) { back ->
+                val encoded = back.arguments!!.getString("token")!!
+                val decoded = URLDecoder.decode(encoded, "UTF-8")
+
+                val profileVM = remember { ProfileViewModel() }
+
+                ProfileScreen(
+                    token           = decoded,
+                    viewModel       = profileVM,
+                    onEditProfile   = {
+                        val e = URLEncoder.encode(decoded, "UTF-8")
+                        navController.navigate("edit_profile/$e")
+                    },
+                    onLogout        = {
+                        // clear session…
+                        navController.navigate("login")
+                    },
+                    onActivityClick = { id ->
+                        val e = URLEncoder.encode(decoded, "UTF-8")
+                        navController.navigate("viewer_activity/$id/$e")
+                    }
+                )
             }
-            composable("chats") {
-                UpChatScreens(navController = appNav)  // Ecrã de chats, usando nav principal
+
+            /* ─── Creator activity ─────────────────────────────── */
+            composable(
+                "creator_activity/{eventId}",
+                arguments = listOf(navArgument("eventId") { type = NavType.IntType })
+            ) { back ->
+                val eventId = back.arguments!!.getInt("eventId")
+                CreatorActivityScreen(
+                    eventId = eventId,
+                    token   = token,
+                    onBack  = { navController.popBackStack() },
+                    onEdit  = { id ->
+                        val e = URLEncoder.encode(token, "UTF-8")
+                        navController.navigate("edit_activity/$id/$e")
+                    }
+                )
             }
-            composable("perfil") {
-                ProfileScreen()  // Ecrã de perfil de utilizador
+
+            /* ─── Viewer activity ──────────────────────────────── */
+            composable(
+                "viewer_activity/{eventId}/{token?}",
+                arguments = listOf(
+                    navArgument("eventId") { type = NavType.IntType },
+                    navArgument("token")   { type = NavType.StringType; nullable = true }
+                )
+            ) { back ->
+                val eventId = back.arguments!!.getInt("eventId")
+                val tokArg  = back.arguments?.getString("token")
+                val tok     = tokArg?.let { URLDecoder.decode(it, "UTF-8") } ?: token
+
+                ViewerActivityScreen(
+                    eventId = eventId,
+                    token   = tok,
+                    onBack  = { navController.popBackStack() }
+                )
             }
-            composable("activityDetail") {
+
+            /* ─── Edit activity ───────────────────────────────── */
+            composable(
+                "edit_activity/{eventId}/{token}",
+                arguments = listOf(
+                    navArgument("eventId") { type = NavType.IntType },
+                    navArgument("token")   { type = NavType.StringType }
+                )
+            ) { back ->
+                val eventId = back.arguments!!.getInt("eventId")
+                val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+
                 EditActivityScreen(
-                    onSave = { navController.popBackStack() },   // Volta ao ecrã anterior após guardar
-                    onDelete = { navController.popBackStack() }    // Volta após eliminar
+                    eventId  = eventId,
+                    token    = decoded,
+                    onBack   = { navController.popBackStack() },
+                    onSave   = { navController.popBackStack() },
+                    onDelete = { navController.popBackStack() }
                 )
             }
-            composable("notifications") {
-                NotificationScreen()  // Ecrã de notificações
-            }
+
+            /* ─── Notifications ───────────────────────────────── */
+            composable("notifications") { NotificationScreen() }
         }
     }
 }
 
+/* ───────────────────────── Top bar ───────────────────────────── */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopBar(navController: NavHostController) {
-    Column {  // Empilha verticalmente TopAppBar e linha decorativa
+fun TopBar(
+    navController: NavHostController,
+    token: String,
+    viewModel: HomeViewModel
+) {
+    Column {
         TopAppBar(
             title = {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)       // Define tamanho clicável
-                        .clickable {       // Ação ao clicar no logo
+                        .size(48.dp)
+                        .clickable {
+                            viewModel.loadActivities(token)
                             navController.navigate("home") {
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                popUpTo("home") { inclusive = true }
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         }
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.icon_up),  // Logótipo da app
-                        contentDescription = "App Logo",
+                        painter = painterResource(id = R.drawable.icon_up),
+                        contentDescription = "Refresh",
                         modifier = Modifier.size(48.dp),
                         contentScale = ContentScale.Fit
                     )
@@ -121,79 +206,68 @@ fun TopBar(navController: NavHostController) {
             actions = {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)       // Área de toque para o ícone de notificações
+                        .size(48.dp)
                         .clickable { navController.navigate("notifications") }
-                        .padding(12.dp)    // Espaço interno para o ícone
+                        .padding(12.dp)
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.notifications),
                         contentDescription = "Notifications",
                         modifier = Modifier.size(24.dp),
-                        tint = Color(0xFF335EB5)  // Cor personalizada do ícone
+                        tint = Color(0xFF335EB5)
                     )
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.background  // Cor de fundo da barra
+                containerColor = MaterialTheme.colorScheme.background
             )
         )
-        // Linha de separação em degradé abaixo da TopAppBar
         Box(
             modifier = Modifier
-                .fillMaxWidth()  // Ocupa toda a largura
-                .height(4.dp)    // Altura fina
+                .fillMaxWidth()
+                .height(4.dp)
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.1f),  // Início semi-opaco
-                            Color.Transparent               // Fim transparente
-                        )
+                        listOf(Color.Black.copy(alpha = 0.1f), Color.Transparent)
                     )
                 )
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/* ───────────────────── Bottom navigation ─────────────────────── */
+
 @Composable
 fun BottomNavigationBar(
     navController: NavHostController,
-    currentRoute: String?
+    currentRoute: String?,
+    token: String          // ← need raw token to build perfil route
 ) {
-    // Data class local para representar cada item de navegação
     data class NavItem(val route: String, val title: String, val drawableRes: Int)
-
-    // Lista de itens com rota, título e recurso de ícone
     val items = listOf(
         NavItem("home",   "Home",       R.drawable.main),
         NavItem("agenda", "Activities", R.drawable.atividades),
         NavItem("chats",  "Chats",      R.drawable.chat),
-        NavItem("perfil", "Perfil",     R.drawable.profileuser)
+        NavItem("perfil", "Profile",    R.drawable.profileuser)
     )
-
-    // Cores para estado selecionado e não selecionado
-    val selectedColor = Color(0xFF3629B7)
+    val selectedColor   = Color(0xFF3629B7)
     val unselectedColor = Color(0xFF023499)
 
     Surface(
         modifier = Modifier
-            .fillMaxWidth()             // Ocupa largura total
-            .navigationBarsPadding()    // Padding para não sobrepor barras do SO
-            .padding(bottom = 16.dp),   // Espaço extra abaixo
-        color = Color.White           // Fundo branco
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(bottom = 16.dp),
+        color = Color.White
     ) {
         Column {
-            // Linha de degradé acima do menu para efeito visual
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.1f),
-                                Color.Transparent
-                            )
+                            listOf(Color.Black.copy(alpha = 0.1f), Color.Transparent)
                         )
                     )
             )
@@ -201,58 +275,53 @@ fun BottomNavigationBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,  // Espaçar igualmente
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Gera um item de navegação para cada NavItem
                 items.forEach { item ->
-                    val selected = currentRoute == item.route
+                    val selected = currentRoute?.startsWith(item.route) == true
+                    val encoded  = URLEncoder.encode(token, "UTF-8")
 
                     Box(
-                        modifier = Modifier
-                            .clickable {
-                                // Se vier das notificações, remove essa rota para não voltar a ela
-                                if (currentRoute == "notifications") {
-                                    navController.popBackStack("notifications", inclusive = true)
-                                }
-                                // Navega para a rota do item mantendo/restaurando estado
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                        modifier = Modifier.clickable {
+                            if (currentRoute == "notifications") {
+                                navController.popBackStack("notifications", true)
                             }
+                            navController.navigate(
+                                if (item.route == "perfil") "perfil/$encoded"
+                                else item.route
+                            ) {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
                     ) {
                         if (selected) {
-                            // Se o item estiver selecionado, desenha fundo colorido + ícone + texto
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .background(
-                                        color = selectedColor,
-                                        shape = RoundedCornerShape(50)  // Bordas arredondadas
-                                    )
+                                    .background(selectedColor, RoundedCornerShape(50))
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 Icon(
-                                    painter = painterResource(id = item.drawableRes),
+                                    painter = painterResource(item.drawableRes),
                                     contentDescription = item.title,
                                     modifier = Modifier.size(24.dp),
                                     tint = Color.White
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))  // Espaço entre ícone e texto
+                                Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = item.title,
                                     color = Color.White,
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis  // "..." se o texto for longo
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         } else {
-                            // Se não estiver selecionado, mostra apenas o ícone
                             Icon(
-                                painter = painterResource(id = item.drawableRes),
+                                painter = painterResource(item.drawableRes),
                                 contentDescription = item.title,
                                 modifier = Modifier.size(24.dp),
                                 tint = unselectedColor
@@ -264,4 +333,3 @@ fun BottomNavigationBar(
         }
     }
 }
-

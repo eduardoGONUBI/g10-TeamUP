@@ -38,12 +38,17 @@ RUN php artisan vendor:publish --provider="Tymon\JWTAuth\Providers\LaravelServic
 # Generate JWT secret key
 RUN php artisan jwt:secret
 
-# Set proper permissions for storage and cache
-RUN chmod -R 775 storage bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache
+# Ensure storage/logs/laravel.log exists and has correct permissions
+RUN mkdir -p storage/logs && \
+    touch storage/logs/laravel.log && \
+    chmod -R 775 storage bootstrap/cache storage/logs && \
+    chown -R www-data:www-data storage bootstrap/cache storage/logs
 
 # Create necessary directories for Supervisor
-RUN mkdir -p /var/log/supervisor && mkdir -p /var/run && chmod -R 777 /var/run && chmod -R 777 /var/log/supervisor
+RUN mkdir -p /var/log/supervisor && \
+    mkdir -p /var/run && \
+    chmod -R 777 /var/run && \
+    chmod -R 777 /var/log/supervisor
 
 # Expose the application on port 9000
 EXPOSE 9000
@@ -51,5 +56,12 @@ EXPOSE 9000
 # Copy the Supervisor configuration file into the container
 COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Start Supervisor
+# Copy and enable the entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Set the entrypoint
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+# Start Supervisor as the container's main process
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

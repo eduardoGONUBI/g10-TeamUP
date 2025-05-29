@@ -91,7 +91,7 @@ public function listenEventConcludedQueue()
     $rabbitmqPort = env('RABBITMQ_PORT', 5672);
     $rabbitmqUser = env('RABBITMQ_USER', 'guest');
     $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
-    $queueName = 'event_concluded';            // <── new queue
+    $queueName = 'rating_event_concluded';            // <── new queue
 
     try {
         $connection = new AMQPStreamConnection($rabbitmqHost, $rabbitmqPort, $rabbitmqUser, $rabbitmqPassword);
@@ -113,7 +113,7 @@ public function listenEventConcludedQueue()
                 'message'    => $displayText,
             ]);
 
-            \Log::info('event_concluded consumed', $data);
+            \Log::info('rating_event_concluded consumed', $data);
             $msg->ack();
         };
 

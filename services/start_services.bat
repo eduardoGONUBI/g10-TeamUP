@@ -4,6 +4,9 @@ setlocal enabledelayedexpansion
 REM Ordem definida dos microserviços (nomes de pasta reais)
 set servicos=users-main event_manager chat notifications rabbit achievements rating websocket API_Gateway
 
+REM Apenas os serviços Laravel que requerem composer e migrate
+set laravel_servicos=users-main event_manager chat notifications achievements rating
+
 echo 🚀 A iniciar microserviços na ordem definida...
 
 for %%s in (%servicos%) do (
@@ -17,12 +20,15 @@ for %%s in (%servicos%) do (
     )
 )
 
-echo 🛠️ A correr migrations na mesma ordem...
+echo 🛠️ A correr migrations nos serviços Laravel...
 
-for %%s in (%servicos%) do (
+for %%s in (%laravel_servicos%) do (
     if exist "%%s\docker-compose.yml" (
-        echo Migrating %%s...
+        echo Preparando %%s...
         cd %%s
+        echo Executando composer install em %%s...
+        docker compose exec app composer install
+        echo Migrating %%s...
         docker compose exec app php artisan migrate --seed
         cd ..
     ) else (
