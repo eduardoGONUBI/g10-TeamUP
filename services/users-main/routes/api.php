@@ -12,11 +12,13 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 Route::group(['prefix' => 'auth'], function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
-    Route::middleware('auth:api', 'verified')->group(function () {
+    Route::middleware('auth:api',)->group(function () {
         Route::post('logout',   [AuthController::class, 'logout']);
         Route::get('me',        [AuthController::class, 'me']);
         Route::delete('delete', [AuthController::class, 'delete']);
         Route::put('update', [AuthController::class, 'update']);
+         Route::post('change-password', [AuthController::class, 'changePassword']);
+        Route::post('change-email',    [AuthController::class, 'changeEmail']);
     });
 });
 

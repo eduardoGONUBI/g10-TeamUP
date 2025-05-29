@@ -59,3 +59,23 @@ export async function fetchReputation(id: number): Promise<Reputation> {
 export function fetchUser(id: number): Promise<User> {
   return authFetch(`/api/users/${id}`)      
 }
+export async function changePassword(current: string, next: string, nextConfirm: string) {
+  return authFetch('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_password: current,
+      new_password: next,
+      new_password_confirmation: nextConfirm,
+    }),
+  });
+}
+
+export async function changeEmail(newEmail: string, password: string) {
+  return authFetch('/api/auth/change-email', {
+    method: 'POST',
+    body: JSON.stringify({
+      new_email: newEmail,
+      password,
+    }),
+  });
+}

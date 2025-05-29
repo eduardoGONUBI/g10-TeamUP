@@ -3,12 +3,20 @@ import React, {
   useState,
   type FormEvent,
   type ChangeEvent,
+  useEffect,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "./assets/logo.png";
-import "./App.css";
+import logo from "../assets/logo.png";
+import "./Login.css";
+
 
 const App: React.FC = () => {
+ // Limpa tokens antigos ao montar o componente
+    useEffect(() => {
+    localStorage.removeItem("auth_token");
+    sessionStorage.removeItem("auth_token");
+  }, []);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);

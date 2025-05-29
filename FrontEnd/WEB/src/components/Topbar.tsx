@@ -1,6 +1,9 @@
-import React from "react";
-import "../Dashboard.css";
+// src/components/Topbar.tsx
+import React, { useState, useEffect, useRef } from "react";
+import "./Topbar.css";
 import avatarDefault from "../assets/avatar-default.jpg";
+import { useNavigate } from "react-router-dom";
+import { logout as apiLogout } from "../api/user";
 
 interface NotificationItem {
   id: string;
@@ -10,7 +13,6 @@ interface NotificationItem {
 
 interface TopbarProps {
   username: string;
-  // agora aceita string | undefined | null
   avatarUrl?: string | null;
   notifications: NotificationItem[];
   notifOpen: boolean;
@@ -30,49 +32,110 @@ const Topbar: React.FC<TopbarProps> = ({
   onBellClick,
   onClearNotifications,
 }) => {
-  const itemHeight = 80;
-  const maxItemsVisible = 4;
-  const dropdownMaxH = itemHeight * maxItemsVisible;
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const avatarRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<SVGSVGElement>(null);
+  const navigate = useNavigate();
+
+  // Fecha dropdowns ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      // fecha avatar
+      if (
+        avatarOpen &&
+        avatarRef.current &&
+        !avatarRef.current.contains(target)
+      ) {
+        setAvatarOpen(false);
+      }
+      // fecha notificações
+      if (
+        notifOpen &&
+        notifRef.current &&
+        !notifRef.current.contains(target) &&
+        bellRef.current &&
+        !bellRef.current.contains(target)
+      ) {
+        onBellClick();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
+  }, [avatarOpen, notifOpen, onBellClick]);
+
+  // Abre/fecha Avatar, fecha Notificações se estiverem abertas
+  const handleAvatarToggle = () => {
+    if (notifOpen) onBellClick();
+    setAvatarOpen((o) => !o);
+  };
+
+  // Abre/fecha Notificações, fecha Avatar se estiver aberto
+  const handleBellToggle = () => {
+    if (avatarOpen) setAvatarOpen(false);
+    onBellClick();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+    } catch {}
+    localStorage.removeItem("auth_token");
+    sessionStorage.removeItem("auth_token");
+    navigate("/", { replace: true });
+  };
 
   return (
     <header className="topbar">
-      <div className="search">
-        <input type="text" placeholder="Search…" />
-      </div>
-
-      <div className="profile">
+      <div className="profile" ref={avatarRef}>
         <img
           src={avatarUrl ?? avatarDefault}
           alt="Avatar"
           className="topbar-avatar"
+          onClick={handleAvatarToggle}
         />
-        <span className="username">{username}</span>
+        <span className="username" onClick={handleAvatarToggle}>
+          {username}
+        </span>
+
+        {avatarOpen && (
+          <div className="avatar-dropdown">
+            <button
+              onClick={() => {
+                setAvatarOpen(false);
+                navigate("/account");
+              }}
+            >
+              Perfil
+            </button>
+            <button className="danger" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        )}
 
         <svg
-          onClick={onBellClick}
+          ref={bellRef}
+          onClick={handleBellToggle}
           className={`bell-icon ${bellGlow ? "glow" : ""}`}
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill={BRAND}
-          style={{ cursor: "pointer", marginLeft: "0.5rem", width: 20, height: 20 }}
         >
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
 
         {notifOpen && (
-          <div
-            className="notifications-dropdown"
-            style={
-              notifications.length > maxItemsVisible
-                ? { maxHeight: `${dropdownMaxH}px`, overflowY: "auto" }
-                : undefined
-            }
-          >
+          <div className="notifications-dropdown" ref={notifRef}>
             <h4>Notifications</h4>
             <div className="notifications-list">
               {notifications.length === 0 ? (
-                <p style={{ padding: "1rem" }}>No new notifications</p>
+                <p style={{ padding: "1rem", color: "#333" }}>
+                  No new notifications
+                </p>
               ) : (
                 notifications.map((n) => (
                   <div className="notification-item" key={n.id}>

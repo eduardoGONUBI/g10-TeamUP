@@ -3,11 +3,11 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import App from "./App";                         // login
-import ResetPassword from "./ResetPassword";     // recuperação de password
-import Dashboard from "./Dashboard";             // página /dashboard já existente
+import App from "./UserManagement/Login";                         // login
+import ResetPassword from "./UserManagement/ResetPassword";     // recuperação de password
+import Dashboard from "./Dashboard";             // dashboard 
 
-import RequireAuth from "./RequireAuth";         // protecção
+import RequireAuth from "./UserManagement/RequireAuth";         // protecção
 import Layout from "./components/Layout"; // sidebar + topbar + <Outlet />
 import MyActivities from "./Events/ActivitiesList";
 import EventDetails from "./Events/EventDetails";
@@ -16,7 +16,11 @@ import CreateEvent from "./Events/CreateEvent";
 import Account from "./Perfil/Perfil"
 import UserProfile from "./Perfil/userProfile";
 
-import "./index.css";
+import ChangePassword from "./UserManagement/ChangePassword";
+import ChangeEmail from "./UserManagement/ChangeEmail";
+import DeleteAccountPage from "./UserManagement/DeleteAccount";
+
+import "./main.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -41,6 +45,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/events/create" element={<CreateEvent />} />
           <Route path="/account" element={<Account />} />
           <Route path="/profile/:id" element={<UserProfile />} />
+          <Route path="/change-password" element={<ChangePassword />} />
+          +         <Route path="/change-email" element={<ChangeEmail />} />
+          <Route path="/delete-account" element={<DeleteAccountPage />} />
 
         </Route>
 
