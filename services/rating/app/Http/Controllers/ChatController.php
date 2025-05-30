@@ -79,169 +79,169 @@ class ChatController extends Controller
     }
 
     /**
- * Listen to the event_concluded queue and persist
- * “{event name} – concluded” into event_user.
- *
- * This mirrors listenRabbitMQ() but uses a different queue
- * and rewrites the message before saving.
- */
-public function listenEventConcludedQueue()
-{
-    $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
-    $rabbitmqPort = env('RABBITMQ_PORT', 5672);
-    $rabbitmqUser = env('RABBITMQ_USER', 'guest');
-    $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
-    $queueName = 'rating_event_concluded';            // <── new queue
+     * Listen to the event_concluded queue and persist
+     * “{event name} – concluded” into event_user.
+     *
+     * This mirrors listenRabbitMQ() but uses a different queue
+     * and rewrites the message before saving.
+     */
+    public function listenEventConcludedQueue()
+    {
+        $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
+        $rabbitmqPort = env('RABBITMQ_PORT', 5672);
+        $rabbitmqUser = env('RABBITMQ_USER', 'guest');
+        $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
+        $queueName = 'rating_event_concluded';            // <── new queue
 
-    try {
-        $connection = new AMQPStreamConnection($rabbitmqHost, $rabbitmqPort, $rabbitmqUser, $rabbitmqPassword);
-        $channel    = $connection->channel();
-        $channel->queue_declare($queueName, false, true, false, false);
-        $channel->basic_qos(null, 1, null);
+        try {
+            $connection = new AMQPStreamConnection($rabbitmqHost, $rabbitmqPort, $rabbitmqUser, $rabbitmqPassword);
+            $channel = $connection->channel();
+            $channel->queue_declare($queueName, false, true, false, false);
+            $channel->basic_qos(null, 1, null);
 
-        $callback = function (AMQPMessage $msg) {
-            $data = json_decode($msg->body, true);
+            $callback = function (AMQPMessage $msg) {
+                $data = json_decode($msg->body, true);
 
-            // We want to display:  “<event name> – concluded”
-            $displayText = ($data['event_name'] ?? 'Event') . ' - concluded';
+                // We want to display:  “<event name> – concluded”
+                $displayText = ($data['event_name'] ?? 'Event') . ' - concluded';
 
-            EventUser::create([
-                'event_id'   => $data['event_id'],
-                'event_name' => $data['event_name'],
-                'user_id'    => $data['user_id'] ?? null,
-                'user_name'  => $data['user_name'] ?? null,
-                'message'    => $displayText,
+                EventUser::create([
+                    'event_id' => $data['event_id'],
+                    'event_name' => $data['event_name'],
+                    'user_id' => $data['user_id'] ?? null,
+                    'user_name' => $data['user_name'] ?? null,
+                    'message' => $displayText,
+                ]);
+
+                \Log::info('rating_event_concluded consumed', $data);
+                $msg->ack();
+            };
+
+            $channel->basic_consume($queueName, '', false, false, false, false, $callback);
+
+            while ($channel->is_consuming()) {
+                $channel->wait();
+            }
+
+            $channel->close();
+            $connection->close();
+        } catch (\Exception $e) {
+            \Log::error('Error in listenEventConcludedQueue:', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Send a message in an event chat.
+     */
+    /**
+     * Send a message in an event chat.
+     */
+    public function sendMessage(Request $request, $id)
+    {
+        try {
+            // Validate the token
+            $token = $this->validateToken($request);
+
+            // Parse the token to get the user info
+            $payload = JWTAuth::setToken($token)->getPayload();
+            $userId = $payload->get('sub');
+            $userName = $payload->get('name');
+
+            // Validate the message input
+            $validatedData = $request->validate([
+                'message' => 'required|string',
             ]);
 
-            \Log::info('rating_event_concluded consumed', $data);
-            $msg->ack();
-        };
+            // Check if the user is participating in the event
+            $isParticipating = EventUser::where('event_id', $id)
+                ->where('user_id', $userId)
+                ->exists();
 
-        $channel->basic_consume($queueName, '', false, false, false, false, $callback);
+            if (!$isParticipating) {
+                \Log::warning('Unauthorized attempt to send a message to an event:', [
+                    'user_id' => $userId,
+                    'event_id' => $id,
+                ]);
+                return response()->json(['error' => 'Unauthorized: User is not participating in this event'], 403);
+            }
 
-        while ($channel->is_consuming()) {
-            $channel->wait();
-        }
-
-        $channel->close();
-        $connection->close();
-    } catch (\Exception $e) {
-        \Log::error('Error in listenEventConcludedQueue:', ['error' => $e->getMessage()]);
-    }
-}
-
-/**
- * Send a message in an event chat.
- */
-/**
- * Send a message in an event chat.
- */
-public function sendMessage(Request $request, $id)
-{
-    try {
-        // Validate the token
-        $token = $this->validateToken($request);
-
-        // Parse the token to get the user info
-        $payload = JWTAuth::setToken($token)->getPayload();
-        $userId = $payload->get('sub');
-        $userName = $payload->get('name');
-
-        // Validate the message input
-        $validatedData = $request->validate([
-            'message' => 'required|string',
-        ]);
-
-        // Check if the user is participating in the event
-        $isParticipating = EventUser::where('event_id', $id)
-            ->where('user_id', $userId)
-            ->exists();
-
-        if (!$isParticipating) {
-            \Log::warning('Unauthorized attempt to send a message to an event:', [
-                'user_id' => $userId,
+            // Store the message in the event_user table
+            $messageData = [
                 'event_id' => $id,
-            ]);
-            return response()->json(['error' => 'Unauthorized: User is not participating in this event'], 403);
+                'event_name' => "Evento $id",
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'message' => $validatedData['message'],
+            ];
+
+            EventUser::create($messageData);
+
+            // Fetch all unique participants of the event
+            $eventParticipants = EventUser::where('event_id', $id)
+                ->distinct()
+                ->get(['user_id', 'user_name']);
+
+            // Prepare the notification message with distinct participants
+            $notificationMessage = [
+                'type' => 'new_message',
+                'event_id' => $id,
+                'event_name' => "Evento $id",
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'message' => $validatedData['message'],
+                'timestamp' => now()->toISOString(),
+                'participants' => $eventParticipants->toArray(),
+            ];
+
+            // Publish the message to the RabbitMQ queue named 'notification'
+            $this->publishToRabbitMQ('notification', json_encode($notificationMessage));
+
+            return response()->json(['status' => 'Message sent successfully'], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation Error',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Error in sendMessage:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json(['error' => $e->getMessage()], 401);
         }
-
-        // Store the message in the event_user table
-        $messageData = [
-            'event_id'   => $id,
-            'event_name' => "Evento $id",
-            'user_id'    => $userId,
-            'user_name'  => $userName,
-            'message'    => $validatedData['message'],
-        ];
-
-        EventUser::create($messageData);
-
-        // Fetch all unique participants of the event
-        $eventParticipants = EventUser::where('event_id', $id)
-            ->distinct()
-            ->get(['user_id', 'user_name']);
-
-        // Prepare the notification message with distinct participants
-        $notificationMessage = [
-            'type'        => 'new_message',
-            'event_id'    => $id,
-            'event_name'  => "Evento $id",
-            'user_id'     => $userId,
-            'user_name'   => $userName,
-            'message'     => $validatedData['message'],
-            'timestamp'   => now()->toISOString(),
-            'participants'=> $eventParticipants->toArray(),
-        ];
-
-        // Publish the message to the RabbitMQ queue named 'notification'
-        $this->publishToRabbitMQ('notification', json_encode($notificationMessage));
-
-        return response()->json(['status' => 'Message sent successfully'], 201);
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return response()->json([
-            'message' => 'Validation Error',
-            'errors' => $e->errors(),
-        ], 422);
-    } catch (\Exception $e) {
-        \Log::error('Error in sendMessage:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-        return response()->json(['error' => $e->getMessage()], 401);
     }
-}
 
 
-/**
- * Publish a message to RabbitMQ.
- */
-private function publishToRabbitMQ($queueName, $messageBody)
-{
-    $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
-    $rabbitmqPort = env('RABBITMQ_PORT', 5672);
-    $rabbitmqUser = env('RABBITMQ_USER', 'guest');
-    $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
+    /**
+     * Publish a message to RabbitMQ.
+     */
+    private function publishToRabbitMQ($queueName, $messageBody)
+    {
+        $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
+        $rabbitmqPort = env('RABBITMQ_PORT', 5672);
+        $rabbitmqUser = env('RABBITMQ_USER', 'guest');
+        $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
 
-    try {
-        // Connect to RabbitMQ
-        $connection = new AMQPStreamConnection($rabbitmqHost, $rabbitmqPort, $rabbitmqUser, $rabbitmqPassword);
-        $channel = $connection->channel();
+        try {
+            // Connect to RabbitMQ
+            $connection = new AMQPStreamConnection($rabbitmqHost, $rabbitmqPort, $rabbitmqUser, $rabbitmqPassword);
+            $channel = $connection->channel();
 
-        // Declare the queue to ensure it exists
-        $channel->queue_declare($queueName, false, true, false, false);
+            // Declare the queue to ensure it exists
+            $channel->queue_declare($queueName, false, true, false, false);
 
-        // Create the message
-        $msg = new AMQPMessage($messageBody);
+            // Create the message
+            $msg = new AMQPMessage($messageBody);
 
-        // Publish the message to the specified queue
-        $channel->basic_publish($msg, '', $queueName);
+            // Publish the message to the specified queue
+            $channel->basic_publish($msg, '', $queueName);
 
-        // Close the channel and connection
-        $channel->close();
-        $connection->close();
+            // Close the channel and connection
+            $channel->close();
+            $connection->close();
 
-        \Log::info('Message published to RabbitMQ:', ['queue' => $queueName, 'message' => $messageBody]);
-    } catch (\Exception $e) {
-        \Log::error('Error publishing message to RabbitMQ:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            \Log::info('Message published to RabbitMQ:', ['queue' => $queueName, 'message' => $messageBody]);
+        } catch (\Exception $e) {
+            \Log::error('Error publishing message to RabbitMQ:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+        }
     }
-}
 
 
 
@@ -282,231 +282,233 @@ private function publishToRabbitMQ($queueName, $messageBody)
     }
 
     /**
- * Return the list of events that have been concluded
- * and in which the authenticated user took part.
- *
- * GET /concludedEvents
- */
-public function listConcludedEvents(Request $request)
-{
-    try {
-        // ─── Auth ────────────────────────────────────────────────────────────────
-        $token   = $this->validateToken($request);
-        $userId  = JWTAuth::setToken($token)->getPayload()->get('sub');
+     * Return the list of events that have been concluded
+     * and in which the authenticated user took part.
+     *
+     * GET /concludedEvents
+     */
+    public function listConcludedEvents(Request $request)
+    {
+        try {
+            // ─── Auth ────────────────────────────────────────────────────────────────
+            $token = $this->validateToken($request);
+            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-        // ─── Pull distinct “‑ concluded” records for this user ───────────────────
-        $concluded = EventUser::where('user_id', $userId)
-            ->where('message', 'like', '%- concluded')   // stored by the consumer
-            ->orderByDesc('created_at')
-            ->get(['event_id', 'event_name', 'created_at'])
-            ->unique('event_id')
-            ->values();                                  // re‑index for clean JSON
+            // ─── Pull distinct “‑ concluded” records for this user ───────────────────
+            $concluded = EventUser::where('user_id', $userId)
+                ->where('message', 'like', '%- concluded')   // stored by the consumer
+                ->orderByDesc('created_at')
+                ->get(['event_id', 'event_name', 'created_at'])
+                ->unique('event_id')
+                ->values();                                  // re‑index for clean JSON
 
-        return response()->json(['concluded_events' => $concluded], 200);
+            return response()->json(['concluded_events' => $concluded], 200);
 
-    } catch (\Exception $e) {
-        \Log::error('Error in listConcludedEvents:', ['error' => $e->getMessage()]);
-        return response()->json(['error' => $e->getMessage()], 401);
+        } catch (\Exception $e) {
+            \Log::error('Error in listConcludedEvents:', ['error' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
     }
-}
 
-/**
- * Let a participant rate another participant (1‑5) after the event is concluded.
- *
- * POST /events/{event_id}/rate
- * Body: { "user_id": 123, "rating": 4 }
- */
-public function rateUser(Request $request, $event_id)
-{
-    try {
-        // ─── Auth & input ────────────────────────────────────────────────────
-        $token   = $this->validateToken($request);
-        $raterId = JWTAuth::setToken($token)->getPayload()->get('sub');
+    /**
+     * Let a participant rate another participant (1‑5) after the event is concluded.
+     *
+     * POST /events/{event_id}/rate
+     * Body: { "user_id": 123, "rating": 4 }
+     */
+    public function rateUser(Request $request, $event_id)
+    {
+        try {
+            // ─── Auth & input ────────────────────────────────────────────────────
+            $token = $this->validateToken($request);
+            $raterId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-        $validated = $request->validate([
-            'user_id' => 'required|integer',
-            'rating'  => 'required|integer|min:1|max:5',
-        ]);
-        $ratedId = (int) $validated['user_id'];
+            $validated = $request->validate([
+                'user_id' => 'required|integer',
+                'rating' => 'required|integer|min:1|max:5',
+            ]);
+            $ratedId = (int) $validated['user_id'];
 
-        if ($ratedId === (int) $raterId) {
-            return response()->json(['error' => 'You cannot rate yourself'], 400);
-        }
+            if ($ratedId === (int) $raterId) {
+                return response()->json(['error' => 'You cannot rate yourself'], 400);
+            }
 
-        // ─── Event must be concluded ────────────────────────────────────────
-        $isConcluded = EventUser::where('event_id', $event_id)
-            ->where('message', 'like', '%- concluded')
-            ->exists();
+            // ─── Event must be concluded ────────────────────────────────────────
+            $isConcluded = EventUser::where('event_id', $event_id)
+                ->where('message', 'like', '%- concluded')
+                ->exists();
 
-        if (!$isConcluded) {
-            return response()->json(['error' => 'Event is not concluded yet'], 400);
-        }
+            if (!$isConcluded) {
+                return response()->json(['error' => 'Event is not concluded yet'], 400);
+            }
 
-        // ─── Both users must have participated ──────────────────────────────
-        $participants = EventUser::where('event_id', $event_id)
-            ->whereIn('user_id', [$raterId, $ratedId])
-            ->pluck('user_id')
-            ->all();
+            // ─── Both users must have participated ──────────────────────────────
+            $participants = EventUser::where('event_id', $event_id)
+                ->whereIn('user_id', [$raterId, $ratedId])
+                ->pluck('user_id')
+                ->all();
 
-        if (!in_array($raterId, $participants) || !in_array($ratedId, $participants)) {
-            return response()->json(['error' => 'Both users must be participants of this event'], 403);
-        }
+            if (!in_array($raterId, $participants) || !in_array($ratedId, $participants)) {
+                return response()->json(['error' => 'Both users must be participants of this event'], 403);
+            }
 
-        // ─── Prevent double‑rating ──────────────────────────────────────────
-        $alreadyRated = EventRating::where([
-            'event_id' => $event_id,
-            'rater_id' => $raterId,
-            'rated_id' => $ratedId,
-        ])->exists();
+            // ─── Prevent double‑rating ──────────────────────────────────────────
+            $alreadyRated = EventRating::where([
+                'event_id' => $event_id,
+                'rater_id' => $raterId,
+                'rated_id' => $ratedId,
+            ])->exists();
 
-        if ($alreadyRated) {
-            return response()->json(['error' => 'You have already rated this user for this event'], 400);
-        }
+            if ($alreadyRated) {
+                return response()->json(['error' => 'You have already rated this user for this event'], 400);
+            }
 
-        // ─── Store individual rating ───────────────────────────────────────
-        EventRating::create([
-            'event_id' => $event_id,
-            'rater_id' => $raterId,
-            'rated_id' => $ratedId,
-            'rating'   => $validated['rating'],
-        ]);
-
-        // ─── Recalculate per‑event average ─────────────────────────────────
-        $eventAvg = EventRating::where('event_id', $event_id)
-            ->where('rated_id', $ratedId)
-            ->avg('rating');
-
-        EventUser::where('event_id', $event_id)
-            ->where('user_id', $ratedId)
-            ->update(['rating' => $eventAvg]);
-
-        // ─── Recalculate GLOBAL average in user_averages table ─────────────
-        $stats = EventRating::selectRaw('COUNT(*) as cnt, AVG(rating) as avg')
-            ->where('rated_id', $ratedId)
-            ->first();
-
-        UserAverage::updateOrCreate(
-            ['user_id' => $ratedId],
-            ['average' => $stats->avg, 'ratings_count' => $stats->cnt]
-        );
-
-        return response()->json(['message' => 'Rating submitted'], 200);
-
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return response()->json([
-            'message' => 'Validation error',
-            'errors'  => $e->errors(),
-        ], 422);
-    } catch (\Exception $e) {
-        \Log::error('Error in rateUser:', ['error' => $e->getMessage()]);
-        return response()->json(['error' => $e->getMessage()], 500);
-    }
-}
-
-/**
- * Return a user’s global average rating.
- *
- * GET /userAverage/{id}
- */
-public function showUserAverage($id)
-{
-    $avg = \App\Models\UserAverage::where('user_id', $id)->first();
-
-    return response()->json([
-        'user_id'        => $id,
-        'average_rating' => $avg->average ?? null,
-        'ratings_count'  => $avg->ratings_count ?? 0,
-    ], 200);
-}
-
-/**
- * POST /events/{event_id}/feedback
- * Body: { "user_id": 42, "attribute": "good_teammate" }
- *
- * Positive attributes:  good_teammate, friendly, team_player   (+3)
- * Negative attributes:  toxic, bad_sport, afk                 (–5)
- */
-public function giveFeedback(Request $request, $event_id)
-{
-    try {
-        // 🔐 Auth
-        $token   = $this->validateToken($request);
-        $raterId = JWTAuth::setToken($token)->getPayload()->get('sub');
-
-        // 🎯 Validate payload
-        $validated = $request->validate([
-            'user_id'   => 'required|integer',
-            'attribute' => 'required|string',
-        ]);
-        $ratedId   = (int) $validated['user_id'];
-        $attribute = $validated['attribute'];
-
-        if ($ratedId === (int) $raterId) {
-            return response()->json(['error' => 'You cannot rate yourself'], 400);
-        }
-
-        // Allowed attributes
-        $pos = ['good_teammate','friendly','team_player'];
-        $neg = ['toxic','bad_sport','afk'];
-
-        if (!in_array($attribute, array_merge($pos, $neg))) {
-            return response()->json(['error' => 'Unknown attribute'], 422);
-        }
-        $delta = in_array($attribute, $pos) ? 3 : -5;
-
-        // Event must be concluded
-        $isConcluded = EventUser::where('event_id', $event_id)
-            ->where('message', 'like', '%- concluded')
-            ->exists();
-        if (!$isConcluded) {
-            return response()->json(['error' => 'Event not concluded'], 400);
-        }
-
-        // Both users must have participated
-        $participants = EventUser::where('event_id', $event_id)
-            ->whereIn('user_id', [$raterId, $ratedId])
-            ->pluck('user_id')
-            ->all();
-        if (!in_array($raterId, $participants) || !in_array($ratedId, $participants)) {
-            return response()->json(['error' => 'Both users must participate'], 403);
-        }
-
-        // Prevent duplicate tag for the same attribute
-        $dup = EventFeedback::where([
-            'event_id'  => $event_id,
-            'rater_id'  => $raterId,
-            'rated_id'  => $ratedId,
-            'attribute' => $attribute,
-        ])->exists();
-        if ($dup) {
-            return response()->json(['error' => 'Already given this feedback'], 400);
-        }
-
-        // ── Store feedback & atomically update reputation + badge counter ────
-        DB::transaction(function () use ($event_id, $raterId, $ratedId, $attribute, $delta) {
-
-            // 1) Persist feedback row
-            EventFeedback::create([
-                'event_id'  => $event_id,
-                'rater_id'  => $raterId,
-                'rated_id'  => $ratedId,
-                'attribute' => $attribute,
-                'delta'     => $delta,
+            // ─── Store individual rating ───────────────────────────────────────
+            EventRating::create([
+                'event_id' => $event_id,
+                'rater_id' => $raterId,
+                'rated_id' => $ratedId,
+                'rating' => $validated['rating'],
             ]);
 
-            // 2) Map attribute → column
-            $column = match ($attribute) {
-                'good_teammate' => 'good_teammate_count',
-                'friendly'      => 'friendly_count',
-                'team_player'   => 'team_player_count',
-                'toxic'         => 'toxic_count',
-                'bad_sport'     => 'bad_sport_count',
-                'afk'           => 'afk_count',
-            };
+            // ─── Recalculate per‑event average ─────────────────────────────────
+            $eventAvg = EventRating::where('event_id', $event_id)
+                ->where('rated_id', $ratedId)
+                ->avg('rating');
 
-            // 3) Atomic insert‑or‑update with clamp and counter++
-            DB::statement(
-                "
+            EventUser::where('event_id', $event_id)
+                ->where('user_id', $ratedId)
+                ->update(['rating' => $eventAvg]);
+
+            // ─── Recalculate GLOBAL average in user_averages table ─────────────
+            $stats = EventRating::selectRaw('COUNT(*) as cnt, AVG(rating) as avg')
+                ->where('rated_id', $ratedId)
+                ->first();
+
+            UserAverage::updateOrCreate(
+                ['user_id' => $ratedId],
+                ['average' => $stats->avg, 'ratings_count' => $stats->cnt]
+            );
+
+            return response()->json(['message' => 'Rating submitted'], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Error in rateUser:', ['error' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Return a user’s global average rating.
+     *
+     * GET /userAverage/{id}
+     */
+    public function showUserAverage($id)
+    {
+        $avg = \App\Models\UserAverage::where('user_id', $id)->first();
+
+        return response()->json([
+            'user_id' => $id,
+            'average_rating' => $avg->average ?? null,
+            'ratings_count' => $avg->ratings_count ?? 0,
+        ], 200);
+    }
+
+    /**
+     * POST /events/{event_id}/feedback
+     * Body: { "user_id": 42, "attribute": "good_teammate" }
+     *
+     * Positive attributes:  good_teammate, friendly, team_player   (+3)
+     * Negative attributes:  toxic, bad_sport, afk                 (–5)
+     */
+    public function giveFeedback(Request $request, $event_id)
+    {
+        try {
+            // 🔐 Auth
+            $token = $this->validateToken($request);
+            $raterId = JWTAuth::setToken($token)->getPayload()->get('sub');
+
+            
+
+            // 🎯 Validate payload
+            $validated = $request->validate([
+                'user_id' => 'required|integer',
+                'attribute' => 'required|string',
+            ]);
+            $ratedId = (int) $validated['user_id'];
+            $attribute = $validated['attribute'];
+
+            if ($ratedId === (int) $raterId) {
+                return response()->json(['error' => 'You cannot rate yourself'], 400);
+            }
+
+            // Allowed attributes
+            $pos = ['good_teammate', 'friendly', 'team_player'];
+            $neg = ['toxic', 'bad_sport', 'afk'];
+
+            if (!in_array($attribute, array_merge($pos, $neg))) {
+                return response()->json(['error' => 'Unknown attribute'], 422);
+            }
+            $delta = in_array($attribute, $pos) ? 3 : -5;
+
+            // Event must be concluded
+            $isConcluded = EventUser::where('event_id', $event_id)
+                ->where('message', 'like', '%- concluded')
+                ->exists();
+            if (!$isConcluded) {
+                return response()->json(['error' => 'Event not concluded'], 400);
+            }
+
+           /* // Both users must have participated
+            $participants = EventUser::where('event_id', $event_id)
+                ->whereIn('user_id', [$raterId, $ratedId])
+                ->pluck('user_id')
+                ->all();
+            if (!in_array($raterId, $participants) || !in_array($ratedId, $participants)) {
+                return response()->json(['error' => 'Both users must participate'], 403);
+            }*/
+
+            // Prevent duplicate tag for the same attribute
+            $dup = EventFeedback::where([
+                'event_id' => $event_id,
+                'rater_id' => $raterId,
+                'rated_id' => $ratedId,
+                'attribute' => $attribute,
+            ])->exists();
+            if ($dup) {
+                return response()->json(['error' => 'Already given this feedback'], 400);
+            }
+
+            // ── Store feedback & atomically update reputation + badge counter ────
+            DB::transaction(function () use ($event_id, $raterId, $ratedId, $attribute, $delta) {
+
+                // 1) Persist feedback row
+                EventFeedback::create([
+                    'event_id' => $event_id,
+                    'rater_id' => $raterId,
+                    'rated_id' => $ratedId,
+                    'attribute' => $attribute,
+                    'delta' => $delta,
+                ]);
+
+                // 2) Map attribute → column
+                $column = match ($attribute) {
+                    'good_teammate' => 'good_teammate_count',
+                    'friendly' => 'friendly_count',
+                    'team_player' => 'team_player_count',
+                    'toxic' => 'toxic_count',
+                    'bad_sport' => 'bad_sport_count',
+                    'afk' => 'afk_count',
+                };
+
+                // 3) Atomic insert‑or‑update with clamp and counter++
+                DB::statement(
+                    "
                 INSERT INTO user_reputations
                     (user_id, score, {$column}, created_at, updated_at)
                 VALUES
@@ -516,64 +518,73 @@ public function giveFeedback(Request $request, $event_id)
                     {$column}  = {$column} + 1,
                     updated_at = NOW()
                 ",
-                [$ratedId, $delta, $delta]    // 3 placeholders
-            );
-        });
+                    [$ratedId, $delta, $delta]    // 3 placeholders
+                );
+            });
 
-        return response()->json(['message' => 'Feedback submitted', 'delta' => $delta], 200);
+            return response()->json(['message' => 'Feedback submitted', 'delta' => $delta], 200);
 
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return response()->json(['message' => 'Validation error', 'errors' => $e->errors()], 422);
-    } catch (\Exception $e) {
-        \Log::error('giveFeedback error', ['error' => $e->getMessage()]);
-        return response()->json(['error' => $e->getMessage()], 500);
-    }
-}
-
-private function resolveBadges($rep)
-{
-    if (!$rep) return [];
-
-    $badges = [];
-
-    if ($rep->good_teammate_count >= 5)  $badges[] = 'Good Teammate';
-    if ($rep->friendly_count >= 5)       $badges[] = 'Friendly Player';
-    if ($rep->team_player_count >= 5)    $badges[] = 'Team Player';
-
-    if ($rep->toxic_count >= 5)          $badges[] = 'Watchlisted';
-    if ($rep->afk_count >= 3)            $badges[] = 'Frequent AFK';
-    if ($rep->bad_sport_count >= 3)      $badges[] = 'Bad Sport';
-
-    if ($rep->score >= 90)               $badges[] = 'Elite Reputation';
-    if ($rep->score <= 40)               $badges[] = 'Needs Improvement';
-
-    return $badges;
-}
-
-public function showReputation($id)
-{
-    $rep = \App\Models\UserReputation::find($id);
-
-    $data = [
-        'user_id' => $id,
-        'score'   => $rep->score ?? 70,
-    ];
-
-    if ($rep) {
-        $data += $rep->only([
-            'good_teammate_count',
-            'friendly_count',
-            'team_player_count',
-            'toxic_count',
-            'bad_sport_count',
-            'afk_count',
-        ]);
-
-        $data['badges'] = $this->resolveBadges($rep);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => 'Validation error', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('giveFeedback error', ['error' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
-    return response()->json($data, 200);
-}
+    private function resolveBadges($rep)
+    {
+        if (!$rep)
+            return [];
+
+        $badges = [];
+
+        if ($rep->good_teammate_count >= 5)
+            $badges[] = 'Good Teammate';
+        if ($rep->friendly_count >= 5)
+            $badges[] = 'Friendly Player';
+        if ($rep->team_player_count >= 5)
+            $badges[] = 'Team Player';
+
+        if ($rep->toxic_count >= 5)
+            $badges[] = 'Watchlisted';
+        if ($rep->afk_count >= 3)
+            $badges[] = 'Frequent No-show';
+        if ($rep->bad_sport_count >= 3)
+            $badges[] = 'Bad Sport';
+
+        if ($rep->score >= 90)
+            $badges[] = 'Elite Reputation';
+        if ($rep->score <= 40)
+            $badges[] = 'Needs Improvement';
+
+        return $badges;
+    }
+
+    public function showReputation($id)
+    {
+        $rep = \App\Models\UserReputation::find($id);
+
+        $data = [
+            'user_id' => $id,
+            'score' => $rep->score ?? 70,
+        ];
+
+        if ($rep) {
+            $data += $rep->only([
+                'good_teammate_count',
+                'friendly_count',
+                'team_player_count',
+                'toxic_count',
+                'bad_sport_count',
+                'afk_count',
+            ]);
+
+            $data['badges'] = $this->resolveBadges($rep);
+        }
+
+        return response()->json($data, 200);
+    }
 
 
     /**

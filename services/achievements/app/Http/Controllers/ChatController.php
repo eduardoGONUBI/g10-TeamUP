@@ -24,54 +24,72 @@ class ChatController extends Controller
     /* ---------------------------------------------------------------------
      |  Queues – event_joined  (unchanged)
      * ------------------------------------------------------------------ */
-    public function listenRabbitMQ()
-    {
-        $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
-        $rabbitmqPort = env('RABBITMQ_PORT', 5672);
-        $rabbitmqUser = env('RABBITMQ_USER', 'guest');
-        $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
-        $queueName = env('RABBITMQ_QUEUE', 'event_joined');
+ public function listenRabbitMQ()
+{
+    $rabbitmqHost     = env('RABBITMQ_HOST', 'rabbitmq');
+    $rabbitmqPort     = env('RABBITMQ_PORT', 5672);
+    $rabbitmqUser     = env('RABBITMQ_USER', 'guest');
+    $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
 
-        try {
-            $connection = new AMQPStreamConnection(
-                $rabbitmqHost,
-                $rabbitmqPort,
-                $rabbitmqUser,
-                $rabbitmqPassword
-            );
-            $channel = $connection->channel();
+    // Consumir ambas as filas em que o EventController publica
+    $queues = [
+        env('RABBITMQ_QUEUE', 'event_joined'),
+        'chat_event_join-leave',
+    ];
+
+    try {
+        $connection = new AMQPStreamConnection(
+            $rabbitmqHost,
+            $rabbitmqPort,
+            $rabbitmqUser,
+            $rabbitmqPassword
+        );
+        $channel = $connection->channel();
+
+        foreach ($queues as $queueName) {
+            // Garante que existe e é durável
             $channel->queue_declare($queueName, false, true, false, false);
             $channel->basic_qos(null, 1, null);
 
-            $callback = function ($msg) {
-                echo 'Message received: ', $msg->body, "\n";
-                \Log::info('Message received by RabbitMQ listener:', ['message' => $msg->body]);
+            $channel->basic_consume(
+                $queueName,
+                '',
+                false,
+                false,
+                false,
+                false,
+                function (AMQPMessage $msg) {
+                    \Log::info("Join message received on {$msg->getRoutingKey()}:", ['body' => $msg->body]);
+                    $data = json_decode($msg->body, true);
 
-                $data = json_decode($msg->body, true);
+                    // Insere (ou ignora se já existir) na tabela event_user
+                    EventUser::firstOrCreate(
+                        [
+                            'event_id' => $data['event_id'],
+                            'user_id'  => $data['user_id'],
+                        ],
+                        [
+                            'event_name' => $data['event_name'],
+                            'user_name'  => $data['user_name'],
+                            'message'    => $data['message'],
+                        ]
+                    );
 
-                EventUser::create([
-                    'event_id'   => $data['event_id'],
-                    'event_name' => $data['event_name'],
-                    'user_id'    => $data['user_id'],
-                    'user_name'  => $data['user_name'],
-                    'message'    => $data['message'],
-                ]);
-
-                $msg->ack();
-            };
-
-            $channel->basic_consume($queueName, '', false, false, false, false, $callback);
-
-            while ($channel->is_consuming()) {
-                $channel->wait();
-            }
-
-            $channel->close();
-            $connection->close();
-        } catch (\Exception $e) {
-            \Log::error('Error in listenRabbitMQ:', ['error' => $e->getMessage()]);
+                    $msg->ack();
+                }
+            );
         }
+
+        while ($channel->is_consuming()) {
+            $channel->wait();
+        }
+
+        $channel->close();
+        $connection->close();
+    } catch (\Exception $e) {
+        \Log::error('Error in listenRabbitMQ:', ['error' => $e->getMessage()]);
     }
+}
 
     /* ---------------------------------------------------------------------
      |  Queue – event_concluded  (unchanged except milestone logic)
@@ -153,18 +171,22 @@ class ChatController extends Controller
         }
     }
 
-    /* ---------------------------------------------------------------------
-     |  Public profile endpoint  (unchanged)
-     * ------------------------------------------------------------------ */
-    public function getProfile($id)
-    {
-        $stat = UserStat::find($id);
+/* -----------------------------------------------------------------
+ |  Public profile endpoint  – self–healing
+ * ----------------------------------------------------------------*/
+public function getProfile($id)
+{
+    // if the user never earned XP we create a blank record on the fly
+    $stat = \App\Models\UserStat::firstOrCreate(
+        ['user_id' => $id],
+        ['xp' => 0, 'level' => 0]
+    );
 
-        return response()->json([
-            'xp'    => $stat->xp    ?? null,
-            'level' => $stat->level ?? null,
-        ], 200);
-    }
+    return response()->json([
+        'xp'    => (int) $stat->xp,
+        'level' => (int) $stat->level,
+    ], 200);
+}
 
     /* ---------------------------------------------------------------------
      |  Achievement resolution – UPDATED (1..5 events)

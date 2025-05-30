@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use Illuminate\Support\Facades\Hash; 
 
 Route::group(['prefix' => 'auth'], function () {
     Route::post('register', [AuthController::class, 'register']);
