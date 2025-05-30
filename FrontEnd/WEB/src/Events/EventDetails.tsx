@@ -83,17 +83,18 @@ const EventDetails: React.FC = () => {
   }
 
   // sport icons map
-  const sportIcons: Record<string, string> = {
-    futebol: FootballIcon,
-    futsal: FutsalIcon,
-    ciclismo: CyclingIcon,
-    surf: SurfIcon,
-    voleibol: VolleyballIcon,
-    basquetebol: BasketballIcon,
-    ténis: TennisIcon,
-    tenis: TennisIcon,
-    andebol: HandballIcon,
-  };
+// map lowercased sport.name → your imported image
+const sportIcons: Record<string, string> = {
+  football:   FootballIcon,
+  futsal:     FutsalIcon,
+  cycling:    CyclingIcon,    
+  cicling:    CyclingIcon,    
+  surf:       SurfIcon,
+  volleyball: VolleyballIcon,
+  basketball: BasketballIcon,
+  tennis:     TennisIcon,
+  handball:   HandballIcon,
+};
 
   // render your sport icon or fallback
   const renderSportIcon = (sportName: string | null) => {
