@@ -199,7 +199,7 @@ private function resolveUserAchiAchievements(int $userId): void
 {
     $count = \App\Models\UsersAchi::where('user_id', $userId)->count();
 
-    foreach ([1 => 'first_event', 5 => 'five_events', 10 => 'ten_events', 25 => 'twentyfive_events', 100 => 'hundred_events'] as $threshold => $code) {
+   foreach ([1=>'first_event',2=>'two_events',3=>'three_events',4=>'four_events',5=>'five_events'] as $threshold=>$code){
         if ($count >= $threshold) {
             $this->unlock($userId, $code);
         }
@@ -222,19 +222,19 @@ private function resolveUserAchiAchievements(int $userId): void
  |  XP / LEVEL CONFIG
  * ---------------------------------------------------------------------- */
 
- private const EVENT_XP = 25;          // XP per event concluded
+ private const EVENT_XP = 50;          // XP per event concluded
 
  private const ACHIEVEMENT_XP = [      // XP per achievement unlocked
-     'first_event'       => 50,
-     'five_events'       => 75,
-     'ten_events'        => 100,
-     'twentyfive_events' => 150,
-     'hundred_events'    => 300,
- ];
+    'first_event'  => 25,
+    'two_events'   => 35,
+    'three_events' => 45,
+    'four_events'  => 55,
+    'five_events'  => 65,
+];
  
  // cut-offs for levels  (L0, L1, L2…)
- private const LEVEL_CUTS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600];
- 
+ private const LEVEL_CUTS = [0, 25, 60, 120, 200, 300, 450, 650, 900];
+ //                      Lvl 0  1   2    3    4    5    6    7    8
  private function levelFor(int $xp): int
  {
      foreach (array_reverse(self::LEVEL_CUTS, true) as $level => $cut) {
@@ -264,13 +264,10 @@ private function resolveEventAchievements(int $userId): void
         ->where('message', 'like', '%- concluded')
         ->count();
 
-    $milestones = [
-        1   => 'first_event',
-        5   => 'five_events',
-        10  => 'ten_events',
-        25  => 'twentyfive_events',
-        100 => 'hundred_events',
-    ];
+  $milestones = [
+    1=>'first_event', 2=>'two_events', 3=>'three_events',
+    4=>'four_events', 5=>'five_events',
+];
 
     foreach ($milestones as $threshold => $code) {
         if ($total >= $threshold) {
@@ -353,7 +350,7 @@ private function publishToRabbitMQ($queueName, $messageBody)
 
 public function listAchievements($id)
 {
-    $list = \App\Models\UserAchievement::with('achievement')
+    $list = UserAchievement::with('achievement')
         ->where('user_id', $id)
         ->orderBy('unlocked_at')
         ->get()
@@ -361,7 +358,7 @@ public function listAchievements($id)
             'code'        => $ua->achievement->code,
             'title'       => $ua->achievement->name,
             'description' => $ua->achievement->description,
-            'icon'        => $ua->achievement->icon,
+            'icon'        => url($ua->achievement->icon),
             'unlocked_at' => $ua->unlocked_at,
         ]);
 
