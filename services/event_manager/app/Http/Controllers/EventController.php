@@ -257,56 +257,75 @@ class EventController extends Controller
             'weather'          => $weather,
         ], 200);
     }
-    /**
-     * Fetch events for a user.
-     */
-    public function index(Request $request)
-    {
-        try {
-            $token = $this->validateToken($request);
+/**
+ * GET /api/events
+ *
+ * Retorna apenas os eventos criados pelo utilizador autenticado,
+ * com dados de tempo, localização, participantes e pontuações.
+ */
+public function index(Request $request)
+{
+    try {
+        $token = $this->validateToken($request);
+        $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-            // Get authenticated user ID from token payload
-            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
+        // Buscar apenas eventos criados por este utilizador
+        $events = Event::with('sport')
+            ->where('user_id', $userId)
+            ->get();
 
-            // Fetch only events created by the authenticated user
-            $events = Event::with('sport')
-                ->where('user_id', $userId)
-                ->get();
+        $response = $events->map(function ($event) {
+            // Decodificar weather (JSON ou array)
+            $rawWeather = is_array($event->weather)
+                ? $event->weather
+                : json_decode($event->weather, true) ?? [];
 
-            // Transform and return events with participant ratings
-            $response = $events->map(function ($event) {
-                // Fetch participants and their ratings
-                $participants = DB::table('event_user')
-                    ->where('event_id', $event->id)
-                    ->get(['user_id', 'user_name', 'rating']);
+            $weather = [
+                'app_max_temp' => $rawWeather['app_max_temp'] ?? 'N/A',
+                'app_min_temp' => $rawWeather['app_min_temp'] ?? 'N/A',
+                'temp'         => $rawWeather['temp']      ?? 'N/A',
+                'high_temp'    => $rawWeather['high_temp'] ?? 'N/A',
+                'low_temp'     => $rawWeather['low_temp']  ?? 'N/A',
+                'description'  => $rawWeather['weather']['description'] ?? 'N/A',
+            ];
 
-                return [
-                    'id' => $event->id,
-                    'name' => $event->name,
-                    'sport' => $event->sport->name ?? null,
-                    'date' => $event->date,
-                    'place' => $event->place,
-                    'status' => $event->status,
-                    'max_participants' => $event->max_participants,
-                    'creator' => [
-                        'id' => $event->user_id,
-                        'name' => $event->user_name,
-                    ],
-                    'participants' => $participants->map(function ($participant) {
-                        return [
-                            'id' => $participant->user_id,
-                            'name' => $participant->user_name,
-                            'rating' => $participant->rating,
-                        ];
-                    }),
-                ];
-            });
+            // Obter participantes (excluindo soft-deleted)
+            $participants = DB::table('event_user')
+                ->where('event_id', $event->id)
+                ->whereNull('deleted_at')
+                ->get(['user_id', 'user_name', 'rating'])
+                ->map(function ($p) {
+                    return [
+                        'id'     => $p->user_id,
+                        'name'   => $p->user_name,
+                        'rating' => $p->rating,
+                    ];
+                });
 
-            return response()->json($response, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
-        }
+            return [
+                'id'               => $event->id,
+                'name'             => $event->name,
+                'sport'            => $event->sport->name ?? null,
+                'date'             => $event->date,
+                'place'            => $event->place,
+                'status'           => $event->status,
+                'max_participants' => $event->max_participants,
+                'latitude'         => $event->latitude,
+                'longitude'        => $event->longitude,
+                'creator'          => [
+                    'id'   => $event->user_id,
+                    'name' => $event->user_name,
+                ],
+                'weather'          => $weather,
+                'participants'     => $participants,
+            ];
+        });
+
+        return response()->json($response, 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 401);
     }
+}
 
 
     /**
@@ -355,7 +374,7 @@ class EventController extends Controller
 
 
     /**
-     * Update an event.
+     * //Update an event.
      */
     public function update(Request $request, $id)
     {
