@@ -54,3 +54,9 @@
 
 .info-col .row small,
 .info-col .row span.behaviour-label { color: #777; }
+
+.no-achievements {
+  display: inline-block;
+  color: #777;
+  margin-left: 0.5rem;
+}

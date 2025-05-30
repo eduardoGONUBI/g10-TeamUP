@@ -9,15 +9,15 @@ class SportsTableSeeder extends Seeder
 {
     public function run()
     {
-        DB::table('sports')->insert([
-            ['name' => 'Futebol'],
+           DB::table('sports')->insert([
+            ['name' => 'Football'],
             ['name' => 'Futsal'],
-            ['name' => 'Ciclismo'],
+            ['name' => 'Cycling'],
             ['name' => 'Surf'],
-            ['name' => 'Voleibol'],
-            ['name' => 'Basquetebol'],
-            ['name' => 'Ténis'],
-            ['name' => 'Andebol'],
+            ['name' => 'Volleyball'],
+            ['name' => 'Basketball'],
+            ['name' => 'Tennis'],
+            ['name' => 'Handball'],
         ]);
         
     }

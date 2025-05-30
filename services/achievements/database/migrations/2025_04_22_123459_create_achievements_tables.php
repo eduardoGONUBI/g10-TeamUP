@@ -21,7 +21,9 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id'); // 🔥 just an ID now, no FK
             $table->foreignId('achievement_id')->constrained()->onDelete('cascade');
-            $table->timestamp('unlocked_at');
+             $table->timestamp('unlocked_at')
+              ->nullable()
+              ->useCurrent();
             $table->timestamps();
             $table->unique(['user_id', 'achievement_id']);
         });

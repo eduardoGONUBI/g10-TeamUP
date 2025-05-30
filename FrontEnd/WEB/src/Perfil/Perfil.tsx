@@ -10,6 +10,8 @@ import {
   logout,
 } from "../api/user"
 import "./perfil.css"
+import type { Achievement } from "../api/user"
+
 
 
 
@@ -23,7 +25,7 @@ function behaviourLabel(score: number): string {
 
 export default function Account() {
   const [user, setUser] = useState<any>(null)
-  const [achievements, setAch] = useState<any[]>([])
+  const [achievements, setAch] = useState<Achievement[]>([])
   const [xp, setXp] = useState<number | null>(null)
   const [level, setLevel] = useState<number | null>(null)
   const [reputation, setReputation] = useState<{ score: number; badges: string[] } | null>(null)
@@ -49,14 +51,6 @@ export default function Account() {
 
   if (!user) return <p>A carregar…</p>
 
-  async function handleDelete() {
-    if (!confirm("Eliminar conta permanentemente?")) return
-    await deleteMe()
-    await logout()
-    localStorage.removeItem("auth_token")
-    sessionStorage.removeItem("auth_token")
-    nav("/", { replace: true })
-  }
 
   const badges = reputation?.badges ?? []
 
@@ -87,13 +81,24 @@ export default function Account() {
             {user.sports.map((s: any) => s.name).join(", ") || "—"}
           </div>
 
-          {/* Achievements */}
-          <div className="row achievements">
-            <strong>Achievements</strong>
+           <div className="row achievements">
+            <strong>Achievement</strong>
             <div className="icons">
-              {achievements.map((a) => (
-                <img key={a.code} src={a.icon} title={a.title} alt={a.title} />
-              ))}
+              {achievements.length > 0 ? (
+                (() => {
+                  const a = achievements[achievements.length - 1]  // pega o último desbloqueado
+                  return (
+                    <img
+                      key={a.code}
+                      src={a.icon}
+                      alt={a.title}
+                      title={a.description}   // só descrição no hover
+                    />
+                  )
+                })()
+              ) : (
+                <span className="no-achievements">—</span>
+              )}
             </div>
           </div>
 

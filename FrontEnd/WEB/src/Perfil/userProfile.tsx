@@ -1,3 +1,4 @@
+// src/Account/UserProfile.tsx
 import { useParams, useNavigate } from "react-router-dom"
 import { useEffect, useState } from "react"
 import {
@@ -5,15 +6,15 @@ import {
     fetchAchievements,
     fetchXpLevel,
     fetchReputation,
+    type Achievement,
 } from "../api/user"
 import "./perfil.css"
 import avatarDefault from "../assets/avatar-default.jpg"
 
-
 export default function UserProfile() {
     const { id } = useParams<{ id: string }>()
     const [user, setUser] = useState<any>(null)
-    const [ach, setAch] = useState<any[]>([])
+    const [ach, setAch] = useState<Achievement[]>([])
     const [xp, setXp] = useState<number | null>(null)
     const [lvl, setLvl] = useState<number | null>(null)
     const [rep, setRep] = useState<{ score: number; badges: string[] } | null>(null)
@@ -21,24 +22,25 @@ export default function UserProfile() {
 
     useEffect(() => {
         if (!id) return
-            ; (async () => {
-                const [u, a, p, r] = await Promise.all([
-                    fetchUser(+id),
-                    fetchAchievements(+id),
-                    fetchXpLevel(+id),
-                    fetchReputation(+id),
-                ])
-                setUser(u)
-                setAch(a)
-                setXp(p.xp)
-                setLvl(p.level)
-                setRep(r)
-            })().catch(console.error)
+        ;(async () => {
+            const [u, a, p, r] = await Promise.all([
+                fetchUser(+id),
+                fetchAchievements(+id),
+                fetchXpLevel(+id),
+                fetchReputation(+id),
+            ])
+            setUser(u)
+            setAch(a)
+            setXp(p.xp)
+            setLvl(p.level)
+            setRep(r)
+        })().catch(console.error)
     }, [id])
 
     if (!user) return <p>A carregar…</p>
 
     const badges = rep?.badges ?? []
+    const latest = ach.length > 0 ? ach[ach.length - 1] : null
 
     return (
         <section className="account-page">
@@ -68,9 +70,16 @@ export default function UserProfile() {
                     <div className="row achievements">
                         <strong>Achievements</strong>
                         <div className="icons">
-                            {ach.map((a) => (
-                                <img key={a.code} src={a.icon} title={a.title} />
-                            ))}
+                            {latest ? (
+                                <img
+                                    key={latest.code}
+                                    src={latest.icon}
+                                    alt={latest.title}
+                                    title={latest.description}
+                                />
+                            ) : (
+                                <span className="no-achievements">—</span>
+                            )}
                         </div>
                     </div>
 

@@ -34,18 +34,18 @@ const MyActivities: React.FC = () => {
   const active    = events.filter((e) => e.status === "in progress");
   const concluded = events.filter((e) => e.status === "concluded");
 
-  // map sport name (lowercased) → image import
-  const sportIcons: Record<string,string> = {
-    futebol:     FootballIcon,
-    futsal:      FutsalIcon,
-    ciclismo:    CyclingIcon,
-    surf:        SurfIcon,
-    voleibol:    VolleyballIcon,
-    basquetebol: BasketballIcon,
-    ténis:       TennisIcon,
-    tenis:       TennisIcon,   // fallback without accent
-    andebol:     HandballIcon,
-  };
+// map lowercased sport.name → your imported image
+const sportIcons: Record<string, string> = {
+  football:   FootballIcon,
+  futsal:     FutsalIcon,
+  cycling:    CyclingIcon,    
+  cicling:    CyclingIcon,    
+  surf:       SurfIcon,
+  volleyball: VolleyballIcon,
+  basketball: BasketballIcon,
+  tennis:     TennisIcon,
+  handball:   HandballIcon,
+};
 
   // renders your sport image or a medal fallback
   const renderSportIcon = (sport?: string | null) => {
