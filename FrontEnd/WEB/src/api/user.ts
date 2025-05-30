@@ -16,6 +16,7 @@ export interface User {
 export interface Achievement {
   code: string
   title: string
+  description: string 
   icon: string
   unlocked_at: string
 }
@@ -46,7 +47,7 @@ export async function logout() {
 
 export async function fetchAchievements(id: number): Promise<Achievement[]> {
   const json = await authFetch(`/api/achievements/${id}`)
-  return json.achievements
+  return json.achievements as Achievement[]
 }
 export async function fetchXpLevel(id: number) {
   return authFetch(`/api/profile/${id}`)

@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./EventDetails.css";
+import { fetchXpLevel } from "../api/user";
 
 import avatarDefault from "../assets/avatar-default.jpg";
 import type { Event, Me, Participant } from "../api/event";
@@ -33,6 +34,7 @@ const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [levels, setLevels] = useState<Record<number, number>>({});
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const nav = useNavigate();
@@ -125,17 +127,35 @@ const EventDetails: React.FC = () => {
       .catch(console.error);
   }, [id, token]);
 
-  // 3) load participants
-  useEffect(() => {
-    if (!id || !token) return;
-    fetch(`/api/events/${id}/participants`, {
-      headers: { Authorization: `Bearer ${token}` },
+// 3) load participants
+useEffect(() => {
+  if (!id || !token) return;
+  fetch(`/api/events/${id}/participants`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then((r) => r.json())
+    .then((data: { participants?: Participant[] }) => {
+      // força o tipo de participants
+      const list: Participant[] = data.participants ?? [];
+      setParticipants(list);
+
+      // para cada participante faz fetch do level
+      return Promise.all(
+        list.map((p: Participant) =>
+          fetchXpLevel(p.id).then((pr) => ({ id: p.id, level: pr.level }))
+        )
+      );
     })
-      .then((r) => r.json())
-      .then((data) => setParticipants(data.participants ?? []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [id, token]);
+    .then((arr) => {
+      const map: Record<number, number> = {};
+      arr.forEach(({ id, level }) => {
+        map[id] = level;
+      });
+      setLevels(map);
+    })
+    .catch(console.error)
+    .finally(() => setLoading(false));
+}, [id, token]);
 
   // 4) cancel
   async function cancelEvent() {
@@ -307,41 +327,45 @@ const EventDetails: React.FC = () => {
         💬
       </button>
 
-      <ul className="participants-grid">
-        {participants.map((p) => (
-          <li
-            key={p.id}
-            className="participant"
-            onClick={() => nav(`/profile/${p.id}`)}
-          >
-            <div className="participant-info">
-              <img
-                src={p.avatar_url || avatarDefault}
-                alt={p.name}
-                className="participant-avatar"
-              />
-              <span className="participant-name">{p.name}</span>
-            </div>
-            {p.rating != null && (
-              <span className="participant-rating">⭐{p.rating}</span>
-            )}
-
-            {/* só mostra o botão de kick se o evento NÃO estiver concluído */}
-            {!isDone  && (
-              <button
-                className="kick-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  kickParticipant(p.id);
-                }}
-                title="Remover participante"
-              >
-                ✖
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+<ul className="participants-grid">
+   {participants.map((p) => (
+     <li
+       key={p.id}
+       className="participant-card"
+       onClick={() => nav(`/profile/${p.id}`)}
+     >
+       <div className="avatar-wrapper">
+         <img
+           src={p.avatar_url || avatarDefault}
+           alt={p.name}
+           className="participant-avatar"
+         />
+         {/* badge de nível */}
+         {levels[p.id] != null && (
+           <span className="level-badge">Lvl {levels[p.id]}</span>
+         )}
+       </div>
+       <div className="participant-details">
+         <span className="participant-name">{p.name}</span>
+         {p.rating != null && (
+           <span className="participant-rating">⭐ {p.rating}</span>
+         )}
+       </div>
+       {!isDone && (
+         <button
+           className="kick-btn"
+           onClick={(e) => {
+             e.stopPropagation();
+             kickParticipant(p.id);
+           }}
+           title="Remover participante"
+         >
+           ✖
+         </button>
+       )}
+     </li>
+   ))}
+ </ul>
     </section>
   );
 };
