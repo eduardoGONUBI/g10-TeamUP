@@ -61,9 +61,10 @@ async function authFetch(input: RequestInfo, init: RequestInit = {}) {
   return json
 }
 
-export async function fetchMyEvents(): Promise<Event[]> {
-  return authFetch("/api/events/mine") as Promise<Event[]>
-}
+ export async function fetchMyEvents(): Promise<Event[]> {
+   // returns only the events YOU created 
+   return authFetch("/api/events") as Promise<Event[]>;
+ }
 
 export async function createEvent(data: NewEventData): Promise<Event> {
   const json = await authFetch("/api/events", {

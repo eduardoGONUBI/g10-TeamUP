@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchMyEvents, type Event } from "../api/event";
+import { fetchMyEvents, type Event } from "../api/event"; 
 import "./ActivitiesList.css";
 
 // import your images
@@ -31,34 +31,29 @@ const MyActivities: React.FC = () => {
   if (loading) return <p>Loading…</p>;
   if (error)   return <p className="err">{error}</p>;
 
+  // split into “in progress” vs “concluded”
   const active    = events.filter((e) => e.status === "in progress");
   const concluded = events.filter((e) => e.status === "concluded");
 
-// map lowercased sport.name → your imported image
-const sportIcons: Record<string, string> = {
-  football:   FootballIcon,
-  futsal:     FutsalIcon,
-  cycling:    CyclingIcon,    
-  cicling:    CyclingIcon,    
-  surf:       SurfIcon,
-  volleyball: VolleyballIcon,
-  basketball: BasketballIcon,
-  tennis:     TennisIcon,
-  handball:   HandballIcon,
-};
+  // map lowercased sport.name → your imported image
+  const sportIcons: Record<string, string> = {
+    football:   FootballIcon,
+    futsal:     FutsalIcon,
+    cycling:    CyclingIcon,
+    cicling:    CyclingIcon,
+    surf:       SurfIcon,
+    volleyball: VolleyballIcon,
+    basketball: BasketballIcon,
+    tennis:     TennisIcon,
+    handball:   HandballIcon,
+  };
 
   // renders your sport image or a medal fallback
   const renderSportIcon = (sport?: string | null) => {
     const key = sport?.toLowerCase() ?? "";
     const src = sportIcons[key];
     if (src) {
-      return (
-        <img
-          src={src}
-          alt={sport ?? ""}
-          className="sport-icon-img"
-        />
-      );
+      return <img src={src} alt={sport ?? ""} className="sport-icon-img" />;
     }
     return <span role="img" aria-label="sport">🏅</span>;
   };
@@ -129,11 +124,17 @@ const sportIcons: Record<string, string> = {
       <div className="activities-columns">
         <div className="column">
           <h3>Active Activities ({active.length})</h3>
-          {active.length === 0 ? <p>No active activities.</p> : renderList(active)}
+          {active.length === 0
+            ? <p>No active activities.</p>
+            : renderList(active)
+          }
         </div>
         <div className="column">
           <h3>Concluded Activities ({concluded.length})</h3>
-          {concluded.length === 0 ? <p>No concluded activities.</p> : renderList(concluded)}
+          {concluded.length === 0
+            ? <p>No concluded activities.</p>
+            : renderList(concluded)
+          }
         </div>
       </div>
     </>

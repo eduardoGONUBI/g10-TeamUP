@@ -10,10 +10,7 @@ import {
   logout,
 } from "../api/user"
 import "./perfil.css"
-import type { Achievement } from "../api/user"
-
-
-
+import type { Achievement, Reputation } from "../api/user"
 
 function behaviourLabel(score: number): string {
   if (score >= 90) return "Excellent"
@@ -28,11 +25,11 @@ export default function Account() {
   const [achievements, setAch] = useState<Achievement[]>([])
   const [xp, setXp] = useState<number | null>(null)
   const [level, setLevel] = useState<number | null>(null)
-  const [reputation, setReputation] = useState<{ score: number; badges: string[] } | null>(null)
+  const [reputation, setReputation] = useState<Reputation | null>(null)
   const nav = useNavigate()
 
   useEffect(() => {
-    ; (async () => {
+    ;(async () => {
       const me = await fetchMe()
       setUser(me)
 
@@ -49,50 +46,53 @@ export default function Account() {
     })().catch(console.error)
   }, [])
 
-  if (!user) return <p>A carregar…</p>
-
-
-  const badges = reputation?.badges ?? []
+  if (!user) return <p>Loading…</p>
 
   return (
     <section className="account-page">
       <h1>My Account</h1>
 
       <div className="account-grid">
-        {/* ESQUERDA */}
+        {/* LEFT */}
         <div className="avatar-col">
           <img
             src={user.avatar_url ?? "/placeholder.png"}
             alt="Avatar"
             className="avatar"
           />
-          <span className="level">Lvl {level ?? "—"}</span>
+          <span className="level">Lvl {level ?? 1}</span>
           {xp !== null && <small>{xp} XP</small>}
         </div>
 
-        {/* DIREITA */}
+        {/* RIGHT */}
         <div className="info-col">
-          <div className="row"><strong>Name</strong> {user.name}</div>
-          <div className="row"><strong>Email</strong> {user.email}</div>
-          <div className="row"><strong>Location</strong> {user.location || "—"}</div>
+          <div className="row">
+            <strong>Name</strong> {user.name}
+          </div>
+          <div className="row">
+            <strong>Email</strong> {user.email}
+          </div>
+          <div className="row">
+            <strong>Location</strong> {user.location || "—"}
+          </div>
 
           <div className="row">
             <strong>Favourite Sports</strong>{" "}
             {user.sports.map((s: any) => s.name).join(", ") || "—"}
           </div>
 
-           <div className="row achievements">
+          <div className="row achievements">
             <strong>Achievement</strong>
             <div className="icons">
               {achievements.length > 0 ? (
                 (() => {
-                  const a = achievements[achievements.length - 1]  // pega o último desbloqueado
+                  const a = achievements[achievements.length - 1]
                   return (
                     <img
                       key={a.code}
                       src={a.icon}
                       alt={a.title}
-                      title={a.description}   // só descrição no hover
+                      title={a.description}
                     />
                   )
                 })()
@@ -102,25 +102,33 @@ export default function Account() {
             </div>
           </div>
 
-          {/* Behaviour Index */}
           {reputation && (
             <div className="row">
-              <strong>Behaviour Index</strong>{" "}
-              {reputation.score}{" "}
+              <strong>Behaviour Index</strong> {reputation.score}{" "}
               <span className="behaviour-label">
                 ({behaviourLabel(reputation.score)})
               </span>
             </div>
           )}
 
-          {/* Reputation */}
-          <div className="row">
-            <strong>Reputation</strong> {badges[0] || "—"}
-          </div>
-
-          {badges.length > 1 && (
+          {reputation && (
             <div className="row">
-              <strong>Badges</strong> {badges.join(", ")}
+              <strong>Reputation</strong>{" "}
+              {(() => {
+                const counts: [string, number][] = [
+                  ["Good teammate", reputation.good_teammate_count],
+                  ["Friendly player", reputation.friendly_count],
+                  ["Team player", reputation.team_player_count],
+                  ["Watchlisted", reputation.toxic_count],
+                  ["Bad sport", reputation.bad_sport_count],
+                  ["Frequent AFK", reputation.afk_count],
+                ]
+                const top = counts.reduce(
+                  (best, curr) => (curr[1] > best[1] ? curr : best),
+                  ["—", 0] as [string, number]
+                )
+                return top[1] > 0 ? `${top[0]} (${top[1]})` : "—"
+              })()}
             </div>
           )}
 

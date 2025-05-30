@@ -294,3 +294,102 @@
 .kick-btn:hover {
   background: #c43030; /* vermelho sólido no hover do próprio botão */
 }
+
+/* wrapper */
+.feedback-dropdown {
+  position: relative;
+  display: inline-block;
+  font-family: inherit;
+  margin-left: 0.5rem;
+   overflow: visible;    
+  z-index: 100; 
+}
+
+/* botão principal */
+.feedback-toggle {
+  background: #fff;
+  border: 1px solid #ccc;
+  color: #333; 
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: border-color 0.2s;
+}
+.feedback-toggle:hover,
+.feedback-toggle:focus {
+  border-color: #4a90e2;
+}
+.feedback-toggle .arrow {
+  font-size: 0.7rem;
+}
+
+/* estilo pós-envio */
+.feedback-dropdown.sent .feedback-toggle {
+  background: #e8f5e9;
+  border-color: #66bb6a;
+  color: #2e7d32;
+  cursor: default;
+}
+/* Flip the arrow when open (if you like) */
+.feedback-dropdown button[aria-expanded="true"] .arrow {
+  transform: rotate(180deg);
+}
+
+/* menu dropdown */
+.feedback-menu {
+  position: absolute;
+  bottom: 100%;
+  top: auto;
+  left: 0;
+  margin-bottom: 4px;
+  padding: 0;
+  list-style: none;
+   max-height: none;
+  overflow: visible;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  z-index: 10;
+  white-space: nowrap; 
+}
+
+/* cada opção */
+.feedback-menu li + li {
+  border-top: 1px solid #eee;
+}
+.feedback-item {
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  color: #333;  
+}
+.feedback-item:hover {
+  background: #f1f1f1;
+}
+
+/* força cor no texto */
+.feedback-menu,
+.feedback-item {
+  color: #333;
+}
+
+/* garantir que não cresce automaticamente */
+.feedback-menu {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* opcional: fecha o dropdown se clicares fora */
+body {
+  /* captura clique fora para fechar */
+}

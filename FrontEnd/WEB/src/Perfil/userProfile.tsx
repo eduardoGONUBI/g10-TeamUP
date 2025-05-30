@@ -7,6 +7,7 @@ import {
     fetchXpLevel,
     fetchReputation,
     type Achievement,
+    type Reputation,
 } from "../api/user"
 import "./perfil.css"
 import avatarDefault from "../assets/avatar-default.jpg"
@@ -17,7 +18,7 @@ export default function UserProfile() {
     const [ach, setAch] = useState<Achievement[]>([])
     const [xp, setXp] = useState<number | null>(null)
     const [lvl, setLvl] = useState<number | null>(null)
-    const [rep, setRep] = useState<{ score: number; badges: string[] } | null>(null)
+    const [rep, setRep] = useState<Reputation | null>(null)
     const nav = useNavigate()
 
     useEffect(() => {
@@ -37,9 +38,8 @@ export default function UserProfile() {
         })().catch(console.error)
     }, [id])
 
-    if (!user) return <p>A carregar…</p>
+    if (!user) return <p>Loading…</p>
 
-    const badges = rep?.badges ?? []
     const latest = ach.length > 0 ? ach[ach.length - 1] : null
 
     return (
@@ -54,14 +54,18 @@ export default function UserProfile() {
                         alt="Avatar"
                         className="avatar"
                     />
-                    <span className="level">Lvl {lvl ?? "—"}</span>
+                    <span className="level">Lvl {lvl ?? 1}</span>
                     {xp !== null && <small>{xp} XP</small>}
                 </div>
 
                 {/* Info */}
                 <div className="info-col">
-                    <div className="row"><strong>Name</strong> {user.name}</div>
-                    <div className="row"><strong>Location</strong> {user.location || "—"}</div>
+                    <div className="row">
+                        <strong>Name</strong> {user.name}
+                    </div>
+                    <div className="row">
+                        <strong>Location</strong> {user.location || "—"}
+                    </div>
                     <div className="row">
                         <strong>Favourite Sports</strong>{" "}
                         {user.sports.map((s: any) => s.name).join(", ") || "—"}
@@ -89,13 +93,32 @@ export default function UserProfile() {
                         </div>
                     )}
 
-                    <div className="row">
-                        <strong>Reputation</strong> {badges[0] || "—"}
-                    </div>
+                    {rep && (
+                        <div className="row">
+                            <strong>Reputation</strong>{" "}
+                            {(() => {
+                                const counts: [string, number][] = [
+                                    ["Good teammate", rep.good_teammate_count],
+                                    ["Friendly player", rep.friendly_count],
+                                    ["Team player", rep.team_player_count],
+                                    ["Watchlisted", rep.toxic_count],
+                                    ["Bad sport", rep.bad_sport_count],
+                                    ["Frequent AFK", rep.afk_count],
+                                ]
+                                const [name, cnt] = counts.reduce(
+                                    (best, curr) => (curr[1] > best[1] ? curr : best),
+                                    ["—", 0] as [string, number]
+                                )
+                                return cnt > 0 ? `${name} (${cnt})` : "—"
+                            })()}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <button style={{ marginTop: "2rem" }} onClick={() => nav(-1)}>← Back</button>
+            <button style={{ marginTop: "2rem" }} onClick={() => nav(-1)}>
+                ← Back
+            </button>
         </section>
     )
 }
