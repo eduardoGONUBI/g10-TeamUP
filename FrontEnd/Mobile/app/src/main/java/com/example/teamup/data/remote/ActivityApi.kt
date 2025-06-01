@@ -54,7 +54,7 @@ interface ActivityApi {
     companion object {
         fun create(): ActivityApi {
             return Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:8081/") // localhost for Android emulator
+                .baseUrl(BaseUrlProvider.getBaseUrl()) // switch between emulator and phone
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(ActivityApi::class.java)

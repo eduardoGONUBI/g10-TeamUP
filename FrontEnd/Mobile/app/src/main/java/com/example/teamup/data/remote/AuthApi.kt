@@ -17,7 +17,7 @@ interface AuthApi {
     companion object {
         fun create(): AuthApi {
             val retrofit = Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:80/") // ← Android emulator alias for localhost
+                .baseUrl(BaseUrlProvider.getBaseUrl())  // switch between emulator and phone
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
 

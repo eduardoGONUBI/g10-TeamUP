@@ -16,6 +16,16 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField(
+            "String",
+            "BASE_URL_EMULATOR",
+            "\"http://10.0.2.2:8085/\""
+        )
+        buildConfigField(
+            "String",
+            "BASE_URL_DEVICE",
+            "\"http://192.168.1.73:8085/\""
+        )
     }
 
     buildTypes {
@@ -39,6 +49,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
