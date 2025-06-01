@@ -85,6 +85,8 @@ dependencies {
     // ✅ Hilt Navigation (Compose)
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
+    implementation ("io.jsonwebtoken:jjwt-api:0.11.5")
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

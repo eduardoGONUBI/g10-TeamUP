@@ -1,4 +1,5 @@
-package com.example.teamup.ui.screens
+// app/src/main/java/com/example/teamup/ui/screens/Activity/ViewerActivityScreen.kt
+package com.example.teamup.ui.screens.Activity
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -6,18 +7,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.teamup.R
 import com.example.teamup.data.remote.ActivityApi
 import com.example.teamup.data.remote.ActivityDto
@@ -38,18 +37,17 @@ fun ViewerActivityScreen(
     var event by remember { mutableStateOf<ActivityDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // Load the event
+    // Load the event via getEventDetail(...)
     LaunchedEffect(eventId) {
         try {
-            val mine = api.getMyActivities("Bearer $token")
-            event = mine.find { it.id == eventId }
-            error = if (event == null) "Event not found" else null
+            val dto = api.getEventDetail(eventId, "Bearer $token")
+            event = dto
+            error = null
         } catch (e: Exception) {
-            error = e.localizedMessage
+            error = "Event not found"
         }
     }
 
-    // Loading / error states
     when {
         event == null && error == null -> {
             Box(Modifier.fillMaxSize(), Alignment.Center) {
@@ -69,7 +67,7 @@ fun ViewerActivityScreen(
         }
     }
 
-    // Non-null event
+    // At this point, event is non-null
     val e = event!!
     val uiParticipants = e.participants.orEmpty()
         .distinctBy { it.id }
@@ -91,27 +89,30 @@ fun ViewerActivityScreen(
             title = { Text(e.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
+                    Icon(
+                        painterResource(R.drawable.arrow_back),
+                        contentDescription = "Back"
+                    )
                 }
             },
             actions = {
+                // ─── JOIN BUTTON ─────────────────────────────────────────────
                 IconButton(onClick = {
                     coroutineScope.launch {
                         try {
-                            val response = api.leaveEvent(
-                                token = "Bearer $token", id = e.id
-                            )
-                            if (response.isSuccessful) onBack()
-                            else println("Leave failed: ${response.code()}")
+                            // TODO: call the “join” endpoint:
+                            // val response = api.joinEvent("Bearer $token", e.id)
+                            // if (response.isSuccessful) { /* maybe navigate to Participant flow */ }
                         } catch (ex: Exception) {
-                            println("Leave error: ${ex.localizedMessage}")
+                            println("Join error: ${ex.localizedMessage}")
                         }
                     }
                 }) {
                     Icon(
-                        Icons.Default.ExitToApp,
-                        contentDescription = "Leave Event",
-                        tint = Color.Red
+                        imageVector = Icons.Default.ExitToApp,
+                        contentDescription = "Join Event",
+                        tint = Color.Blue,
+                        modifier = Modifier.scale(scaleX = 1f, scaleY = 1f)
                     )
                 }
             }

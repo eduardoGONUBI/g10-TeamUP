@@ -8,10 +8,11 @@ data class ActivityItem(
     val participants: Int,
     val maxParticipants: Int,
     val organizer: String,
-    val creatorId: Int,     // ← NEW
+    val creatorId: Int,
+    val isParticipant: Boolean,
     val latitude: Double,
     val longitude: Double,
-    val isCreator: Boolean  // ← NEW: compare creatorId to your userId in the ViewModel
+    val isCreator: Boolean  
 )
 
 data class CreateEventRequest(

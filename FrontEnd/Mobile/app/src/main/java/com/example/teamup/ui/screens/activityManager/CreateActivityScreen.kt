@@ -51,6 +51,11 @@ fun CreateActivityScreen(
 
     val context = LocalContext.current
 
+    // ─── Trigger initial load of sports when screen first appears ─────────────────
+    LaunchedEffect(token) {
+        viewModel.loadSports(token)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -92,6 +97,7 @@ fun CreateActivityScreen(
                 .padding(bottom = 12.dp)
         )
 
+        // ─── SPORT DROPDOWN ─────────────────────────────────────────────────────────
         var sportExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(
             expanded = sportExpanded,
@@ -116,14 +122,23 @@ fun CreateActivityScreen(
                 expanded = sportExpanded,
                 onDismissRequest = { sportExpanded = false }
             ) {
-                sports.forEach { sp ->
+                // If sports is still empty, we can show a disabled “Loading…” item
+                if (sports.isEmpty()) {
                     DropdownMenuItem(
-                        text = { Text(sp.name) },
-                        onClick = {
-                            viewModel.update { prev -> prev.copy(sport = sp) }
-                            sportExpanded = false
-                        }
+                        text = { Text("Loading sports...") },
+                        onClick = { /* no-op */ },
+                        enabled = false
                     )
+                } else {
+                    sports.forEach { sp ->
+                        DropdownMenuItem(
+                            text = { Text(sp.name) },
+                            onClick = {
+                                viewModel.update { prev -> prev.copy(sport = sp) }
+                                sportExpanded = false
+                            }
+                        )
+                    }
                 }
             }
         }

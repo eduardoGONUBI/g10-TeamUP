@@ -219,44 +219,61 @@ class EventController extends Controller
         return [$loc['lat'], $loc['lng']];
     }
 
-     public function show(Request $request, $id)
-    {
-        // reuse your validateToken helper if you need auth
-        $token = $this->validateToken($request);
+  public function show(Request $request, $id)
+{
+    // 1) Authenticate & validate the token
+    $token = $this->validateToken($request);
 
-        $event = Event::findOrFail($id);
+    // 2) Find the Event (or 404 if not found)
+    $event = Event::findOrFail($id);
 
-        // decode the JSON string into an array
-        $raw = is_array($event->weather)
-             ? $event->weather
-             : json_decode($event->weather, true) ?? [];
+    // 3) Decode the stored weather JSON (same as before)
+    $raw = is_array($event->weather)
+         ? $event->weather
+         : json_decode($event->weather, true) ?? [];
 
-        // pick out the bits your UI needs
-        $weather = [
-            'temp'      => $raw['temp']      ?? null,
-            'high_temp' => $raw['high_temp'] ?? null,
-            'low_temp'  => $raw['low_temp']  ?? null,
-            'description' => $raw['weather']['description'] ?? null,
-        ];
+    $weather = [
+        'temp'        => $raw['temp']       ?? null,
+        'high_temp'   => $raw['high_temp']  ?? null,
+        'low_temp'    => $raw['low_temp']   ?? null,
+        'description' => $raw['weather']['description'] ?? null,
+    ];
 
-        return response()->json([
-            'id'               => $event->id,
-            'name'             => $event->name,
-            'sport'            => $event->sport->name ?? null,
-            'date'             => $event->date,
-            'place'            => $event->place,
-            'status'           => $event->status,
-            'max_participants' => $event->max_participants,
-            'latitude'         => $event->latitude,
-            'longitude'        => $event->longitude,
-            'user_id'          => $event->user_id,
-            'creator'          => [
-                'id'   => $event->user_id,
-                'name' => $event->user_name,
-            ],
-            'weather'          => $weather,
-        ], 200);
-    }
+    // 4) Fetch participants from the pivot table (only non-deleted rows)
+    $participants = DB::table('event_user')
+        ->where('event_id', $event->id)
+        ->whereNull('deleted_at')
+        ->get(['user_id', 'user_name', 'rating'])
+        ->map(function ($p) {
+            return [
+                'id'     => $p->user_id,
+                'name'   => $p->user_name,
+                'rating' => $p->rating,
+                'avatar_url' => null, // or whatever default/avatar you want
+            ];
+        });
+
+    // 5) Return JSON with “event” fields plus the new “participants” array
+    return response()->json([
+        'id'               => $event->id,
+        'name'             => $event->name,
+        'sport'            => $event->sport->name ?? null,
+        'date'             => $event->date,
+        'place'            => $event->place,
+        'status'           => $event->status,
+        'max_participants' => $event->max_participants,
+        'latitude'         => $event->latitude,
+        'longitude'        => $event->longitude,
+        'user_id'          => $event->user_id,
+        'creator'          => [
+            'id'   => $event->user_id,
+            'name' => $event->user_name,
+        ],
+        'weather'          => $weather,
+        'participants'     => $participants,
+    ], 200);
+}
+
 /**
  * GET /api/events
  *

@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/teamup/ui/RootScaffold.kt
+// app/src/main/java/com/example/teamup/ui/components/RootScaffold.kt
 package com.example.teamup.ui.components
 
 import androidx.compose.foundation.Image
@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
@@ -29,7 +30,10 @@ import com.example.teamup.data.remote.ActivityApi
 import com.example.teamup.data.remote.ActivityRepositoryImpl
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.screens.*
-import com.example.teamup.ui.screens.Ativity.EditActivityScreen
+import com.example.teamup.ui.screens.Activity.EditActivityScreen
+import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
+import com.example.teamup.ui.screens.Activity.ParticipantActivityScreen
+import com.example.teamup.ui.screens.Activity.ViewerActivityScreen
 import com.example.teamup.ui.screens.Chat.UpChatScreens
 import com.example.teamup.ui.screens.activityManager.ActivityTabsScreen
 import java.net.URLDecoder
@@ -87,10 +91,10 @@ fun RootScaffold(
                     viewModel = homeViewModel,
                     onActivityClick = { activity ->
                         val encoded = URLEncoder.encode(token, "UTF-8")
-                        if (activity.isCreator) {
-                            navController.navigate("creator_activity/${activity.id}/$encoded")
-                        } else {
-                            navController.navigate("viewer_activity/${activity.id}/$encoded")
+                        when {
+                            activity.isCreator      -> navController.navigate("creator_activity/${activity.id}/$encoded")
+                            activity.isParticipant  -> navController.navigate("participant_activity/${activity.id}/$encoded")
+                            else                    -> navController.navigate("viewer_activity/${activity.id}/$encoded")
                         }
                     }
                 )
@@ -101,11 +105,11 @@ fun RootScaffold(
                 ActivityTabsScreen(
                     token = token,
                     onActivityClick = { activity ->
-                        val encodedToken = URLEncoder.encode(token, "UTF-8")
-                        if (activity.isCreator) {
-                            navController.navigate("creator_activity/${activity.id}/$encodedToken")
-                        } else {
-                            navController.navigate("viewer_activity/${activity.id}/$encodedToken")
+                        val encoded = URLEncoder.encode(token, "UTF-8")
+                        when {
+                            activity.isCreator      -> navController.navigate("creator_activity/${activity.id}/$encoded")
+                            activity.isParticipant  -> navController.navigate("participant_activity/${activity.id}/$encoded")
+                            else                    -> navController.navigate("viewer_activity/${activity.id}/$encoded")
                         }
                     }
                 )
@@ -200,6 +204,25 @@ fun RootScaffold(
                     onBack   = { navController.popBackStack() },
                     onSave   = { navController.popBackStack() },
                     onDelete = { navController.popBackStack() }
+                )
+            }
+
+            /* ─── Participant activity ─────────────────────────────── */
+            composable(
+                "participant_activity/{eventId}/{token}",
+                arguments = listOf(
+                    navArgument("eventId") { type = NavType.IntType },
+                    navArgument("token")   { type = NavType.StringType }
+                )
+            ) { back ->
+                val eventId = back.arguments!!.getInt("eventId")
+                val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+
+                ParticipantActivityScreen(
+                    eventId = eventId,
+                    token   = decoded,
+                    onBack  = { navController.popBackStack() },
+
                 )
             }
 
@@ -327,13 +350,16 @@ fun BottomNavigationBar(
                             if (currentRoute == "notifications") {
                                 navController.popBackStack("notifications", true)
                             }
-                            navController.navigate(
-                                if (item.route == "perfil") "perfil/$encoded"
-                                else item.route
-                            ) {
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            val destination = if (item.route == "perfil") "perfil/$encoded" else item.route
+                            navController.navigate(destination) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    // Don’t save the previous state; always go to root
+                                    saveState = false
+                                }
+                                // If already on this route, don’t add another copy
                                 launchSingleTop = true
-                                restoreState = true
+                                // Don’t restore any saved state
+                                restoreState = false
                             }
                         }
                     ) {

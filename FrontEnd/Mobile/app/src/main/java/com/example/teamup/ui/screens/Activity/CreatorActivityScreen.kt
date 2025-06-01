@@ -1,4 +1,4 @@
-package com.example.teamup.ui.screens
+package com.example.teamup.ui.screens.Activity
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*

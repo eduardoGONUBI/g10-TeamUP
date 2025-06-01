@@ -58,6 +58,7 @@ class ProfileViewModel : ViewModel() {
                     organizer = dto.creator.name,
                     creatorId = dto.creator.id,
                     isCreator = dto.creator.id == userId,
+                    isParticipant = dto.creator.id == userId,
                     latitude = dto.latitude,
                     longitude = dto.longitude
                 )

@@ -1,9 +1,11 @@
 // app/src/main/java/com/example/teamup/data/remote/ActivityRepositoryImpl.kt
 package com.example.teamup.data.remote
 
+import android.util.Base64
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.domain.model.CreateEventRequest
 import com.example.teamup.data.domain.repository.ActivityRepository
+import org.json.JSONObject
 
 /**
  * Implementation of ActivityRepository that calls ActivityApi and maps responses into ActivityItem.
@@ -12,17 +14,20 @@ class ActivityRepositoryImpl(
     private val api: ActivityApi
 ) : ActivityRepository {
 
+    /* ─── Public API ───────────────────────────────────────────────────────── */
+
     override suspend fun getMyActivities(token: String): List<ActivityItem> {
-        val dtoList: List<ActivityDto> = api.getMyActivities("Bearer $token")
-        return dtoList.map { it.toActivityItem() }
+        val dtoList = api.getMyActivities("Bearer $token")
+        val userId  = extractUserId(token)
+        return dtoList.map { it.toActivityItem(userId) }
     }
 
     override suspend fun searchActivities(
         token: String,
-        name: String?,
+        name : String?,
         sport: String?,
         place: String?,
-        date: String?
+        date : String?
     ): List<ActivityItem> {
         val dtoList = api.searchEvents(
             token = "Bearer $token",
@@ -31,46 +36,65 @@ class ActivityRepositoryImpl(
             place = place,
             date  = date
         )
-        return dtoList.map { it.toActivityItem() }
+        val userId = extractUserId(token)
+        return dtoList.map { it.toActivityItem(userId) }
     }
 
     override suspend fun createActivity(
         token: String,
-        body: CreateEventRequest
+        body : CreateEventRequest
     ): ActivityItem {
-        // We assume ActivityApi.createEvent(...) returns an ActivityDto directly
-        val dto: ActivityDto = api.createEvent("Bearer $token", body)
-        return dto.toActivityItem()
+        val dto    = api.createEvent("Bearer $token", body)
+        val userId = extractUserId(token)
+        return dto.toActivityItem(userId)
     }
 
-    override suspend fun getSports(token: String): List<SportDto> =
+    override suspend fun getSports(token: String) =
         api.getSports("Bearer $token")
+
+
+    /* ─── Helpers ──────────────────────────────────────────────────────────── */
+
+    /**
+     * Lightweight JWT parser that decodes the payload and returns the “sub” claim.
+     * Works completely offline (no signature verification needed).
+     */
+    private fun extractUserId(token: String): Int {
+        return try {
+            val raw = token.removePrefix("Bearer ").trim()
+            val parts = raw.split(".")
+            if (parts.size < 2) return 0
+            val payloadPadded = parts[1]
+                .replace('-', '+')
+                .replace('_', '/')
+                .let { s -> s + "=".repeat((4 - s.length % 4) % 4) }
+            val json = JSONObject(
+                String(Base64.decode(payloadPadded, Base64.DEFAULT))
+            )
+            json.optInt("sub", 0)
+        } catch (_: Exception) {
+            0
+        }
+    }
 }
 
-/**
- * Extension function to convert ActivityDto → ActivityItem, guarding against any null fields.
- */
-private fun ActivityDto.toActivityItem(): ActivityItem {
+/* ─── DTO → Domain mapper ───────────────────────────────────────────────── */
+
+private fun ActivityDto.toActivityItem(currentUserId: Int): ActivityItem {
+    val participantIds = participants?.map { it.id }?.toSet() ?: emptySet()
+
     return ActivityItem(
-        // ID is non‐null, so just toString()
-        id              = this.id.toString(),
-        // title should never be null – supply empty strings if server somehow left them null
-        title           = "${ this.name ?: "" } : ${ this.sport ?: "" }",
-        // location must not be null (ActivityItem expects a non‐null String)
-        location        = this.place ?: "",
-        // date must not be null
-        date            = this.date ?: "",
-        // participants list might be null, so default to zero
-        participants    = this.participants?.size ?: 0,
-        // max_participants is Int, assume server always sends it
-        maxParticipants = this.max_participants,
-        // creator may be null, so guard‐rail with empty string / zero
-        organizer       = this.creator?.name ?: "",
-        creatorId       = this.creator?.id   ?: 0,
-        // isCreator you may compute later; leave as false for now
-        isCreator       = false,
-        // latitude/longitude might be nullable in DTO; default to 0.0 if so
-        latitude        = this.latitude  ?: 0.0,
-        longitude       = this.longitude ?: 0.0
+        id              = id.toString(),
+        title           = "$name : $sport",
+        location        = place,
+        date            = date,
+        participants    = participants?.size ?: 0,
+        maxParticipants = max_participants,
+        organizer       = creator.name,
+        creatorId       = creator.id,
+        isParticipant   = participantIds.contains(currentUserId),
+        latitude        = latitude,
+        longitude       = longitude,
+        isCreator       = (creator.id == currentUserId)
     )
 }
