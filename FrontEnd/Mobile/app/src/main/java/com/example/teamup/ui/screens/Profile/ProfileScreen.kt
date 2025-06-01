@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/teamup/ui/screens/ProfileScreen.kt
 package com.example.teamup.ui.screens
 
 import androidx.compose.foundation.Image
@@ -33,38 +34,38 @@ fun ProfileScreen(
     onActivityClick: (ActivityItem) -> Unit,
     viewModel: ProfileViewModel
 ) {
-    /* ── state ─────────────────────────────────────────────── */
-    val username         by viewModel.username.collectAsState()
-    val userError        by viewModel.error.collectAsState()
-    val activities       by viewModel.createdActivities.collectAsState()
-    val activitiesError  by viewModel.activitiesError.collectAsState()
+    // ── State ─────────────────────────────────────────────────────────────
+    val username        by viewModel.username.collectAsState()
+    val userError       by viewModel.error.collectAsState()
+    val activities      by viewModel.createdActivities.collectAsState()
+    val activitiesError by viewModel.activitiesError.collectAsState()
 
-    /* ── load data on token change ─────────────────────────── */
+    // ── Load data when token changes ───────────────────────────────────────
     LaunchedEffect(token) {
         viewModel.loadUser(token)
         viewModel.loadCreatedActivities(token)
     }
 
-    /* ── UI ────────────────────────────────────────────────── */
+    // ── UI ─────────────────────────────────────────────────────────────────
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
 
-        /* Header image */
+        // Header banner image
         item {
             Image(
-                painter          = painterResource(R.drawable.icon_up),
+                painter = painterResource(R.drawable.icon_up),
                 contentDescription = "Header",
-                modifier         = Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp),
-                contentScale     = ContentScale.Crop
+                contentScale = ContentScale.Crop
             )
         }
 
-        /* Avatar + edit overlay */
+        // Avatar + edit overlay
         item {
             Box(
                 contentAlignment = Alignment.BottomCenter,
@@ -80,7 +81,7 @@ fun ProfileScreen(
                         .clip(CircleShape)
                 )
                 Icon(
-                    imageVector  = Icons.Default.Edit,
+                    imageVector = Icons.Default.Edit,
                     contentDescription = "Change photo",
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -91,7 +92,7 @@ fun ProfileScreen(
             }
         }
 
-        /* Username */
+        // Username + location placeholder
         item {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -101,25 +102,25 @@ fun ProfileScreen(
             ) {
                 Text(text = username, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    text  = "Location",
+                    text = "Location", // you can replace with actual location if you have it
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        /* Profile fetch error */
+        // Profile fetch error (if any)
         if (userError != null) {
             item {
                 Text(
-                    text     = "Failed to load profile: $userError",
-                    color    = MaterialTheme.colorScheme.error,
+                    text = "Failed to load profile: $userError",
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(16.dp)
                 )
             }
         }
 
-        /* Stats */
+        // Stats row
         item {
             Row(
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -128,12 +129,12 @@ fun ProfileScreen(
                     .padding(vertical = 16.dp)
             ) {
                 ProfileStat("Organized",    "${activities.count { it.isCreator }}")
-                ProfileStat("Participated", "0")
-                ProfileStat("Rating",       "0.0")
+                ProfileStat("Participated", "0") // placeholder: integrate actual participated count if needed
+                ProfileStat("Rating",       "0.0") // placeholder: integrate actual rating if you have it
             }
         }
 
-        /* Edit / logout buttons */
+        // Edit / Logout buttons
         item {
             Row(
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -154,7 +155,7 @@ fun ProfileScreen(
             }
         }
 
-        /* Activities header */
+        // Header for created activities
         item {
             Text(
                 text = "Recent Activities Created",
@@ -163,37 +164,40 @@ fun ProfileScreen(
             )
         }
 
-        /* Activities list / error handling */
-        when {
-            activitiesError != null -> item {
+        // Show error if activities fetch failed
+        if (activitiesError != null) {
+            item {
                 Text(
-                    text  = "Failed to load activities: $activitiesError",
+                    text = "Failed to load activities: $activitiesError",
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(16.dp)
                 )
             }
-
-            activities.isEmpty() -> item {
+        }
+        // If no activities created
+        else if (activities.isEmpty()) {
+            item {
                 Text(
-                    text  = "No activities created",
+                    text = "No activities created",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                 )
             }
-
-            else -> items(activities, key = { it.id }) { activity ->
-                /* Use the shared ActivityCard from HomeScreen */
-                ActivityCard(activity = activity) {
-                    onActivityClick(activity)
-                }
+        }
+        // Otherwise, list them using ActivityCard
+        else {
+            items(activities, key = { it.id }) { activity ->
+                 ActivityCard(
+                         activity = activity,
+                         onClick  = { onActivityClick(activity) }
+                             )
             }
         }
     }
 }
 
-/* ── helper composable for stats row ───────────────────────── */
 @Composable
 private fun ProfileStat(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {

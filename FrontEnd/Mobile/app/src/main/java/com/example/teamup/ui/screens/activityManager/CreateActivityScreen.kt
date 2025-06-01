@@ -14,30 +14,47 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.teamup.data.domain.model.CreateEventRequest
+import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.ActivityApi
+import com.example.teamup.data.remote.ActivityRepositoryImpl
 import com.example.teamup.data.remote.SportDto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateActivityScreen(
     token: String,
-    viewModel: CreateActivityViewModel,
     onCreated: (Int) -> Unit
 ) {
+    // 1) Build repository
+    val repo: ActivityRepository = remember {
+        ActivityRepositoryImpl(ActivityApi.create())
+    }
+
+    // 2) Create ViewModel internally
+    val viewModel: CreateActivityViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return CreateActivityViewModel(repo) as T
+            }
+        }
+    )
+
+    // 3) Observe form, sports list, and UI state
     val form by viewModel.form.collectAsState()
     val sports by viewModel.sports.collectAsState()
     val uiState by viewModel.state.collectAsState()
 
     val context = LocalContext.current
 
-    // Load sports once when this Composable first appears
-    LaunchedEffect(Unit) {
-        viewModel.loadSports(token)
-    }
-
-    // Display error / success over the form, but never hide the form entirely
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
     ) {
         when (uiState) {
             is CreateUiState.Loading -> {
@@ -54,18 +71,16 @@ fun CreateActivityScreen(
                 )
             }
             is CreateUiState.Success -> {
-                // Fire onCreated exactly once, then clear state
-                val newIdString = (uiState as CreateUiState.Success).createdId  // still a String
+                val newIdString = (uiState as CreateUiState.Success).createdId
                 LaunchedEffect(newIdString) {
                     val newIdInt = newIdString.toIntOrNull() ?: return@LaunchedEffect
-                    onCreated(newIdInt)       // now we pass an Int
+                    onCreated(newIdInt)
                     viewModel.clearStatus()
                 }
             }
-            else -> { /* do nothing */ }
+            else -> { /* Idle → show form */ }
         }
 
-        // ─── Activity Name ─────────────────────────────────────────
         OutlinedTextField(
             value = form.name,
             onValueChange = { newName ->
@@ -77,7 +92,6 @@ fun CreateActivityScreen(
                 .padding(bottom = 12.dp)
         )
 
-        // ─── Sport dropdown ────────────────────────────────────────
         var sportExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(
             expanded = sportExpanded,
@@ -114,7 +128,6 @@ fun CreateActivityScreen(
             }
         }
 
-        // ─── Location ──────────────────────────────────────────────
         OutlinedTextField(
             value = form.place,
             onValueChange = { newPlace ->
@@ -126,10 +139,9 @@ fun CreateActivityScreen(
                 .padding(bottom = 12.dp)
         )
 
-        // ─── Date picker ───────────────────────────────────────────
         OutlinedTextField(
             value = form.date,
-            onValueChange = { /* readOnly */ },
+            onValueChange = { },
             label = { Text("Date (YYYY-MM-DD)") },
             readOnly = true,
             modifier = Modifier
@@ -154,10 +166,9 @@ fun CreateActivityScreen(
             }
         )
 
-        // ─── Time picker ───────────────────────────────────────────
         OutlinedTextField(
             value = form.time,
-            onValueChange = { /* readOnly */ },
+            onValueChange = { },
             label = { Text("Time (HH:MM)") },
             readOnly = true,
             modifier = Modifier
@@ -182,7 +193,6 @@ fun CreateActivityScreen(
             }
         )
 
-        // ─── Max participants ───────────────────────────────────────
         OutlinedTextField(
             value = form.max,
             onValueChange = { newMax ->
@@ -195,7 +205,6 @@ fun CreateActivityScreen(
                 .padding(bottom = 16.dp)
         )
 
-        // ─── Submit button ─────────────────────────────────────────
         Button(
             onClick = { viewModel.submit(token) },
             enabled = uiState !is CreateUiState.Loading,

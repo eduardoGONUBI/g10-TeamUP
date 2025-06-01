@@ -96,12 +96,10 @@ fun ActivityTabsScreen(
             when (page) {
                 0 -> SearchActivityScreen(
                     token = token,
-                    viewModel = searchVm,
                     onActivityClick = onActivityClick
                 )
                 1 -> CreateActivityScreen(
                     token = token,
-                    viewModel = createVm,
                     onCreated = {
                         // As soon as creation succeeds, jump to the “Your Activities” tab (index 2)
                         scope.launch { pagerState.animateScrollToPage(2) }
