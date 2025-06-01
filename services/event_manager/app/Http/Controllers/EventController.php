@@ -653,40 +653,99 @@ public function index(Request $request)
     /**
      * Search for events.
      */
-    public function search(Request $request)
-    {
-        try {
-            $token = $this->validateToken($request);
+   /**
+ * Search for events (returns the same structure as "userEvents" for each match).
+ * GET /api/events/search?name=X&place=Y&date=Z
+ */
+/**
+ * Search for events (returns the same structure as index/userEvents for each match).
+ * GET /api/events/search?name=X&place=Y&date=Z
+ */
+public function search(Request $request)
+{
+    try {
+        // 1) Validate/authenticate token
+        $token = $this->validateToken($request);
 
-            $query = Event::query();
+        // 2) Build base query, eager‐loading the “sport” relationship and participants
+        $query = Event::with('sport');
 
-            if ($request->has('id')) {
-                $query->where('id', $request->input('id'));
-            }
-
-            if ($request->has('name')) {
-                $query->where('name', 'like', '%' . $request->input('name') . '%');
-            }
-
-            if ($request->has('date')) {
-                $query->where('date', $request->input('date'));
-            }
-
-            if ($request->has('place')) {
-                $query->where('place', 'like', '%' . $request->input('place') . '%');
-            }
-
-            $events = $query->get();
-
-            if ($events->isEmpty()) {
-                return response()->json(['message' => 'No events found'], 200);
-            }
-
-            return response()->json($events, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
+        if ($request->has('id')) {
+            $query->where('id', $request->input('id'));
         }
+        if ($request->has('name')) {
+            $query->where('name', 'like', '%' . $request->input('name') . '%');
+        }
+        if ($request->has('date')) {
+            $query->where('date', $request->input('date'));
+        }
+        if ($request->has('place')) {
+            $query->where('place', 'like', '%' . $request->input('place') . '%');
+        }
+
+        $events = $query->get();
+
+        // If no matches, return an empty array
+        if ($events->isEmpty()) {
+            return response()->json([], 200);
+        }
+
+        // 3) Map each Event model into the same structure as index() uses
+        $response = $events->map(function ($event) {
+            // 3a) Decode the “weather” column (JSON stored as a string)
+            $rawWeather = is_array($event->weather)
+                ? $event->weather
+                : json_decode($event->weather, true) ?? [];
+
+            // 3b) Build a simplified weather object
+            $weather = [
+                'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
+                'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
+                'temp'         => $rawWeather['temp']      ?? null,
+                'high_temp'    => $rawWeather['high_temp'] ?? null,
+                'low_temp'     => $rawWeather['low_temp']  ?? null,
+                'description'  => $rawWeather['weather']['description'] ?? null,
+            ];
+
+            // 3c) Build the participants list from the pivot table (only non‐deleted)
+            $participants = DB::table('event_user')
+                ->where('event_id', $event->id)
+                ->whereNull('deleted_at')
+                ->get(['user_id', 'user_name', 'rating'])
+                ->map(function ($p) {
+                    return [
+                        'id'     => $p->user_id,
+                        'name'   => $p->user_name,
+                        'rating' => $p->rating,
+                    ];
+                });
+
+            return [
+                'id'               => $event->id,
+                'name'             => $event->name,
+                'sport'            => $event->sport->name ?? null,
+                'date'             => $event->date,
+                'place'            => $event->place,
+                'status'           => $event->status,
+                'max_participants' => $event->max_participants,
+                'latitude'         => $event->latitude,
+                'longitude'        => $event->longitude,
+                'creator'          => [
+                    'id'   => $event->user_id,
+                    'name' => $event->user_name,
+                ],
+                'weather'          => $weather,
+                'participants'     => $participants,
+            ];
+        });
+
+        return response()->json($response, 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 401);
     }
+}
+
+
 
     /**
      * Admin List all events

@@ -21,8 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.teamup.R
-import com.example.teamup.data.remote.ActivityItem
+import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.presentation.profile.ProfileViewModel
+import com.example.teamup.ui.components.ActivityCard
 
 @Composable
 fun ProfileScreen(

@@ -16,7 +16,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.teamup.data.remote.ActivityItem
+import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.ui.components.ActivityCard
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
@@ -128,67 +129,4 @@ fun ActivitiesList(
     }
 }
 
-@Composable
-fun ActivityCard(
-    activity: ActivityItem,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.White)
-            .shadow(2.dp, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier           = Modifier.fillMaxWidth(),
-            horizontalArrangement= Arrangement.SpaceBetween,
-            verticalAlignment  = Alignment.CenterVertically
-        ) {
-            Text(
-                text  = activity.title,
-                color = Color(0xFF023499),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text  = "${activity.participants}/${activity.maxParticipants} Participants",
-                color = Color(0xFF023499),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
 
-        Spacer(Modifier.height(4.dp))
-
-        Text(
-            text  = "Location: ${activity.location}",
-            color = Color(0xFF023499),
-            style = MaterialTheme.typography.bodySmall
-        )
-        Text(
-            text  = "Date: ${activity.date}",
-            color = Color(0xFF023499),
-            style = MaterialTheme.typography.bodySmall
-        )
-        Text(
-            text  = "Organizer: ${activity.organizer}",
-            color = Color(0xFF023499),
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            modifier            = Modifier.fillMaxWidth(),
-            horizontalArrangement= Arrangement.End
-        ) {
-            Text(
-                text     = "See Activity",
-                color    = Color(0xFF023499),
-                style    = MaterialTheme.typography.bodyMedium,
-                fontSize = 14.sp
-            )
-        }
-    }
-}

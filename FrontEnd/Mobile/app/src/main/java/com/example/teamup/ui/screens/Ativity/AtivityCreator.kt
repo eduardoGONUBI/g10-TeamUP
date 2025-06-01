@@ -201,7 +201,7 @@ fun CreatorActivityScreen(
                                     // Remove the kicked participant from state
                                     event = event!!.copy(
                                         participants = event!!.participants
-                                            .filterNot { it.id == participantId }
+                                            ?.filterNot { it.id == participantId }
                                     )
                                 } else {
                                     // TODO: show user-visible error

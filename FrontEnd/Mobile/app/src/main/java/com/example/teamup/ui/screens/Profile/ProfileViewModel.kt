@@ -3,6 +3,7 @@ package com.example.teamup.presentation.profile
 import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.remote.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,17 +49,17 @@ class ProfileViewModel : ViewModel() {
 
             _createdActivities.value = dtos.map { dto ->
                 ActivityItem(
-                    id               = dto.id.toString(),
-                    title            = "${dto.name} : ${dto.sport}",
-                    location         = dto.place,
-                    date             = dto.date,
-                    participants     = dto.participants.size,
-                    maxParticipants  = dto.max_participants,
-                    organizer        = dto.creator.name,
-                    creatorId        = dto.creator.id,
-                    isCreator        = dto.creator.id == userId,
-                    latitude         = dto.latitude,
-                    longitude        = dto.longitude
+                    id = dto.id.toString(),
+                    title = "${dto.name} : ${dto.sport}",
+                    location = dto.place,
+                    date = dto.date,
+                    participants = dto.participants?.size ?: 0,
+                    maxParticipants = dto.max_participants,
+                    organizer = dto.creator.name,
+                    creatorId = dto.creator.id,
+                    isCreator = dto.creator.id == userId,
+                    latitude = dto.latitude,
+                    longitude = dto.longitude
                 )
             }
         } catch (e: Exception) {

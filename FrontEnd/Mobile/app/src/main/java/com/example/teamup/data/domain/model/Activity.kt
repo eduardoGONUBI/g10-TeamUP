@@ -1,4 +1,4 @@
-package com.example.teamup.data.remote
+package com.example.teamup.data.domain.model
 
 data class ActivityItem(
     val id: String,
@@ -12,4 +12,12 @@ data class ActivityItem(
     val latitude: Double,
     val longitude: Double,
     val isCreator: Boolean  // ← NEW: compare creatorId to your userId in the ViewModel
+)
+
+data class CreateEventRequest(
+    val name: String,
+    val sport_id: Int,
+    val date: String,
+    val place: String,
+    val max_participants: Int
 )

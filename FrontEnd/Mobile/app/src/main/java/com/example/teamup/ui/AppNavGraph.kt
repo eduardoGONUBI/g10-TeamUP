@@ -14,6 +14,7 @@ import com.example.teamup.ui.screens.Ativity.EditActivityScreen
 import com.example.teamup.ui.screens.Chat.ChatDetailScreen
 import com.example.teamup.ui.screens.main.Main.LoginViewModel
 import com.example.teamup.ui.screens.main.Main.LoginViewModelFactory
+import com.example.teamup.ui.components.RootScaffold
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -144,5 +145,7 @@ fun AppNavGraph() {
                 onBack = { nav.popBackStack() }
             )
         }
+
+
     }
 }
