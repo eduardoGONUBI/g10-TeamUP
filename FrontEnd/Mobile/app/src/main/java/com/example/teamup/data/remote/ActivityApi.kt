@@ -5,7 +5,9 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
-
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
+import okhttp3.logging.HttpLoggingInterceptor
 interface ActivityApi {
 
     @GET("/api/events/mine")
@@ -65,11 +67,7 @@ interface ActivityApi {
     ): List<SportDto>
 
     /**
-     * The server’s response to POST /api/events is:
-     * {
-     *   "message": "Evento criado com sucesso!",
-     *   "event": { …ActivityDto fields… }
-     * }
+     * The server’s response to POST /api/events
      */
     @POST("/api/events")
     suspend fun createEvent(
@@ -77,10 +75,34 @@ interface ActivityApi {
         @Body body: CreateEventRequest
     ): ActivityDto
 
+    /**
+     * Join an event.
+     * */
+    @POST("/api/events/{id}/join")
+    suspend fun joinEvent(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
     companion object {
         fun create(): ActivityApi {
+            // ─── 1) (Optional) Logging interceptor ────────────────────────────
+            val logging = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BASIC
+            }
+
+            // ─── 2) Build a custom OkHttpClient with 30-second timeouts ───────
+            val okHttpClient = OkHttpClient.Builder()
+                .addInterceptor(logging)                                // optional: logs request/response
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build()
+
+            // ─── 3) Create Retrofit using that OkHttpClient ─────────────────
             return Retrofit.Builder()
                 .baseUrl(BaseUrlProvider.getBaseUrl())
+                .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(ActivityApi::class.java)
