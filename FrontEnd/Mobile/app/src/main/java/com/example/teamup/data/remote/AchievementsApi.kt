@@ -13,7 +13,7 @@ import retrofit2.http.Path
  */
 interface AchievementsApi {
 
-    @GET("/profile/{user_id}")
+    @GET("/api/profile/{user_id}")
     suspend fun getProfile(
         @Path("user_id") userId: Int,
         @Header("Authorization") authHeader: String
@@ -22,7 +22,7 @@ interface AchievementsApi {
     companion object {
         fun create(): AchievementsApi {
             return Retrofit.Builder()
-                .baseUrl(BaseUrlProvider.getBaseUrl())  // must point to your Achievements service
+                .baseUrl(BaseUrlProvider.getBaseUrl())
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(AchievementsApi::class.java)
