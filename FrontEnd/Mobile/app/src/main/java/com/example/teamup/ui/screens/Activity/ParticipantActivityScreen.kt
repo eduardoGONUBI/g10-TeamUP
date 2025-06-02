@@ -1,4 +1,5 @@
-package com.example.teamup.ui.screens
+// app/src/main/java/com/example/teamup/ui/screens/Activity/ParticipantActivityScreen.kt
+package com.example.teamup.ui.screens.Activity
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -6,18 +7,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.teamup.R
 import com.example.teamup.data.remote.ActivityApi
 import com.example.teamup.data.remote.ActivityDto
@@ -28,7 +27,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ViewerActivityScreen(
+fun ParticipantActivityScreen(
     eventId: Int,
     token: String,
     onBack: () -> Unit
@@ -38,18 +37,17 @@ fun ViewerActivityScreen(
     var event by remember { mutableStateOf<ActivityDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // Load the event
+    // Load via getEventDetail(...)
     LaunchedEffect(eventId) {
         try {
-            val mine = api.getMyActivities("Bearer $token")
-            event = mine.find { it.id == eventId }
-            error = if (event == null) "Event not found" else null
+            val dto = api.getEventDetail(eventId, "Bearer $token")
+            event = dto
+            error = null
         } catch (e: Exception) {
-            error = e.localizedMessage
+            error = "Event not found"
         }
     }
 
-    // Loading / error states
     when {
         event == null && error == null -> {
             Box(Modifier.fillMaxSize(), Alignment.Center) {
@@ -91,10 +89,14 @@ fun ViewerActivityScreen(
             title = { Text(e.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
+                    Icon(
+                        painterResource(R.drawable.arrow_back),
+                        contentDescription = "Back"
+                    )
                 }
             },
             actions = {
+                // ─── LEAVE BUTTON ───────────────────────────────────────────
                 IconButton(onClick = {
                     coroutineScope.launch {
                         try {
@@ -109,9 +111,11 @@ fun ViewerActivityScreen(
                     }
                 }) {
                     Icon(
-                        Icons.Default.ExitToApp,
+                        imageVector = Icons.Default.ExitToApp,
                         contentDescription = "Leave Event",
-                        tint = Color.Red
+                        tint = Color.Red,
+                        // Flip horizontally so it points “inward”
+                        modifier = Modifier.scale(scaleX = -1f, scaleY = 1f)
                     )
                 }
             }

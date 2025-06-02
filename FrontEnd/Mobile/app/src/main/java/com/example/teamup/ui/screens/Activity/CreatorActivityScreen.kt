@@ -1,4 +1,4 @@
-package com.example.teamup.ui.screens
+package com.example.teamup.ui.screens.Activity
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -201,7 +201,7 @@ fun CreatorActivityScreen(
                                     // Remove the kicked participant from state
                                     event = event!!.copy(
                                         participants = event!!.participants
-                                            .filterNot { it.id == participantId }
+                                            ?.filterNot { it.id == participantId }
                                     )
                                 } else {
                                     // TODO: show user-visible error

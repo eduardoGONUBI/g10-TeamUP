@@ -10,10 +10,12 @@ import com.example.teamup.data.remote.AuthRepositoryImpl
 import com.example.teamup.data.domain.usecase.LoginUseCase
 import com.example.teamup.data.remote.AuthApi
 import com.example.teamup.ui.screens.*
-import com.example.teamup.ui.screens.Ativity.EditActivityScreen
+import com.example.teamup.ui.screens.Activity.EditActivityScreen
 import com.example.teamup.ui.screens.Chat.ChatDetailScreen
 import com.example.teamup.ui.screens.main.Main.LoginViewModel
 import com.example.teamup.ui.screens.main.Main.LoginViewModelFactory
+import com.example.teamup.ui.components.RootScaffold
+import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -144,5 +146,7 @@ fun AppNavGraph() {
                 onBack = { nav.popBackStack() }
             )
         }
+
+
     }
 }

@@ -1,4 +1,4 @@
-package com.example.teamup.ui.screens.Ativity
+package com.example.teamup.ui.screens.Activity
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.BorderStroke

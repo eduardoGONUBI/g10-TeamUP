@@ -1,5 +1,5 @@
-// RootScaffold.kt
-package com.example.teamup.ui
+// app/src/main/java/com/example/teamup/ui/components/RootScaffold.kt
+package com.example.teamup.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,16 +17,25 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.teamup.R
 import com.example.teamup.data.remote.ActivityApi
+import com.example.teamup.data.remote.ActivityRepositoryImpl
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.screens.*
-import com.example.teamup.ui.screens.Ativity.EditActivityScreen
+import com.example.teamup.ui.screens.Activity.EditActivityScreen
+import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
+import com.example.teamup.ui.screens.Activity.ParticipantActivityScreen
+import com.example.teamup.ui.screens.Activity.ViewerActivityScreen
 import com.example.teamup.ui.screens.Chat.UpChatScreens
+import com.example.teamup.ui.screens.activityManager.ActivityTabsScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
 
@@ -39,9 +48,21 @@ fun RootScaffold(
     token: String,
     startRoute: String = "home"
 ) {
+    // 1) Create a NavController for this scaffold
     val navController = rememberNavController()
-    val homeViewModel = remember { HomeViewModel(ActivityApi.create()) }
 
+    // 2) Instantiate HomeViewModel via ActivityRepositoryImpl
+    val homeViewModel: HomeViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val repo = ActivityRepositoryImpl(ActivityApi.create())
+                return HomeViewModel(repo) as T
+            }
+        }
+    )
+
+    // 3) Observe current route for bottom‐nav highlighting
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
@@ -53,7 +74,7 @@ fun RootScaffold(
             BottomNavigationBar(
                 navController = navController,
                 currentRoute = currentRoute,
-                token        = token                        // ← needed for perfil route
+                token        = token // needed for “Profile” route
             )
         }
     ) { padding ->
@@ -69,18 +90,35 @@ fun RootScaffold(
                     token = token,
                     viewModel = homeViewModel,
                     onActivityClick = { activity ->
-                        if (activity.isCreator) {
-                            navController.navigate("creator_activity/${activity.id}")
-                        } else {
-                            navController.navigate("viewer_activity/${activity.id}")
+                        val encoded = URLEncoder.encode(token, "UTF-8")
+                        when {
+                            activity.isCreator      -> navController.navigate("creator_activity/${activity.id}/$encoded")
+                            activity.isParticipant  -> navController.navigate("participant_activity/${activity.id}/$encoded")
+                            else                    -> navController.navigate("viewer_activity/${activity.id}/$encoded")
                         }
                     }
                 )
             }
 
-            /* ─── Agenda & Chats placeholders ─────────────────── */
-            composable("agenda") { /* … */ }
-            composable("chats")  { UpChatScreens(navController = appNav) }
+            /* ─── Activities (three‐tab host) ─────────────────── */
+            composable("agenda") {
+                ActivityTabsScreen(
+                    token = token,
+                    onActivityClick = { activity ->
+                        val encoded = URLEncoder.encode(token, "UTF-8")
+                        when {
+                            activity.isCreator      -> navController.navigate("creator_activity/${activity.id}/$encoded")
+                            activity.isParticipant  -> navController.navigate("participant_activity/${activity.id}/$encoded")
+                            else                    -> navController.navigate("viewer_activity/${activity.id}/$encoded")
+                        }
+                    }
+                )
+            }
+
+            /* ─── Chats ───────────────────────────────────────── */
+            composable("chats") {
+                UpChatScreens(navController = appNav)
+            }
 
             /* ─── Profile (token in route) ─────────────────────── */
             composable(
@@ -100,7 +138,6 @@ fun RootScaffold(
                         navController.navigate("edit_profile/$e")
                     },
                     onLogout        = {
-                        // clear session…
                         navController.navigate("login")
                     },
                     onActivityClick = { id ->
@@ -112,16 +149,21 @@ fun RootScaffold(
 
             /* ─── Creator activity ─────────────────────────────── */
             composable(
-                "creator_activity/{eventId}",
-                arguments = listOf(navArgument("eventId") { type = NavType.IntType })
+                "creator_activity/{eventId}/{token}",
+                arguments = listOf(
+                    navArgument("eventId") { type = NavType.IntType },
+                    navArgument("token")   { type = NavType.StringType }
+                )
             ) { back ->
                 val eventId = back.arguments!!.getInt("eventId")
+                val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+
                 CreatorActivityScreen(
                     eventId = eventId,
-                    token   = token,
+                    token   = decoded,
                     onBack  = { navController.popBackStack() },
                     onEdit  = { id ->
-                        val e = URLEncoder.encode(token, "UTF-8")
+                        val e = URLEncoder.encode(decoded, "UTF-8")
                         navController.navigate("edit_activity/$id/$e")
                     }
                 )
@@ -129,19 +171,18 @@ fun RootScaffold(
 
             /* ─── Viewer activity ──────────────────────────────── */
             composable(
-                "viewer_activity/{eventId}/{token?}",
+                "viewer_activity/{eventId}/{token}",
                 arguments = listOf(
                     navArgument("eventId") { type = NavType.IntType },
-                    navArgument("token")   { type = NavType.StringType; nullable = true }
+                    navArgument("token")   { type = NavType.StringType }
                 )
             ) { back ->
                 val eventId = back.arguments!!.getInt("eventId")
-                val tokArg  = back.arguments?.getString("token")
-                val tok     = tokArg?.let { URLDecoder.decode(it, "UTF-8") } ?: token
+                val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
 
                 ViewerActivityScreen(
                     eventId = eventId,
-                    token   = tok,
+                    token   = decoded,
                     onBack  = { navController.popBackStack() }
                 )
             }
@@ -166,8 +207,29 @@ fun RootScaffold(
                 )
             }
 
+            /* ─── Participant activity ─────────────────────────────── */
+            composable(
+                "participant_activity/{eventId}/{token}",
+                arguments = listOf(
+                    navArgument("eventId") { type = NavType.IntType },
+                    navArgument("token")   { type = NavType.StringType }
+                )
+            ) { back ->
+                val eventId = back.arguments!!.getInt("eventId")
+                val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+
+                ParticipantActivityScreen(
+                    eventId = eventId,
+                    token   = decoded,
+                    onBack  = { navController.popBackStack() },
+
+                )
+            }
+
             /* ─── Notifications ───────────────────────────────── */
-            composable("notifications") { NotificationScreen() }
+            composable("notifications") {
+                NotificationScreen()
+            }
         }
     }
 }
@@ -241,7 +303,7 @@ fun TopBar(
 fun BottomNavigationBar(
     navController: NavHostController,
     currentRoute: String?,
-    token: String          // ← need raw token to build perfil route
+    token: String
 ) {
     data class NavItem(val route: String, val title: String, val drawableRes: Int)
     val items = listOf(
@@ -250,6 +312,7 @@ fun BottomNavigationBar(
         NavItem("chats",  "Chats",      R.drawable.chat),
         NavItem("perfil", "Profile",    R.drawable.profileuser)
     )
+
     val selectedColor   = Color(0xFF3629B7)
     val unselectedColor = Color(0xFF023499)
 
@@ -287,13 +350,16 @@ fun BottomNavigationBar(
                             if (currentRoute == "notifications") {
                                 navController.popBackStack("notifications", true)
                             }
-                            navController.navigate(
-                                if (item.route == "perfil") "perfil/$encoded"
-                                else item.route
-                            ) {
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            val destination = if (item.route == "perfil") "perfil/$encoded" else item.route
+                            navController.navigate(destination) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    // Don’t save the previous state; always go to root
+                                    saveState = false
+                                }
+                                // If already on this route, don’t add another copy
                                 launchSingleTop = true
-                                restoreState = true
+                                // Don’t restore any saved state
+                                restoreState = false
                             }
                         }
                     ) {
