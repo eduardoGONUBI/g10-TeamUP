@@ -10,18 +10,18 @@ use App\Models\EventUser;
 
 class ConsumeChatJoinLeave extends Command
 {
-    protected $signature = 'rabbitmq:consume-chat-join-leave';
-    protected $description = 'Consume chat_event_join-leave messages from RabbitMQ and store them in event_user table';
+    protected $signature = 'rabbitmq:consume-lolchat-join-leave';
+    protected $description = 'Consume lolchat_event_join-leave messages from RabbitMQ and store them in event_user table';
 
     public function handle()
     {
-        $this->info('Listening to chat_event_join-leave queue...');
+        $this->info('Listening to lolchat_event_join-leave queue...');
 
         try {
             $connection = new AMQPStreamConnection('rabbitmq', 5672, 'guest', 'guest');
             $channel = $connection->channel();
 
-            $queueName = 'chat_event_join-leave';
+            $queueName = 'lolchat_event_join-leave';
             $channel->queue_declare($queueName, false, true, false, false);
 
             $callback = function (AMQPMessage $msg) {

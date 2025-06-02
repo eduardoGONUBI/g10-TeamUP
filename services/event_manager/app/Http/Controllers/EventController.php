@@ -191,6 +191,7 @@ class EventController extends Controller
             ];
             $this->publishToRabbitMQ('event_joined', json_encode($msg));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($msg));
+            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($msg));
             $this->publishToRabbitMQ('ach_event_join-leave', json_encode($msg));
 
             return response()->json([
@@ -534,6 +535,7 @@ public function index(Request $request)
             // Publish this to the 'event_joined' queue (or whichever queue the chat microservice listens to)
             $this->publishToRabbitMQ('event_joined', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
 
 
@@ -998,6 +1000,7 @@ public function search(Request $request)
 
             $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
 
             // Fetch all remaining participants to notify
@@ -1073,6 +1076,7 @@ public function search(Request $request)
             // Using the same queue as the "leave" method
             $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
 
             // Fetch all remaining participants to notify
