@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 use App\Notifications\VerifyEmail;
 
@@ -14,9 +15,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
     use HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var string[]
+     * Mass-assignable attributes.
      */
     protected $fillable = [
         'name',
@@ -24,12 +23,11 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         'password',
         'sport',
         'location',
+        'avatar_url',          // ← new
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array
+     * Hidden attributes for arrays / JSON.
      */
     protected $hidden = [
         'password',
@@ -37,56 +35,58 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array
+     * Casts.
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
 
-    /**
-     * Get the identifier that will be stored in the subject claim of the JWT.
-     *
-     * @return mixed
-     */
+    /* -----------------------------------------------------------------
+     | JWT
+     |-----------------------------------------------------------------*/
     public function getJWTIdentifier()
     {
         return $this->getKey();
     }
 
-    /**
-     * Return a key value array, containing any custom claims to be added to the JWT.
-     *
-     * @return array
-     */
-    public function getJWTCustomClaims()
+    public function getJWTCustomClaims(): array
     {
         return [
             'is_admin' => $this->is_admin,
         ];
     }
 
-    public function sendEmailVerificationNotification()
-{
-    $this->notify(new VerifyEmail());
-}
-
-public function sendPasswordResetNotification($token)
-{
-    $this->notify(new \App\Notifications\ResetPasswordNotification($token));
-}
-public function sports()
-{
-    return $this->belongsToMany(Sport::class, 'user_sports');
-}
-
- public function getAvatarUrlAttribute($value)
+    /* -----------------------------------------------------------------
+     | Notifications
+     |-----------------------------------------------------------------*/
+    public function sendEmailVerificationNotification(): void
     {
-        return $value
-            ? Storage::url($value)                       // /storage/avatars/xxxx.png
-            : asset('/images/avatar-default.jpg');       // default em public/images
+        $this->notify(new VerifyEmail());
     }
 
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 
+    /* -----------------------------------------------------------------
+     | Relations
+     |-----------------------------------------------------------------*/
+    public function sports()
+    {
+        return $this->belongsToMany(Sport::class, 'user_sports');
+    }
+
+    /* -----------------------------------------------------------------
+     | Accessors
+     |-----------------------------------------------------------------*/
+    /**
+     * Always return a full URL (or default placeholder) for the avatar.
+     */
+    public function getAvatarUrlAttribute($value): string
+    {
+        return $value
+            ? Storage::url($value)            // e.g. /storage/avatars/abc.png
+            : asset('/images/avatar-default.jpg');
+    }
 }

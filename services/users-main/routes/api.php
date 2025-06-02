@@ -20,7 +20,9 @@ Route::group(['prefix' => 'auth'], function () {
         Route::put('update', [AuthController::class, 'update']);
          Route::post('change-password', [AuthController::class, 'changePassword']);
         Route::post('change-email',    [AuthController::class, 'changeEmail']);
+        Route::post('avatar',  [AuthController::class, 'updateAvatar']);
     });
+    Route::get('avatar/{id}', [AuthController::class, 'getAvatar']);
 });
 
 Route::middleware(['auth:api', 'admin'])->get('/users', [AdminController::class, 'getAllUsers']);

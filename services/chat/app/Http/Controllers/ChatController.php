@@ -20,7 +20,7 @@ class ChatController extends Controller
         $rabbitmqPort     = env('RABBITMQ_PORT', 5672);
         $rabbitmqUser     = env('RABBITMQ_USER', 'guest');
         $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
-        $queueName        = env('RABBITMQ_QUEUE', 'chat_event_join-leave');
+        $queueName        = env('RABBITMQ_QUEUE', 'lolchat_event_join-leave');
 
         try {
             $connection = new AMQPStreamConnection(
