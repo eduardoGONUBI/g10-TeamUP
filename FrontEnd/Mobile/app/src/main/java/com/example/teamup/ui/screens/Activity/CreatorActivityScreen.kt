@@ -34,6 +34,13 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 
+/**
+ * Screen for the event creator. Shows event info, map, and a list of participants
+ * (with their current level). Allows the creator to Conclude or Reopen the event.
+ *
+ * Crucial fix: After tapping Conclude, we call viewModel.fetchEventWithLevels() (not
+ * just updating status locally). That forces a full refetch of participants + levels.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreatorActivityScreen(
@@ -42,7 +49,7 @@ fun CreatorActivityScreen(
     onBack: () -> Unit,
     onEdit: (eventId: Int) -> Unit
 ) {
-    // 1) Obtain the ViewModel, which will fetch the event and enrich participants with their levels
+    // 1) Instantiate the ViewModel (this immediately fetches the event + participant levels)
     val viewModel: ActivityDetailViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
@@ -52,12 +59,12 @@ fun CreatorActivityScreen(
         }
     )
 
-    // 2) Observe the StateFlow of ActivityDto?
+    // 2) Collect the StateFlow<ActivityDto?> from the ViewModel
     val eventState by viewModel.event.collectAsState()
     val api = remember { ActivityApi.create() }
     val coroutineScope = rememberCoroutineScope()
 
-    // 3) While eventState is null, show a loading spinner
+    // 3) If still loading (null), show a spinner and return early
     if (eventState == null) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -68,10 +75,10 @@ fun CreatorActivityScreen(
         return
     }
 
-    // 4) Non-null event
+    // 4) Now we have a non-null ActivityDto
     val e = eventState!!
 
-    // 5) Map participants to ParticipantUi, pulling in each participant’s level (default 0 if null)
+    // 5) Build ParticipantUi list, mapping each ParticipantDto.level → ParticipantUi.level
     val uiParticipants = e.participants.orEmpty()
         .distinctBy { it.id }
         .map {
@@ -109,7 +116,7 @@ fun CreatorActivityScreen(
                 }
             },
             actions = {
-                // Edit button (pencil)
+                // ─── EDIT BUTTON ─────────────────────────────────────────────────
                 IconButton(onClick = { onEdit(e.id) }) {
                     Icon(
                         imageVector = Icons.Default.Edit,
@@ -117,13 +124,14 @@ fun CreatorActivityScreen(
                     )
                 }
 
-                // Cancel (delete) – red Close icon
+                // ─── CANCEL (DELETE) BUTTON ─────────────────────────────────────
                 IconButton(onClick = {
                     coroutineScope.launch {
                         val resp = api.deleteActivity("Bearer $token", e.id)
                         if (resp.isSuccessful) {
                             onBack()
                         } else {
+                            // you can show a Snackbar or log
                             println("Cancel failed: ${resp.code()}")
                         }
                     }
@@ -135,13 +143,16 @@ fun CreatorActivityScreen(
                     )
                 }
 
-                // Conclude (if in progress) or Reopen (if concluded)
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // ─── CONCLUDE or REOPEN ────────────────────────────────────────
                 if (e.status == "in progress") {
-                    // Conclude – blue Done icon
+                    // Conclude: blue Done icon
                     IconButton(onClick = {
                         coroutineScope.launch {
                             val resp = api.concludeByCreator("Bearer $token", e.id)
                             if (resp.isSuccessful) {
+                                // Instead of just copying status locally, re-fetch everything:
                                 viewModel.fetchEventWithLevels()
                             } else {
                                 println("Conclude failed: ${resp.code()}")
@@ -151,16 +162,17 @@ fun CreatorActivityScreen(
                         Icon(
                             imageVector = Icons.Default.Done,
                             contentDescription = "Mark as concluded",
-                            tint = Color(0xFF1E88E5)
+                            tint = Color(0xFF1E88E5) // Blue
                         )
                     }
                 } else {
-                    // Reopen – orange Refresh icon
+                    // Reopen: orange Refresh icon
                     IconButton(onClick = {
                         coroutineScope.launch {
                             val body = StatusUpdateRequest(status = "in progress")
                             val resp = api.updateStatus("Bearer $token", e.id, body)
                             if (resp.isSuccessful) {
+                                // Re-fetch now that status is back to “in progress”
                                 viewModel.fetchEventWithLevels()
                             } else {
                                 println("Re-open failed: ${resp.code()}")
@@ -170,19 +182,21 @@ fun CreatorActivityScreen(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Re-open activity",
-                            tint = Color(0xFFFFA000)
+                            tint = Color(0xFFFFA000) // Orange
                         )
                     }
                 }
             }
         )
 
-        // Body: ActivityInfoCard, Map, and Participants list
+        // ────────────────────────────────────────────────────────
+        // BODY: ActivityInfoCard, Map, Participants List
+        // ────────────────────────────────────────────────────────
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // ActivityInfoCard
+            // 1) ActivityInfoCard
             item {
                 ActivityInfoCard(
                     activity = e,
@@ -190,7 +204,7 @@ fun CreatorActivityScreen(
                 )
             }
 
-            // Google Map
+            // 2) Google Map
             item {
                 val coords = LatLng(e.latitude, e.longitude)
                 val cameraState: CameraPositionState = rememberCameraPositionState {
@@ -219,7 +233,7 @@ fun CreatorActivityScreen(
                 }
             }
 
-            // “Participants (N)” header
+            // 3) Participants header
             item {
                 Text(
                     text = "Participants (${uiParticipants.size})",
@@ -228,7 +242,7 @@ fun CreatorActivityScreen(
                 )
             }
 
-            // ParticipantRow for each participant
+            // 4) ParticipantRow for each participant (shows name + “Lvl X” + star/delete)
             items(uiParticipants, key = { it.id }) { p ->
                 ParticipantRow(
                     p = p,
@@ -239,7 +253,9 @@ fun CreatorActivityScreen(
         }
     }
 
-    // Kick dialog
+    // ────────────────────────────────────────────────────────────────
+    // KICK DIALOG (AlertDialog)
+    // ────────────────────────────────────────────────────────────────
     if (kickTarget != null) {
         AlertDialog(
             onDismissRequest = { kickTarget = null },
@@ -254,6 +270,7 @@ fun CreatorActivityScreen(
                             participantId = target.id
                         )
                         if (response.isSuccessful) {
+                            // Refresh once someone is kicked
                             viewModel.fetchEventWithLevels()
                         } else {
                             println("Kick failed: ${response.code()}")
