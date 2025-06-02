@@ -1,0 +1,166 @@
+/* ─── src/Chat/ChatRoom.css ───────────────────────────────────────────────── */
+
+/* ─────────────────── Container ─────────────────── */
+.chat-room-container {
+  display: flex;
+  max-width: 960px;
+  margin: 2rem auto;
+  gap: 1rem;
+  height: 80vh;
+}
+
+/* ───────────── Participants Sidebar ───────────── */
+.participants-list {
+  width: 200px;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-y: auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.participants-list h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #333;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 0.25rem;
+}
+
+.no-participants {
+  font-size: 0.875rem;
+  color: #777;
+  margin-top: 0.5rem;
+}
+
+.participant-item {
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+  color: #444;
+  border-bottom: 1px solid #eee;
+}
+
+.participant-item:last-child {
+  border-bottom: none;
+}
+
+/* ─────────────────── Chat Area ─────────────────── */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chat-header {
+  margin: 0;
+  padding: 1rem 1.5rem;
+  background: #0d47ff;
+  color: #fff;
+  font-size: 1.25rem;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+/* ───────────────── Chat History ───────────────── */
+.chat-history {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  background: #f5f7fa;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ─────────────── System / Join Message ────────────── */
+.system-message {
+  align-self: center;
+  background: transparent;
+  color: #555;
+  font-style: italic;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+/* ────────────────── Message Bubbles ────────────────── */
+.chat-bubble {
+  max-width: 70%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  word-wrap: break-word;
+}
+
+/* YOUR messages on LEFT */
+.chat-bubble.me {
+  background: #0d47ff;
+  color: #fff;
+  align-self: flex-start;
+  border-top-left-radius: 0;
+}
+
+/* OTHERS’ messages on RIGHT */
+.chat-bubble.other {
+  background: #e0e0e0;
+  align-self: flex-end;
+  border-top-right-radius: 0;
+}
+
+/* Sender’s name inside bubble */
+.bubble-sender {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+/* Actual message text */
+.bubble-text {
+  font-size: 0.9rem;
+}
+
+/* ─────────────────── Chat Input ─────────────────── */
+.chat-input {
+  display: flex;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #ddd;
+  background: #fafafa;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.send-btn {
+  margin-left: 0.5rem;
+  padding: 0 1rem;
+  background: #0d47ff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.send-btn:hover {
+  background: #093ac5;
+}
+
+/* ─────────────── Loading & Error States ─────────────── */
+.loading,
+.error {
+  text-align: center;
+  margin: auto;
+  color: #555;
+  font-size: 1rem;
+}

@@ -133,54 +133,68 @@ class ChatController extends Controller
      * Publish a message to two RabbitMQ fanout exchanges.
      */
     private function publishToRabbitMQ(string $messageBody)
-    {
-        $rabbitmqHost     = env('RABBITMQ_HOST', 'rabbitmq');
-        $rabbitmqPort     = env('RABBITMQ_PORT', 5672);
-        $rabbitmqUser     = env('RABBITMQ_USER', 'guest');
-        $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
+{
+    $rabbitmqHost     = env('RABBITMQ_HOST', 'rabbitmq');
+    $rabbitmqPort     = env('RABBITMQ_PORT', 5672);
+    $rabbitmqUser     = env('RABBITMQ_USER', 'guest');
+    $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
 
-        // Two hardcoded fanout exchanges
-        $exchanges = [
-            'notification_fanout_1',
-            'notification_fanout_2',
-        ];
+    // Fanout exchanges + target queue
+    $fanoutExchanges = [
+        'notification_fanout_1',
+        'notification_fanout_2',
+    ];
+    $directQueue = 'realfrontchat';
 
-        try {
-            $connection = new AMQPStreamConnection(
-                $rabbitmqHost,
-                $rabbitmqPort,
-                $rabbitmqUser,
-                $rabbitmqPassword
+    try {
+        $connection = new AMQPStreamConnection(
+            $rabbitmqHost,
+            $rabbitmqPort,
+            $rabbitmqUser,
+            $rabbitmqPassword
+        );
+        $channel = $connection->channel();
+
+        // Publish to fanout exchanges
+        foreach ($fanoutExchanges as $exchange) {
+            $channel->exchange_declare(
+                $exchange,
+                'fanout',
+                false,
+                true,
+                false
             );
-            $channel = $connection->channel();
 
-            foreach ($exchanges as $exchange) {
-                $channel->exchange_declare(
-                    $exchange,
-                    'fanout',
-                    false,
-                    true,
-                    false
-                );
-
-                $msg = new AMQPMessage($messageBody, [
-                    'content_type'  => 'application/json',
-                    'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
-                ]);
-
-                $channel->basic_publish($msg, $exchange);
-                \Log::info("Published message to exchange '{$exchange}'", ['body' => $messageBody]);
-            }
-
-            $channel->close();
-            $connection->close();
-        } catch (\Exception $e) {
-            \Log::error('Error publishing to RabbitMQ exchanges:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+            $msg = new AMQPMessage($messageBody, [
+                'content_type'  => 'application/json',
+                'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
             ]);
+
+            $channel->basic_publish($msg, $exchange);
+            \Log::info("Published message to exchange '{$exchange}'", ['body' => $messageBody]);
         }
+
+        // Ensure direct queue exists
+        $channel->queue_declare($directQueue, false, true, false, false);
+
+        // Publish directly to the queue using default exchange ("")
+        $directMsg = new AMQPMessage($messageBody, [
+            'content_type'  => 'application/json',
+            'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+        ]);
+        $channel->basic_publish($directMsg, '', $directQueue);
+        \Log::info("Published message to direct queue '{$directQueue}'", ['body' => $messageBody]);
+
+        $channel->close();
+        $connection->close();
+    } catch (\Exception $e) {
+        \Log::error('Error publishing to RabbitMQ exchanges or queue:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
     }
+}
+
 
     /**
      * Fetch messages for an event.
