@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/teamup/ui/screens/ProfileScreen.kt
+// File: app/src/main/java/com/example/teamup/ui/screens/ProfileScreen.kt
 package com.example.teamup.ui.screens
 
 import androidx.compose.foundation.Image
@@ -18,13 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.teamup.R
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.components.ActivityCard
+import com.example.teamup.ui.components.AchievementsRow
+import com.example.teamup.R
 
 @Composable
 fun ProfileScreen(
@@ -34,174 +34,188 @@ fun ProfileScreen(
     onActivityClick: (ActivityItem) -> Unit,
     viewModel: ProfileViewModel
 ) {
-    // ── State ─────────────────────────────────────────────────────────────
-    val username        by viewModel.username.collectAsState()
-    val userError       by viewModel.error.collectAsState()
-    val activities      by viewModel.createdActivities.collectAsState()
-    val activitiesError by viewModel.activitiesError.collectAsState()
+    // ─── Collect all state from ViewModel ──────────────────────────────
+    val username         by viewModel.username.collectAsState()
+    val level            by viewModel.level.collectAsState()
+    val behaviour        by viewModel.behaviour.collectAsState()
+    val reputationLabel  by viewModel.reputationLabel.collectAsState()
+    val achievements     by viewModel.achievements.collectAsState()
+    val activities       by viewModel.createdActivities.collectAsState()
+    val error            by viewModel.error.collectAsState()
+    val activitiesError  by viewModel.activitiesError.collectAsState()
 
-    // ── Load data when token changes ───────────────────────────────────────
+    // ─── Trigger loads whenever token changes ───────────────────────────
     LaunchedEffect(token) {
         viewModel.loadUser(token)
         viewModel.loadCreatedActivities(token)
+        viewModel.loadStats(token)
     }
 
-    // ── UI ─────────────────────────────────────────────────────────────────
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-
-        // Header banner image
-        item {
-            Image(
-                painter = painterResource(R.drawable.icon_up),
-                contentDescription = "Header",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        // Avatar + edit overlay
-        item {
-            Box(
-                contentAlignment = Alignment.BottomCenter,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = (-40).dp)
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.icon_up),
-                    contentDescription = "Profile photo",
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                )
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Change photo",
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(4.dp, 4.dp)
-                        .size(24.dp)
-                        .clickable(onClick = onEditProfile)
-                )
-            }
-        }
-
-        // Username + location placeholder
-        item {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 16.dp)
-            ) {
-                Text(text = username, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "Location", // you can replace with actual location if you have it
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        // Profile fetch error (if any)
-        if (userError != null) {
+    // ─── Wrap both the scrollable content and the Snackbar in a Box ───
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ────────────────────────────
+        // 1) Main scrolling content
+        // ────────────────────────────
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            // ── Avatar + Edit Icon ───────────────────────────────────
             item {
-                Text(
-                    text = "Failed to load profile: $userError",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        }
-
-        // Stats row
-        item {
-            Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp)
-            ) {
-                ProfileStat("Organized",    "${activities.count { it.isCreator }}")
-                ProfileStat("Participated", "0") // placeholder: integrate actual participated count if needed
-                ProfileStat("Rating",       "0.0") // placeholder: integrate actual rating if you have it
-            }
-        }
-
-        // Edit / Logout buttons
-        item {
-            Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            ) {
-                Button(onClick = onEditProfile) {
-                    Icon(Icons.Default.Edit, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Edit Profile")
-                }
-                OutlinedButton(onClick = onLogout) {
-                    Icon(Icons.Default.Logout, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Logout")
-                }
-            }
-        }
-
-        // Header for created activities
-        item {
-            Text(
-                text = "Recent Activities Created",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 8.dp)
-            )
-        }
-
-        // Show error if activities fetch failed
-        if (activitiesError != null) {
-            item {
-                Text(
-                    text = "Failed to load activities: $activitiesError",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        }
-        // If no activities created
-        else if (activities.isEmpty()) {
-            item {
-                Text(
-                    text = "No activities created",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Box(
+                    contentAlignment = Alignment.BottomEnd,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
+                        .padding(top = 24.dp)
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.avatar_default),
+                        contentDescription = "Default Avatar",
+                        modifier = Modifier
+                            .size(96.dp)
+                            .clip(CircleShape)
+                            .align(Alignment.Center),
+                        contentScale = ContentScale.Crop
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit photo",
+                        modifier = Modifier
+                            .offset((-4).dp, (-4).dp)
+                            .size(24.dp)
+                            .clickable(onClick = onEditProfile)
+                    )
+                }
+            }
+
+            // ── Username ─────────────────────────────────
+            item {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 16.dp)
+                ) {
+                    Text(
+                        text = username,
+                        fontSize = 20.sp,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+
+            // ── Stats Card ───────────────────────────────────────────
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        ProfileStat("Level", level.toString())
+                        ProfileStat("Behaviour", behaviour?.toInt()?.toString() ?: "—")
+                        ProfileStat("Reputation", reputationLabel)
+                    }
+                }
+            }
+
+            // ── Achievements Header ───────────────────────────────────
+            item {
+                Text(
+                    text = "Unlocked Achievements",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 8.dp)
                 )
             }
+
+            // ── Achievements Icons Row ───────────────────────────────
+            item {
+                AchievementsRow(achievements)
+            }
+
+            // ── Edit & Logout Buttons ─────────────────────────────────
+            item {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp, bottom = 8.dp)
+                ) {
+                    Button(onClick = onEditProfile) {
+                        Icon(Icons.Default.Edit, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Edit Profile")
+                    }
+                    OutlinedButton(onClick = onLogout) {
+                        Icon(Icons.Default.Logout, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Logout")
+                    }
+                }
+            }
+
+            // ── Recent Activities Header ──────────────────────────────
+            item {
+                Text(
+                    text = "Recent Activities Created",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 8.dp)
+                )
+            }
+
+            // ── Recent Activities List or Error ──────────────────────
+            when {
+                activitiesError != null -> item {
+                    Text(
+                        "Failed to load activities: $activitiesError",
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(24.dp)
+                    )
+                }
+                activities.isEmpty() -> item {
+                    Text(
+                        "No activities created",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                }
+                else -> items(activities, key = { it.id }) { act ->
+                    ActivityCard(
+                        activity = act,
+                        onClick = { onActivityClick(act) }
+                    )
+                }
+            }
         }
-        // Otherwise, list them using ActivityCard
-        else {
-            items(activities, key = { it.id }) { activity ->
-                 ActivityCard(
-                         activity = activity,
-                         onClick  = { onActivityClick(activity) }
-                             )
+
+        // ────────────────────────────
+        // 2) Error banner (generic)
+        // ────────────────────────────
+        if (error != null) {
+            Snackbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+            ) {
+                Text("Error: $error")
             }
         }
     }
 }
 
+/* Small stat cell */
 @Composable
 private fun ProfileStat(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text(text = label, fontSize = 12.sp)
+        Text(value, fontSize = 18.sp, style = MaterialTheme.typography.titleMedium)
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -19,6 +19,28 @@ interface AchievementsApi {
         @Header("Authorization") authHeader: String
     ): ProfileResponse
 
+    // NEW – unlocked achievements
+    @GET("/api/achievements/{user_id}")
+    suspend fun listAchievements(
+        @Path("user_id") userId: Int,
+        @Header("Authorization") auth: String
+    ): AchievementsResponse
+
+    // NEW – reputation score & badges
+    @GET("/api/rating/{user_id}")
+    suspend fun getReputation(
+        @Path("user_id") userId: Int,
+        @Header("Authorization") auth: String
+    ): ReputationResponse
+
+    // NEW – behaviour index (global average)
+    @GET("/api/userAverage/{user_id}")
+    suspend fun getUserAverage(
+        @Path("user_id") userId: Int,
+        @Header("Authorization") auth: String
+    ): UserAverageResponse
+
+
     companion object {
         fun create(): AchievementsApi {
             return Retrofit.Builder()
@@ -30,7 +52,3 @@ interface AchievementsApi {
     }
 }
 
-data class ProfileResponse(
-    val xp: Int,
-    val level: Int
-)
