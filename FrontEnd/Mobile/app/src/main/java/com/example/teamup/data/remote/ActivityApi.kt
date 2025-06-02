@@ -1,5 +1,6 @@
 package com.example.teamup.data.remote
 
+import com.example.teamup.data.domain.model.CreateEventRequest
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -51,8 +52,7 @@ interface ActivityApi {
         @Body updatedEvent: EventUpdateRequest
     ): Response<Unit>
 
-<<<<<<< Updated upstream
-=======
+
     @GET("/api/events/search")
     suspend fun searchEvents(
         @Header("Authorization") token: String,
@@ -85,7 +85,7 @@ interface ActivityApi {
         @Path("id") id: Int
     ): Response<Unit>
 
->>>>>>> Stashed changes
+//Stashed changes
     companion object {
         fun create(): ActivityApi {
             return Retrofit.Builder()

@@ -10,7 +10,7 @@ data class ActivityDto(
     val max_participants: Int,
     val creator: CreatorDto,
     val weather: WeatherDto,
-    val participants: List<ParticipantDto>,
+    val participants: List<ParticipantDto>?,
     val latitude: Double,
     val longitude: Double
 )
@@ -33,9 +33,7 @@ data class EventUpdateRequest(
     val max_participants: Int,
     val place: String
 )
-<<<<<<< Updated upstream
-=======
+
 
 data class SportDto(val id: Int, val name: String)
 
->>>>>>> Stashed changes
