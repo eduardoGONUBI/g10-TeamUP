@@ -1,13 +1,13 @@
 // src/Account/Account.tsx
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   fetchMe,
   fetchAchievements,
   fetchXpLevel,
   fetchReputation,
-  deleteMe,
-  logout,
+  fetchAvatar,
+  uploadAvatar,
 } from "../api/user"
 import "./perfil.css"
 import type { Achievement, Reputation } from "../api/user"
@@ -22,28 +22,56 @@ function behaviourLabel(score: number): string {
 
 export default function Account() {
   const [user, setUser] = useState<any>(null)
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null)
   const [achievements, setAch] = useState<Achievement[]>([])
   const [xp, setXp] = useState<number | null>(null)
   const [level, setLevel] = useState<number | null>(null)
   const [reputation, setReputation] = useState<Reputation | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInput = useRef<HTMLInputElement | null>(null)
   const nav = useNavigate()
 
+  // Fetch user + avatar + related stats on mount
   useEffect(() => {
+    let isMounted = true
     ;(async () => {
-      const me = await fetchMe()
-      setUser(me)
+      try {
+        const me = await fetchMe()
+        if (!isMounted) return
+        setUser(me)
 
-      const [ach, prof, rep] = await Promise.all([
-        fetchAchievements(me.id),
-        fetchXpLevel(me.id),
-        fetchReputation(me.id),
-      ])
+        // Avatar ------------------------------------------------------
+        try {
+          const url = await fetchAvatar(me.id)
+          if (isMounted) setAvatarSrc(url)
+        } catch (err) {
+          console.error("Could not fetch avatar", err)
+        }
 
-      setAch(ach)
-      setXp(prof.xp)
-      setLevel(prof.level)
-      setReputation(rep)
-    })().catch(console.error)
+        // Other profile data -----------------------------------------
+        const [ach, prof, rep] = await Promise.all([
+          fetchAchievements(me.id),
+          fetchXpLevel(me.id),
+          fetchReputation(me.id),
+        ])
+        if (!isMounted) return
+        setAch(ach)
+        setXp(prof.xp)
+        setLevel(prof.level)
+        setReputation(rep)
+      } catch (e) {
+        console.error(e)
+      }
+    })()
+
+    // Clean-up: revoke ObjectURL & cancel state updates after unmount
+    return () => {
+      isMounted = false
+      if (avatarSrc && avatarSrc.startsWith("blob:")) {
+        URL.revokeObjectURL(avatarSrc)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (!user) return <p>Loading…</p>
@@ -56,10 +84,38 @@ export default function Account() {
         {/* LEFT */}
         <div className="avatar-col">
           <img
-            src={user.avatar_url ?? "/placeholder.png"}
+            src={avatarSrc ?? "/placeholder.png"}
             alt="Avatar"
             className="avatar"
+            onClick={() => fileInput.current?.click()}
+            style={{ cursor: "pointer" }}
           />
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              setUploading(true)
+              try {
+                const { url: newUrl } = await uploadAvatar(file)
+                if (avatarSrc && avatarSrc.startsWith("blob:")) {
+                  URL.revokeObjectURL(avatarSrc)
+                }
+                setAvatarSrc(newUrl)
+              } catch (err) {
+                console.error(err)
+                alert("Sorry, the avatar could not be updated.")
+              } finally {
+                setUploading(false)
+                // Reset input value so the same file can be re-selected if needed
+                if (fileInput.current) fileInput.current.value = ""
+              }
+            }}
+          />
+          {uploading && <small>Uploading…</small>}
           <span className="level">Lvl {level ?? 1}</span>
           {xp !== null && <small>{xp} XP</small>}
         </div>
@@ -136,9 +192,7 @@ export default function Account() {
             <button onClick={() => nav("/change-password")}>
               Change Password
             </button>
-            <button onClick={() => nav("/change-email")}>
-              Change Email
-            </button>
+            <button onClick={() => nav("/change-email")}>Change Email</button>
             <button className="danger" onClick={() => nav("/delete-account")}>
               Delete Account
             </button>
