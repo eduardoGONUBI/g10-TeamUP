@@ -20,8 +20,12 @@ data class ActivityDto(
 
 data class CreatorDto(val id: Int, val name: String)
 
-data class ParticipantDto(val id: Int, val name: String, val rating: Double?)
-
+data class ParticipantDto(
+    val id: Int,
+    val name: String,
+    val level: Int? = null,
+    val rating: Double? = null
+)
 
 data class WeatherDto(
     val app_max_temp: String,

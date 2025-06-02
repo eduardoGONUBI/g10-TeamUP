@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/teamup/ui/screens/Activity/ParticipantActivityScreen.kt
+// File: app/src/main/java/com/example/teamup/ui/screens/Activity/ParticipantActivityScreen.kt
 package com.example.teamup.ui.screens.Activity
 
 import androidx.compose.foundation.background
@@ -13,13 +13,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.teamup.R
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.data.remote.ActivityApi
 import com.example.teamup.data.remote.ActivityDto
+import com.example.teamup.ui.components.ActivityInfoCard
+import com.example.teamup.ui.model.ParticipantUi
+import com.example.teamup.ui.model.ParticipantRow
+import com.example.teamup.ui.screens.ActivityDetailViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
@@ -32,50 +36,40 @@ fun ParticipantActivityScreen(
     token: String,
     onBack: () -> Unit
 ) {
+    // 1) Use ViewModel to fetch event + levels
+    val viewModel: ActivityDetailViewModel = viewModel(
+        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return ActivityDetailViewModel(eventId, token) as T
+            }
+        }
+    )
+
+    val eventState by viewModel.event.collectAsState()
     val api = remember { ActivityApi.create() }
     val coroutineScope = rememberCoroutineScope()
-    var event by remember { mutableStateOf<ActivityDto?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
 
-    // Load via getEventDetail(...)
-    LaunchedEffect(eventId) {
-        try {
-            val dto = api.getEventDetail(eventId, "Bearer $token")
-            event = dto
-            error = null
-        } catch (e: Exception) {
-            error = "Event not found"
+    // 2) Show loading while eventState == null
+    if (eventState == null) {
+        Box(Modifier.fillMaxSize(), Alignment.Center) {
+            CircularProgressIndicator()
         }
+        return
     }
 
-    when {
-        event == null && error == null -> {
-            Box(Modifier.fillMaxSize(), Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            return
-        }
-        error != null -> {
-            Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Text(
-                    "Error: $error",
-                    color = Color.Red,
-                    textAlign = TextAlign.Center
-                )
-            }
-            return
-        }
-    }
+    // 3) Now eventState is non-null
+    val e: ActivityDto = eventState!!
 
-    // Non-null event
-    val e = event!!
+    // 4) Build ParticipantUi list (with levels)
     val uiParticipants = e.participants.orEmpty()
         .distinctBy { it.id }
         .map {
             ParticipantUi(
                 id = it.id,
                 name = it.name,
-                isCreator = it.id == e.creator.id
+                isCreator = (it.id == e.creator.id),
+                level = it.level ?: 0
             )
         }
 
@@ -86,35 +80,37 @@ fun ParticipantActivityScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         TopAppBar(
-            title = { Text(e.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            title = {
+                Text(
+                    text = e.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 20.sp
+                )
+            },
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        painterResource(R.drawable.arrow_back),
-                        contentDescription = "Back"
+                        imageVector = Icons.Default.ExitToApp,
+                        contentDescription = "Back",
+                        tint = Color.Black,
+                        modifier = Modifier.scale(scaleX = -1f, scaleY = 1f)
                     )
                 }
             },
             actions = {
-                // ─── LEAVE BUTTON ───────────────────────────────────────────
+                // LEAVE button
                 IconButton(onClick = {
                     coroutineScope.launch {
-                        try {
-                            val response = api.leaveEvent(
-                                token = "Bearer $token", id = e.id
-                            )
-                            if (response.isSuccessful) onBack()
-                            else println("Leave failed: ${response.code()}")
-                        } catch (ex: Exception) {
-                            println("Leave error: ${ex.localizedMessage}")
-                        }
+                        val response = api.leaveEvent("Bearer $token", e.id)
+                        if (response.isSuccessful) onBack()
+                        else println("Leave failed: ${response.code()}")
                     }
                 }) {
                     Icon(
                         imageVector = Icons.Default.ExitToApp,
                         contentDescription = "Leave Event",
                         tint = Color.Red,
-                        // Flip horizontally so it points “inward”
                         modifier = Modifier.scale(scaleX = -1f, scaleY = 1f)
                     )
                 }
@@ -125,18 +121,21 @@ fun ParticipantActivityScreen(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
+            // Info card
             item {
                 ActivityInfoCard(
                     activity = e,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-
+            // Map
             item {
                 val coords = LatLng(e.latitude, e.longitude)
-                val camState = rememberCameraPositionState()
-                LaunchedEffect(camState, coords) {
-                    camState.position = CameraPosition.fromLatLngZoom(coords, 15f)
+                val cameraState: CameraPositionState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(coords, 15f)
+                }
+                LaunchedEffect(cameraState, coords) {
+                    cameraState.position = CameraPosition.fromLatLngZoom(coords, 15f)
                 }
 
                 Card(
@@ -148,7 +147,7 @@ fun ParticipantActivityScreen(
                 ) {
                     GoogleMap(
                         modifier = Modifier.fillMaxSize(),
-                        cameraPositionState = camState
+                        cameraPositionState = cameraState
                     ) {
                         Marker(
                             state = MarkerState(position = coords),
@@ -157,15 +156,15 @@ fun ParticipantActivityScreen(
                     }
                 }
             }
-
+            // Participants header
             item {
                 Text(
-                    "Participants (${uiParticipants.size})",
+                    text = "Participants (${uiParticipants.size})",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 8.dp)
                 )
             }
-
+            // Participant rows
             items(uiParticipants, key = { it.id }) { p ->
                 ParticipantRow(
                     p = p,

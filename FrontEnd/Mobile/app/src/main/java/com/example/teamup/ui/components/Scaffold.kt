@@ -30,8 +30,8 @@ import com.example.teamup.data.remote.ActivityApi
 import com.example.teamup.data.remote.ActivityRepositoryImpl
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.screens.*
-import com.example.teamup.ui.screens.Activity.EditActivityScreen
 import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
+import com.example.teamup.ui.screens.Activity.EditActivityScreen
 import com.example.teamup.ui.screens.Activity.ParticipantActivityScreen
 import com.example.teamup.ui.screens.Activity.ViewerActivityScreen
 import com.example.teamup.ui.screens.Chat.UpChatScreens

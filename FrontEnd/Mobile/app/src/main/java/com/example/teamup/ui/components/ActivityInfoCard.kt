@@ -1,11 +1,7 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/Activity/ActivityInfoCard.kt
-package com.example.teamup.ui.screens.Activity
+package com.example.teamup.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -16,45 +12,42 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * A reusable card that displays:
- *   • Organizer
- *   • Sport
- *   • Date (YYYY-MM-DD)
- *   • Time (HH:MM)
- *   • Place
+ * Displays the core information for a single event:
+ *   • Organizer (creator)
+ *   • Sport name
+ *   • Date / Time (parsed from ISO‐8601 string)
+ *   • Place (address)
+ *   • Status (In progress / Concluded)
  *
- * It accepts a full ActivityDto and pulls out both e.date (ISO-8601) and e.sport, e.place, etc.
+ * @param activity  The ActivityDto to render.
+ * @param modifier  Additional Modifier for styling / padding.
  */
 @Composable
 fun ActivityInfoCard(
     activity: ActivityDto,
     modifier: Modifier = Modifier
 ) {
-    // 1) Try to parse the ISO-8601 timestamp (e.g. "2025-05-31T00:00:00.000000Z")
-    //    into a java.time object, then reformat. If parsing fails, just show raw string.
+    // Try to parse the incoming ISO-8601 date string
     val parsedInstant = runCatching { Instant.parse(activity.date) }.getOrNull()
     val zone = ZoneId.systemDefault()
-
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
-    val dateText: String = parsedInstant
+    val dateText = parsedInstant
         ?.atZone(zone)
         ?.format(dateFormatter)
-        ?: activity.date.takeWhile { it != 'T' } // fallback: everything before 'T'
+        ?: activity.date.substringBefore('T')
 
-    val timeText: String = parsedInstant
+    val timeText = parsedInstant
         ?.atZone(zone)
         ?.format(timeFormatter)
-        ?: activity.date
-            .substringAfter('T', "")
-            .take(5) // fallback: HH:MM from "HH:MM:SS..."
+        ?: activity.date.substringAfter('T').take(5)
 
     Card(
         modifier = modifier
-            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .padding(24.dp)
             .fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        elevation = CardDefaults.cardElevation(6.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             // Organizer
@@ -81,7 +74,7 @@ fun ActivityInfoCard(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // Date & Time (side by side)
+            // Date & Time
             Row(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -117,12 +110,19 @@ fun ActivityInfoCard(
             )
             Text(
                 text = activity.place,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
-            Labeled(
-                label = "Status",
-                value = activity.status.replaceFirstChar { it.uppercase() },   // → "In progress"
-                bold  = true
+
+            // Status
+            Text(
+                text = "Status",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = activity.status.replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
             )
         }
     }
