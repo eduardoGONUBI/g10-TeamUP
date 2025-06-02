@@ -34,7 +34,7 @@ class ChatController extends Controller
     // Consumir ambas as filas em que o EventController publica
     $queues = [
         env('RABBITMQ_QUEUE', 'event_joined'),
-        'chat_event_join-leave',
+        'ach_event_join-leave',
     ];
 
     try {

@@ -191,6 +191,7 @@ class EventController extends Controller
             ];
             $this->publishToRabbitMQ('event_joined', json_encode($msg));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($msg));
+            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($msg));
 
             return response()->json([
                 'message' => 'Evento criado com sucesso!',
@@ -219,44 +220,61 @@ class EventController extends Controller
         return [$loc['lat'], $loc['lng']];
     }
 
-     public function show(Request $request, $id)
-    {
-        // reuse your validateToken helper if you need auth
-        $token = $this->validateToken($request);
+  public function show(Request $request, $id)
+{
+    // 1) Authenticate & validate the token
+    $token = $this->validateToken($request);
 
-        $event = Event::findOrFail($id);
+    // 2) Find the Event (or 404 if not found)
+    $event = Event::findOrFail($id);
 
-        // decode the JSON string into an array
-        $raw = is_array($event->weather)
-             ? $event->weather
-             : json_decode($event->weather, true) ?? [];
+    // 3) Decode the stored weather JSON (same as before)
+    $raw = is_array($event->weather)
+         ? $event->weather
+         : json_decode($event->weather, true) ?? [];
 
-        // pick out the bits your UI needs
-        $weather = [
-            'temp'      => $raw['temp']      ?? null,
-            'high_temp' => $raw['high_temp'] ?? null,
-            'low_temp'  => $raw['low_temp']  ?? null,
-            'description' => $raw['weather']['description'] ?? null,
-        ];
+    $weather = [
+        'temp'        => $raw['temp']       ?? null,
+        'high_temp'   => $raw['high_temp']  ?? null,
+        'low_temp'    => $raw['low_temp']   ?? null,
+        'description' => $raw['weather']['description'] ?? null,
+    ];
 
-        return response()->json([
-            'id'               => $event->id,
-            'name'             => $event->name,
-            'sport'            => $event->sport->name ?? null,
-            'date'             => $event->date,
-            'place'            => $event->place,
-            'status'           => $event->status,
-            'max_participants' => $event->max_participants,
-            'latitude'         => $event->latitude,
-            'longitude'        => $event->longitude,
-            'user_id'          => $event->user_id,
-            'creator'          => [
-                'id'   => $event->user_id,
-                'name' => $event->user_name,
-            ],
-            'weather'          => $weather,
-        ], 200);
-    }
+    // 4) Fetch participants from the pivot table (only non-deleted rows)
+    $participants = DB::table('event_user')
+        ->where('event_id', $event->id)
+        ->whereNull('deleted_at')
+        ->get(['user_id', 'user_name', 'rating'])
+        ->map(function ($p) {
+            return [
+                'id'     => $p->user_id,
+                'name'   => $p->user_name,
+                'rating' => $p->rating,
+                'avatar_url' => null, // or whatever default/avatar you want
+            ];
+        });
+
+    // 5) Return JSON with “event” fields plus the new “participants” array
+    return response()->json([
+        'id'               => $event->id,
+        'name'             => $event->name,
+        'sport'            => $event->sport->name ?? null,
+        'date'             => $event->date,
+        'place'            => $event->place,
+        'status'           => $event->status,
+        'max_participants' => $event->max_participants,
+        'latitude'         => $event->latitude,
+        'longitude'        => $event->longitude,
+        'user_id'          => $event->user_id,
+        'creator'          => [
+            'id'   => $event->user_id,
+            'name' => $event->user_name,
+        ],
+        'weather'          => $weather,
+        'participants'     => $participants,
+    ], 200);
+}
+
 /**
  * GET /api/events
  *
@@ -516,6 +534,7 @@ public function index(Request $request)
             // Publish this to the 'event_joined' queue (or whichever queue the chat microservice listens to)
             $this->publishToRabbitMQ('event_joined', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
 
 
 
@@ -653,40 +672,99 @@ public function index(Request $request)
     /**
      * Search for events.
      */
-    public function search(Request $request)
-    {
-        try {
-            $token = $this->validateToken($request);
+   /**
+ * Search for events (returns the same structure as "userEvents" for each match).
+ * GET /api/events/search?name=X&place=Y&date=Z
+ */
+/**
+ * Search for events (returns the same structure as index/userEvents for each match).
+ * GET /api/events/search?name=X&place=Y&date=Z
+ */
+public function search(Request $request)
+{
+    try {
+        // 1) Validate/authenticate token
+        $token = $this->validateToken($request);
 
-            $query = Event::query();
+        // 2) Build base query, eager‐loading the “sport” relationship and participants
+        $query = Event::with('sport');
 
-            if ($request->has('id')) {
-                $query->where('id', $request->input('id'));
-            }
-
-            if ($request->has('name')) {
-                $query->where('name', 'like', '%' . $request->input('name') . '%');
-            }
-
-            if ($request->has('date')) {
-                $query->where('date', $request->input('date'));
-            }
-
-            if ($request->has('place')) {
-                $query->where('place', 'like', '%' . $request->input('place') . '%');
-            }
-
-            $events = $query->get();
-
-            if ($events->isEmpty()) {
-                return response()->json(['message' => 'No events found'], 200);
-            }
-
-            return response()->json($events, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
+        if ($request->has('id')) {
+            $query->where('id', $request->input('id'));
         }
+        if ($request->has('name')) {
+            $query->where('name', 'like', '%' . $request->input('name') . '%');
+        }
+        if ($request->has('date')) {
+            $query->where('date', $request->input('date'));
+        }
+        if ($request->has('place')) {
+            $query->where('place', 'like', '%' . $request->input('place') . '%');
+        }
+
+        $events = $query->get();
+
+        // If no matches, return an empty array
+        if ($events->isEmpty()) {
+            return response()->json([], 200);
+        }
+
+        // 3) Map each Event model into the same structure as index() uses
+        $response = $events->map(function ($event) {
+            // 3a) Decode the “weather” column (JSON stored as a string)
+            $rawWeather = is_array($event->weather)
+                ? $event->weather
+                : json_decode($event->weather, true) ?? [];
+
+            // 3b) Build a simplified weather object
+            $weather = [
+                'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
+                'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
+                'temp'         => $rawWeather['temp']      ?? null,
+                'high_temp'    => $rawWeather['high_temp'] ?? null,
+                'low_temp'     => $rawWeather['low_temp']  ?? null,
+                'description'  => $rawWeather['weather']['description'] ?? null,
+            ];
+
+            // 3c) Build the participants list from the pivot table (only non‐deleted)
+            $participants = DB::table('event_user')
+                ->where('event_id', $event->id)
+                ->whereNull('deleted_at')
+                ->get(['user_id', 'user_name', 'rating'])
+                ->map(function ($p) {
+                    return [
+                        'id'     => $p->user_id,
+                        'name'   => $p->user_name,
+                        'rating' => $p->rating,
+                    ];
+                });
+
+            return [
+                'id'               => $event->id,
+                'name'             => $event->name,
+                'sport'            => $event->sport->name ?? null,
+                'date'             => $event->date,
+                'place'            => $event->place,
+                'status'           => $event->status,
+                'max_participants' => $event->max_participants,
+                'latitude'         => $event->latitude,
+                'longitude'        => $event->longitude,
+                'creator'          => [
+                    'id'   => $event->user_id,
+                    'name' => $event->user_name,
+                ],
+                'weather'          => $weather,
+                'participants'     => $participants,
+            ];
+        });
+
+        return response()->json($response, 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 401);
     }
+}
+
+
 
     /**
      * Admin List all events
@@ -920,6 +998,7 @@ public function index(Request $request)
 
             $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
 
             // Fetch all remaining participants to notify
             $remainingParticipants = Participant::where('event_id', $id)->get(['user_id', 'user_name'])->toArray();
@@ -994,6 +1073,7 @@ public function index(Request $request)
             // Using the same queue as the "leave" method
             $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
 
             // Fetch all remaining participants to notify
             $remainingParticipants = Participant::where('event_id', $event_id)->get(['user_id', 'user_name'])->toArray();
