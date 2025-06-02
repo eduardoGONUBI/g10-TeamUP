@@ -51,6 +51,41 @@ interface ActivityApi {
         @Body updatedEvent: EventUpdateRequest
     ): Response<Unit>
 
+<<<<<<< Updated upstream
+=======
+    @GET("/api/events/search")
+    suspend fun searchEvents(
+        @Header("Authorization") token: String,
+        @Query("name")  name:  String? = null,
+        @Query("sport") sport: String? = null,
+        @Query("place") place: String? = null,
+        @Query("date")  date:  String? = null
+    ): List<ActivityDto>
+
+    @GET("/api/sports")
+    suspend fun getSports(
+        @Header("Authorization") token: String
+    ): List<SportDto>
+
+    /**
+     * The server’s response to POST /api/events
+     */
+    @POST("/api/events")
+    suspend fun createEvent(
+        @Header("Authorization") token: String,
+        @Body body: CreateEventRequest
+    ): CreateEventRawResponse
+
+    /**
+     * Join an event.
+     * */
+    @POST("/api/events/{id}/join")
+    suspend fun joinEvent(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
+>>>>>>> Stashed changes
     companion object {
         fun create(): ActivityApi {
             return Retrofit.Builder()

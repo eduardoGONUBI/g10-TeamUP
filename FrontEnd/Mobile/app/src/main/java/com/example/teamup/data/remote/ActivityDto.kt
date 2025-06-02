@@ -33,3 +33,9 @@ data class EventUpdateRequest(
     val max_participants: Int,
     val place: String
 )
+<<<<<<< Updated upstream
+=======
+
+data class SportDto(val id: Int, val name: String)
+
+>>>>>>> Stashed changes
