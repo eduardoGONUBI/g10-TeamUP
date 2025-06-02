@@ -7,6 +7,7 @@ use App\Models\User;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password as PasswordRule; 
 use Illuminate\Support\Facades\Hash;   
 
@@ -85,6 +86,52 @@ class AuthController extends Controller
             'payload' => $additionalPayload,
         ]);
     }
+
+    public function updateAvatar(Request $request)
+    {
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
+        ]);
+
+        $user = JWTAuth::user();       // same guard you already use
+
+        // kill the old file (if any) before writing a new one
+        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+
+        // store() returns "avatars/xxxx.ext"
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $user->avatar_url = $path;
+        $user->save();
+
+        return response()->json([
+            'message'     => 'Avatar updated ✨',
+            'avatar_url'  => $user->avatar_url,  // accessor above
+        ]);
+    }
+
+    /**
+     * GET /api/avatar/{id}
+     * Sends the raw image file (good for native <img src="…"> tags).
+     */
+    public function getAvatar($id)
+{
+    $user = User::findOrFail($id);
+
+    // Grab the exact value from the DB (e.g. "avatars/8Rv3GqTGzqEgws9LUzF4BUB3iHLhZinNHSabg9we.jpg")
+    $rawPath = $user->getRawOriginal('avatar_url');
+
+    // If it’s empty or missing on disk, we abort with a 404
+    if (! $rawPath || ! Storage::disk('public')->exists($rawPath)) {
+        abort(404, 'Avatar not found');
+    }
+
+    // Stream the file from storage/app/public/avatars/…
+    return response()->file(
+        Storage::disk('public')->path($rawPath)
+    );
+}
 
     // Get the authenticated user
     public function me()
