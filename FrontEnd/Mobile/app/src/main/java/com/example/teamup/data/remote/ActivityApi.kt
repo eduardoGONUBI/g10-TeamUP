@@ -95,4 +95,18 @@ interface ActivityApi {
                 .create(ActivityApi::class.java)
         }
     }
+
+    @PUT("/api/events/{id}/conclude")
+    suspend fun concludeByCreator(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
+    /** generic PATCH that only carries { status = … } */
+    @PUT("/api/events/{id}")
+    suspend fun updateStatus(
+        @Header("Authorization")  token: String,
+        @Path("id")               id: Int,
+        @Body                     body: StatusUpdateRequest
+    ): Response<Unit>
 }

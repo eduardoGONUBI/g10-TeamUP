@@ -27,6 +27,10 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Close   // red cancel
+import androidx.compose.material.icons.filled.Done    // blue conclude
+import androidx.compose.material.icons.filled.Refresh // orange reopen
+import com.example.teamup.data.remote.StatusUpdateRequest
 
 public data class ParticipantUi(
     val id: Int,
@@ -106,29 +110,82 @@ fun CreatorActivityScreen(
                 }
             },
             actions = {
+                /* EDIT (already there) */
                 IconButton(onClick = { onEdit(e.id) }) {
                     Icon(Icons.Default.Edit, contentDescription = "Edit")
                 }
+
+                /* CANCEL – red “Close” icon */
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            val resp = api.deleteActivity("Bearer $token", e.id)
+                            if (resp.isSuccessful) onBack() else
+                                println("Cancel failed: ${resp.code()}")
+                        }
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Cancel activity",
+                        tint = Color.Red
+                    )
+                }
+
+                /* STATUS-DEPENDENT BUTTON  ➜ Conclude  OR  Re-open */
+                if (e.status == "in progress") {
+                    /* CONCLUDE – blue “Done” icon */
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                val resp = api.concludeByCreator("Bearer $token", e.id)
+                                if (resp.isSuccessful) {
+                                    event = e.copy(status = "concluded")       // refresh UI
+                                } else println("Conclude failed: ${resp.code()}")
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Done,
+                            contentDescription = "Mark as concluded",
+                            tint = Color(0xFF1E88E5) /* blue */
+                        )
+                    }
+                } else { // status == "concluded"
+                    /* RE-OPEN – orange “Refresh” icon */
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                val body = StatusUpdateRequest(status = "in progress")
+                                val resp = api.updateStatus("Bearer $token", e.id, body)
+                                if (resp.isSuccessful) {
+                                    event = e.copy(status = "in progress")
+                                } else println("Re-open failed: ${resp.code()}")
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Re-open activity",
+                            tint = Color(0xFFFFA000) /* orange */
+                        )
+                    }
+                }
             }
         )
+
 
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             item {
-                Card(
-                    Modifier
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
-                        .fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(6.dp)
-                ) {
-                    Column(Modifier.padding(20.dp)) {
-                        Labeled("Organizer", e.creator.name, bold = true)
-                        Labeled("Date", e.date)
-                        Labeled("Place", e.place)
-                    }
-                }
+                ActivityInfoCard(
+                    activity = e,
+                    modifier = Modifier
+                        // You can adjust padding here if desired.
+                        .fillMaxWidth()
+                )
             }
 
             item {

@@ -145,18 +145,10 @@ fun ViewerActivityScreen(
                             contentPadding = PaddingValues(bottom = 32.dp)
                         ) {
                             item {
-                                Card(
-                                    Modifier
-                                        .padding(horizontal = 24.dp, vertical = 16.dp)
-                                        .fillMaxWidth(),
-                                    elevation = CardDefaults.cardElevation(6.dp)
-                                ) {
-                                    Column(Modifier.padding(20.dp)) {
-                                        Labeled("Organizer", e.creator.name, bold = true)
-                                        Labeled("Date", e.date)
-                                        Labeled("Place", e.place)
-                                    }
-                                }
+                                ActivityInfoCard(
+                                    activity = e,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
 
                             item {
