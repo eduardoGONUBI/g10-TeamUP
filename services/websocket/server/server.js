@@ -12,34 +12,103 @@ const {
   WS_PORT = 8080
 } = process.env;
 
-// Fanout exchange we want to consume
-const EXCHANGE    = 'notification_fanout_1';
-const WS_PORT_NUM = parseInt(WS_PORT, 10);
+// ---------- RabbitMQ sources ----------
+const FANOUT_EXCHANGE = 'notification_fanout_1';
+const DIRECT_QUEUE    = 'realfrontchat';
 
-// Map userId -> Set of ws connections
+const WS_PORT_NUM = Number(WS_PORT);
+
+// Map userId -> Set<WebSocket>
 const clients = new Map();
 
+// ---------- DEDUP CACHE (Option B) -------------------------------------------
+const SEEN      = new Set();  // 🔹 NEW — keeps recent message keys
+const MAX_SEEN  = 500;        // 🔹 NEW — trim size
+
+// -----------------------------------------------------------------------------
+// Helper: push payload to every open WebSocket in a Set<WebSocket>
+const push = (conns, payload) => {
+  for (const ws of conns) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+    }
+  }
+};
+
+// Common handler for any RabbitMQ message we receive.
+function handleMessage(msg, channel) {
+  if (!msg) return;
+
+  let data;
+  try { data = JSON.parse(msg.content.toString()); }
+  catch (err) {
+    console.error('[RabbitMQ] Invalid JSON:', err.message);
+    return channel.ack(msg);
+  }
+
+  // ---------- DEDUP STEP -----------------------------------------------------
+  const dedupKey = `${data.event_id}|${data.user_id}|${data.timestamp}`; // 🔹 NEW
+  if (SEEN.has(dedupKey)) {                              // 🔹 NEW
+    return channel.ack(msg);                             // 🔹 NEW (skip duplicate)
+  }                                                      // 🔹 NEW
+  SEEN.add(dedupKey);                                    // 🔹 NEW
+  if (SEEN.size > MAX_SEEN) {                            // 🔹 NEW
+    SEEN.delete(SEEN.values().next().value);             // 🔹 NEW (trim oldest)
+  }                                                      // 🔹 NEW
+  // --------------------------------------------------------------------------
+
+  const eventId     = Number(data.event_id);
+  const initiatorId = Number(data.user_id);
+  const timestamp   = data.timestamp;
+
+  const participants = (data.participants || []).map(p => ({
+    id:   Number(p.user_id),
+    name: p.user_name,
+  })); // includes sender
+
+  console.log(
+    `[RabbitMQ] Dispatching "${data.type}" for event #${eventId}\n` +
+    `  From user: ${initiatorId} at ${timestamp}\n` +
+    `  To participants: ${participants.map(p => p.id).join(', ')}`
+  );
+
+  // Push to every online participant (including sender)
+  participants.forEach(p => {
+    const conns  = clients.get(p.id);
+    const online = conns && conns.size > 0;
+    if (online) {
+      push(conns, {
+        type:       data.type,
+        event_id:   eventId,
+        event_name: data.event_name,
+        user_id:    initiatorId,
+        user_name:  data.user_name,
+        message:    data.message,
+        timestamp,
+      });
+    }
+    console.log(`  → user ${p.id}: ${online ? 'sent' : 'offline'}`);
+  });
+
+  channel.ack(msg);
+}
+
+// ---------- WebSocket server ----------
 const wss = new WebSocket.Server({ port: WS_PORT_NUM }, () => {
   console.log(`WebSocket server running on port ${WS_PORT_NUM}`);
 });
 
 wss.on('connection', (ws, req) => {
-  // Properly extract the token from the URL
-  const url = new URL(req.url, `http://localhost:${WS_PORT_NUM}`);
+  const url   = new URL(req.url, `http://localhost:${WS_PORT_NUM}`);
   const token = url.searchParams.get('token');
   if (!token) return ws.close(4001, 'Authentication token required');
 
   let payload;
-  try {
-    payload = jwt.verify(token, JWT_SECRET);
-  } catch {
-    return ws.close(4002, 'Invalid or expired token');
-  }
+  try { payload = jwt.verify(token, JWT_SECRET); }
+  catch { return ws.close(4002, 'Invalid or expired token'); }
 
   const userId = Number(payload.sub);
-  if (!clients.has(userId)) {
-    clients.set(userId, new Set());
-  }
+  if (!clients.has(userId)) clients.set(userId, new Set());
   clients.get(userId).add(ws);
 
   ws.on('close', () => {
@@ -51,90 +120,28 @@ wss.on('connection', (ws, req) => {
   });
 });
 
+// ---------- RabbitMQ consumers ----------
 (async () => {
   try {
-    // 1) connect & channel
     const conn    = await amqp.connect(
       `amqp://${RABBITMQ_USERNAME}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_PORT}`
     );
     const channel = await conn.createChannel();
 
-    // 2) declare the fanout exchange
-    await channel.assertExchange(EXCHANGE, 'fanout', { durable: true });
-
-    // 3) create a private, exclusive queue
+    // 1) Fan-out exchange
+    await channel.assertExchange(FANOUT_EXCHANGE, 'fanout', { durable: true });
     const { queue } = await channel.assertQueue('', { exclusive: true });
+    await channel.bindQueue(queue, FANOUT_EXCHANGE, '');
+    console.log(`Waiting for fanout messages on "${FANOUT_EXCHANGE}"`);
+    channel.consume(queue, msg => handleMessage(msg, channel), { noAck: false });
 
-    // 4) bind it to our fanout exchange
-    await channel.bindQueue(queue, EXCHANGE, '');
+    // 2) Direct queue
+    await channel.assertQueue(DIRECT_QUEUE, { durable: true });
+    console.log(`Waiting for direct messages on queue "${DIRECT_QUEUE}"`);
+    channel.consume(DIRECT_QUEUE, msg => handleMessage(msg, channel), { noAck: false });
 
-    console.log(`Waiting for messages in exchange "${EXCHANGE}", queue "${queue}"`);
-
-    // 5) consume
-    channel.consume(
-      queue,
-      msg => {
-        if (!msg) return;
-
-        const raw = msg.content.toString();
-        console.log('[RabbitMQ] Raw:', raw);
-
-        let data;
-        try {
-          data = JSON.parse(raw);
-        } catch (err) {
-          console.error('[RabbitMQ] Invalid JSON:', err.message);
-          channel.ack(msg);
-          return;
-        }
-
-        const eventId     = Number(data.event_id);
-        const initiatorId = Number(data.user_id);
-        const timestamp   = data.timestamp;
-        const recipients  = (data.participants || [])
-          .map(p => ({ id: Number(p.user_id), name: p.user_name }))
-          .filter(p => p.id !== initiatorId);
-
-        console.log(
-          `[RabbitMQ] Dispatching "${data.type}" event "${data.event_name}" (#${eventId})\n` +
-          `  From user: ${initiatorId} at ${timestamp}\n` +
-          `  To recipients: ${recipients.map(r => r.id).join(', ')}`
-        );
-
-        // Fan out over WebSocket to each online participant
-        recipients.forEach(r => {
-          const conns = clients.get(r.id);
-          let status = conns && conns.size > 0 ? 'sent' : 'offline';
-
-          if (conns) {
-            for (const clientWs of conns) {
-              if (clientWs.readyState === WebSocket.OPEN) {
-                try {
-                  clientWs.send(JSON.stringify({
-                    type:       data.type,
-                    event_id:   eventId,
-                    event_name: data.event_name,
-                    user_id:    initiatorId,
-                    user_name:  data.user_name,
-                    message:    data.message,
-                    timestamp:  timestamp
-                  }));
-                } catch (sendErr) {
-                  console.error(`Failed to send to user ${r.id}:`, sendErr);
-                }
-              }
-            }
-          }
-
-          console.log(`  → user ${r.id}: ${status}`);
-        });
-
-        channel.ack(msg);
-      },
-      { noAck: false }
-    );
   } catch (err) {
-    console.error('Error connecting to RabbitMQ or setting up consumer:', err);
+    console.error('Error setting up RabbitMQ consumers:', err);
     process.exit(1);
   }
 })();
