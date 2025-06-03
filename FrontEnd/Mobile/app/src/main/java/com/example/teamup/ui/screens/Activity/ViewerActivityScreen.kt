@@ -21,6 +21,7 @@ import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.model.ActivityDto
 import com.example.teamup.data.remote.model.ParticipantUi
 import com.example.teamup.ui.components.ActivityInfoCard
+import com.example.teamup.ui.components.WeatherCard
 import com.example.teamup.ui.model.ParticipantRow
 import com.example.teamup.ui.screens.ActivityDetailViewModel
 import com.google.android.gms.maps.model.CameraPosition
@@ -167,6 +168,10 @@ fun ViewerActivityScreen(
                                 )
                             }
                         }
+                    }
+
+                    item {
+                        WeatherCard(weather = e.weather)
                     }
 
                     // Participants header

@@ -2,138 +2,179 @@
 package com.example.teamup.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.teamup.data.remote.model.ActivityDto
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * Displays the core information for a single event:
- *   • Organizer (creator)
- *   • Sport name
- *   • Date / Time (parsed from ISO‐8601 string)
- *   • Place (address)
- *   • Status (In progress / Concluded)
- *
- * @param activity  The ActivityDto to render.
- * @param modifier  Additional Modifier for styling / padding.
+ * A compact, icon-driven card showing:
+ *   • Organizer
+ *   • Sport
+ *   • Date & Time
+ *   • Place
+ *   • Status
  */
 @Composable
 fun ActivityInfoCard(
     activity: ActivityDto,
     modifier: Modifier = Modifier
 ) {
-    // Ensure we never call Instant.parse on a null String
+    // Safely parse startsAt into ZonedDateTime (ISO-8601) or fallback to splitting
     val raw = activity.startsAt ?: ""
     val parsedInstant = runCatching { Instant.parse(raw) }.getOrNull()
-
     val zone = ZoneId.systemDefault()
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
-    // If parsing succeeded, format both date and time. Otherwise, fall back to string‐splitting.
-    val dateText = parsedInstant
+    val dateText: String = parsedInstant
         ?.atZone(zone)
         ?.format(dateFormatter)
-        ?: raw.substringBefore('T')
+        ?: raw.substringBefore('T').ifBlank { "–" }
 
-    // For time, if the raw string had a ‘T’, take the HH:mm portion; otherwise, show “–.”
-    val timeText = if (parsedInstant != null) {
-        parsedInstant.atZone(zone).format(timeFormatter)
-    } else {
-        raw.substringAfter('T')
+    val timeText: String = parsedInstant?.atZone(zone)?.format(timeFormatter)
+        ?: raw.substringAfter('T')
             .takeIf { raw.contains('T') }
             ?.substringBeforeLast(":", missingDelimiterValue = raw.substringAfter('T'))
             ?.take(5)
-            ?: "–"
-    }
+        ?: "–"
 
+    /*
+        Layout strategy:
+        • Card with small padding and reduced elevation
+        • Each row is Icon + a bit of horizontal space + value text
+        • We group “Date” and “Time” side by side, others span full width
+     */
     Card(
         modifier = modifier
-            .padding(24.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            // Organizer
-            Text(
-                text = "Organizer",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = activity.creator.name,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            // Sport
-            Text(
-                text = "Sport",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = activity.sport,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            // Date & Time
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Date",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium
+        Column(modifier = Modifier.padding(12.dp)) {
+            // 1) Organizer
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Organizer",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = activity.creator.name,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold
                     )
+                )
+            }
+
+            // 2) Sport
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SportsSoccer,
+                    contentDescription = "Sport",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = activity.sport,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
+                )
+            }
+
+            // 3) Date & Time side-by-side
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                // Date column
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = "Date",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
                     Text(
-                        text = dateText.ifBlank { "–" },
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        text = dateText,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
                     )
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Time",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium
+                // Time column
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = "Time",
+                        modifier = Modifier.size(20.dp)
                     )
+                    Spacer(Modifier.width(6.dp))
                     Text(
                         text = timeText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
                     )
                 }
             }
 
-            // Place
-            Text(
-                text = "Place",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = activity.place,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
+            // 4) Place (Location)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Place,
+                    contentDescription = "Place",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = activity.place,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
+                )
+            }
 
-            // Status
-            Text(
-                text = "Status",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = activity.status.replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-            )
+            // 5) Status
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Status",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = activity.status.replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
         }
     }
 }
