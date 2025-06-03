@@ -12,20 +12,20 @@ const {
   WS_PORT = 8080
 } = process.env;
 
-// ---------- RabbitMQ sources ----------
-const FANOUT_EXCHANGE = 'notification_fanout_1';
-const DIRECT_QUEUE    = 'realfrontchat';
+// ─── RabbitMQ sources ───────────────────────────────────────────────────────
+const FANOUT_EXCHANGE  = 'notification_fanout_1';
+const CHAT_QUEUE       = 'realfrontchat';   // for real-time chat messages
+const NOTIFICATION_QUEUE = 'notification';  // for bell notifications
 
 const WS_PORT_NUM = Number(WS_PORT);
 
 // Map userId -> Set<WebSocket>
 const clients = new Map();
 
-// ---------- DEDUP CACHE (Option B) -------------------------------------------
-const SEEN      = new Set();  // 🔹 NEW — keeps recent message keys
-const MAX_SEEN  = 500;        // 🔹 NEW — trim size
+// ─── DEDUP CACHE (Option B) ─────────────────────────────────────────────────
+const SEEN     = new Set();
+const MAX_SEEN = 500;
 
-// -----------------------------------------------------------------------------
 // Helper: push payload to every open WebSocket in a Set<WebSocket>
 const push = (conns, payload) => {
   for (const ws of conns) {
@@ -40,22 +40,23 @@ function handleMessage(msg, channel) {
   if (!msg) return;
 
   let data;
-  try { data = JSON.parse(msg.content.toString()); }
-  catch (err) {
+  try {
+    data = JSON.parse(msg.content.toString());
+  } catch (err) {
     console.error('[RabbitMQ] Invalid JSON:', err.message);
     return channel.ack(msg);
   }
 
-  // ---------- DEDUP STEP -----------------------------------------------------
-  const dedupKey = `${data.event_id}|${data.user_id}|${data.timestamp}`; // 🔹 NEW
-  if (SEEN.has(dedupKey)) {                              // 🔹 NEW
-    return channel.ack(msg);                             // 🔹 NEW (skip duplicate)
-  }                                                      // 🔹 NEW
-  SEEN.add(dedupKey);                                    // 🔹 NEW
-  if (SEEN.size > MAX_SEEN) {                            // 🔹 NEW
-    SEEN.delete(SEEN.values().next().value);             // 🔹 NEW (trim oldest)
-  }                                                      // 🔹 NEW
-  // --------------------------------------------------------------------------
+  // ─── DEDUP STEP ────────────────────────────────────────────────────────────
+  const dedupKey = `${data.event_id}|${data.user_id}|${data.timestamp}`;
+  if (SEEN.has(dedupKey)) {
+    return channel.ack(msg);
+  }
+  SEEN.add(dedupKey);
+  if (SEEN.size > MAX_SEEN) {
+    SEEN.delete(SEEN.values().next().value);
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   const eventId     = Number(data.event_id);
   const initiatorId = Number(data.user_id);
@@ -64,7 +65,7 @@ function handleMessage(msg, channel) {
   const participants = (data.participants || []).map(p => ({
     id:   Number(p.user_id),
     name: p.user_name,
-  })); // includes sender
+  }));
 
   console.log(
     `[RabbitMQ] Dispatching "${data.type}" for event #${eventId}\n` +
@@ -93,7 +94,7 @@ function handleMessage(msg, channel) {
   channel.ack(msg);
 }
 
-// ---------- WebSocket server ----------
+// ─── WebSocket server ────────────────────────────────────────────────────────
 const wss = new WebSocket.Server({ port: WS_PORT_NUM }, () => {
   console.log(`WebSocket server running on port ${WS_PORT_NUM}`);
 });
@@ -104,8 +105,11 @@ wss.on('connection', (ws, req) => {
   if (!token) return ws.close(4001, 'Authentication token required');
 
   let payload;
-  try { payload = jwt.verify(token, JWT_SECRET); }
-  catch { return ws.close(4002, 'Invalid or expired token'); }
+  try {
+    payload = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return ws.close(4002, 'Invalid or expired token');
+  }
 
   const userId = Number(payload.sub);
   if (!clients.has(userId)) clients.set(userId, new Set());
@@ -120,7 +124,7 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// ---------- RabbitMQ consumers ----------
+// ─── RabbitMQ consumers ──────────────────────────────────────────────────────
 (async () => {
   try {
     const conn    = await amqp.connect(
@@ -130,15 +134,20 @@ wss.on('connection', (ws, req) => {
 
     // 1) Fan-out exchange
     await channel.assertExchange(FANOUT_EXCHANGE, 'fanout', { durable: true });
-    const { queue } = await channel.assertQueue('', { exclusive: true });
-    await channel.bindQueue(queue, FANOUT_EXCHANGE, '');
+    const { queue: fanoutQueue } = await channel.assertQueue('', { exclusive: true });
+    await channel.bindQueue(fanoutQueue, FANOUT_EXCHANGE, '');
     console.log(`Waiting for fanout messages on "${FANOUT_EXCHANGE}"`);
-    channel.consume(queue, msg => handleMessage(msg, channel), { noAck: false });
+    channel.consume(fanoutQueue, msg => handleMessage(msg, channel), { noAck: false });
 
-    // 2) Direct queue
-    await channel.assertQueue(DIRECT_QUEUE, { durable: true });
-    console.log(`Waiting for direct messages on queue "${DIRECT_QUEUE}"`);
-    channel.consume(DIRECT_QUEUE, msg => handleMessage(msg, channel), { noAck: false });
+    // 2) Direct chat queue
+    await channel.assertQueue(CHAT_QUEUE, { durable: true });
+    console.log(`Waiting for direct messages on queue "${CHAT_QUEUE}"`);
+    channel.consume(CHAT_QUEUE, msg => handleMessage(msg, channel), { noAck: false });
+
+    // 3) Direct notification queue
+    await channel.assertQueue(NOTIFICATION_QUEUE, { durable: true });
+    console.log(`Waiting for direct messages on queue "${NOTIFICATION_QUEUE}"`);
+    channel.consume(NOTIFICATION_QUEUE, msg => handleMessage(msg, channel), { noAck: false });
 
   } catch (err) {
     console.error('Error setting up RabbitMQ consumers:', err);

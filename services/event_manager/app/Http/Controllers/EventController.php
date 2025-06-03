@@ -193,6 +193,7 @@ class EventController extends Controller
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($msg));
             $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($msg));
             $this->publishToRabbitMQ('ach_event_join-leave', json_encode($msg));
+            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($msg));
 
             return response()->json([
                 'message' => 'Evento criado com sucesso!',
@@ -537,6 +538,7 @@ public function index(Request $request)
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($messageDataForChat));
 
 
 
@@ -1002,6 +1004,7 @@ public function search(Request $request)
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($messageDataForChat));
 
             // Fetch all remaining participants to notify
             $remainingParticipants = Participant::where('event_id', $id)->get(['user_id', 'user_name'])->toArray();
@@ -1078,6 +1081,7 @@ public function search(Request $request)
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($messageDataForChat));
 
             // Fetch all remaining participants to notify
             $remainingParticipants = Participant::where('event_id', $event_id)->get(['user_id', 'user_name'])->toArray();

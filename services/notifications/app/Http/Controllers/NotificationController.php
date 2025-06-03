@@ -12,50 +12,25 @@ use PhpAmqpLib\Connection\AMQPStreamConnection;
 class NotificationController extends Controller
 {
     /**
-     * Listen to RabbitMQ fanout exchange and store notifications for all event participants.
+     * Listen to RabbitMQ queue and store notifications for all event participants.
      */
     public function listenToNotifications()
     {
-        $rabbitmqHost     = env('RABBITMQ_HOST', 'rabbitmq');
-        $rabbitmqPort     = env('RABBITMQ_PORT', 5672);
-        $rabbitmqUser     = env('RABBITMQ_USER', 'guest');
+        $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
+        $rabbitmqPort = env('RABBITMQ_PORT', 5672);
+        $rabbitmqUser = env('RABBITMQ_USER', 'guest');
         $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
-
-        // Hardcoded exchange to consume (the "other" fanout)
-        $exchangeName = 'notification_fanout_2';
+        $queueName = env('RABBITMQ_QUEUE', 'notification');
 
         try {
             // Connect to RabbitMQ
-            $connection = new AMQPStreamConnection(
-                $rabbitmqHost,
-                $rabbitmqPort,
-                $rabbitmqUser,
-                $rabbitmqPassword
-            );
+            $connection = new AMQPStreamConnection($rabbitmqHost, $rabbitmqPort, $rabbitmqUser, $rabbitmqPassword);
             $channel = $connection->channel();
 
-            // Declare the fanout exchange
-            $channel->exchange_declare(
-                $exchangeName,  // name
-                'fanout',       // type
-                false,          // passive
-                true,           // durable
-                false           // auto_delete
-            );
+            // Declare the queue
+            $channel->queue_declare($queueName, false, true, false, false);
 
-            // Create a temporary, exclusive queue
-            list($queueName,,) = $channel->queue_declare(
-                '',      // let server generate a random queue name
-                false,   // passive
-                true,    // durable
-                false,   // exclusive
-                true     // auto_delete
-            );
-
-            // Bind the queue to the exchange
-            $channel->queue_bind($queueName, $exchangeName);
-
-            echo "Waiting for notifications in exchange '{$exchangeName}'. To exit press CTRL+C\n";
+            echo "Waiting for notifications. To exit press CTRL+C\n";
 
             // Callback for consuming messages
             $callback = function ($msg) {
@@ -63,17 +38,12 @@ class NotificationController extends Controller
 
                 $messageData = json_decode($msg->body, true);
 
-                if ($messageData && isset(
-                    $messageData['event_id'],
-                    $messageData['participants'],
-                    $messageData['event_name'],
-                    $messageData['message']
-                )) {
+                if ($messageData && isset($messageData['event_id'], $messageData['participants'], $messageData['event_name'], $messageData['message'])) {
                     try {
                         $initiatorId = $messageData['user_id'] ?? null;
 
                         foreach ($messageData['participants'] as $participant) {
-                            // Skip the initiator
+                            // Skip the initiator (the user who triggered the event)
                             if ((int)$participant['user_id'] === (int)$initiatorId) {
                                 continue;
                             }
@@ -84,7 +54,6 @@ class NotificationController extends Controller
                                 'event_name' => $messageData['event_name'],
                                 'message'    => $messageData['message'],
                             ]);
-
                             echo "Notification saved for user_id: " . $participant['user_id'] . "\n";
                         }
                     } catch (\Exception $e) {
@@ -98,18 +67,9 @@ class NotificationController extends Controller
                 $msg->ack();
             };
 
-            // Start consuming from the bound queue
-            $channel->basic_consume(
-                $queueName,
-                '',
-                false,
-                false,
-                false,
-                false,
-                $callback
-            );
+            // Start consuming messages
+            $channel->basic_consume($queueName, '', false, false, false, false, $callback);
 
-            // loop
             while ($channel->is_consuming()) {
                 $channel->wait();
             }
@@ -130,8 +90,10 @@ class NotificationController extends Controller
             $token = $this->validateToken($request);
             Log::info('Token validated successfully:', ['token' => $token]);
 
-            $payload     = JWTAuth::setToken($token)->getPayload();
-            $userId      = (int)$payload->get('sub');
+            $payload = JWTAuth::setToken($token)->getPayload();
+            $userId = (int) $payload->get('sub');
+            Log::info('User ID obtained from token:', ['user_id' => $userId]);
+
             $notifications = Notification::where('user_id', $userId)
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -170,10 +132,11 @@ class NotificationController extends Controller
     public function deleteNotifications(Request $request)
     {
         try {
-            $token   = $this->validateToken($request);
+            $token = $this->validateToken($request);
             $payload = JWTAuth::setToken($token)->getPayload();
-            $userId  = (int)$payload->get('sub');
+            $userId = (int) $payload->get('sub');
 
+            // Delete all notifications for this user
             Notification::where('user_id', $userId)->delete();
 
             return response()->json(['message' => 'All notifications deleted successfully'], 200);
@@ -211,6 +174,7 @@ class NotificationController extends Controller
             throw new \Exception('Token is required.');
         }
 
+        // Strip "Bearer " prefix if present
         if (str_starts_with($token, 'Bearer ')) {
             $token = substr($token, 7);
         }

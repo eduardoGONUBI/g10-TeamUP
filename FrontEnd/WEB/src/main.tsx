@@ -24,7 +24,7 @@ import DeleteAccountPage from "./UserManagement/DeleteAccount";
 import "./main.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
+  //<React.StrictMode>
     <BrowserRouter>
       <Routes>
         {/* públicas ----------------------------------------------------------- */}
@@ -56,5 +56,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="*" element={<p>Not Found</p>} />
       </Routes>
     </BrowserRouter>
-  </React.StrictMode>
+  //</React.StrictMode>
 );
