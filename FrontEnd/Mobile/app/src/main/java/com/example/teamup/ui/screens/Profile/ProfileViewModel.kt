@@ -54,6 +54,12 @@ class ProfileViewModel : ViewModel() {
     private val _reputationLabel     = MutableStateFlow("—")
     val reputationLabel: StateFlow<String> = _reputationLabel
 
+    private val _location = MutableStateFlow<String?>(null)
+    val location: StateFlow<String?> = _location
+
+    private val _sports = MutableStateFlow<List<String>>(emptyList())
+    val sports: StateFlow<List<String>> = _sports
+
     /* ─── Derived / cached ───────────────────────────────────────────────── */
     var userId: Int? = null
         private set
@@ -77,6 +83,11 @@ class ProfileViewModel : ViewModel() {
     /* ─── LOADERS ───────────────────────────────────────────────────────── */
     fun loadUser(token: String) = viewModelScope.launch {
         _error.value = null
+        val api = authApi(token)
+      val me = api.getCurrentUser()
+        _username.value = me.name
+        _location.value = me.location
+        _sports.value = me.sports?.map { it.name } ?: emptyList()
         try {
             val api = authApi(token)
             _username.value = api.getCurrentUser().name
