@@ -86,13 +86,29 @@ interface ActivityApi {
     ): Response<Unit>
 
 //Stashed changes
-    companion object {
-        fun create(): ActivityApi {
-            return Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:8081/") // localhost for Android emulator
-                .addConverterFactory(GsonConverterFactory.create())
-                .build()
-                .create(ActivityApi::class.java)
-        }
+companion object {
+    fun create(): ActivityApi {
+        val retrofit = Retrofit.Builder()
+            .baseUrl(BaseUrlProvider.getBaseUrl())  // switch between emulator and phone
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        return retrofit.create(ActivityApi::class.java)
     }
 }
+
+    @PUT("/api/events/{id}/conclude")
+    suspend fun concludeByCreator(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
+    /** generic PATCH that only carries { status = … } */
+    @PUT("/api/events/{id}")
+    suspend fun updateStatus(
+        @Header("Authorization")  token: String,
+        @Path("id")               id: Int,
+        @Body                     body: StatusUpdateRequest
+    ): Response<Unit>
+}
+

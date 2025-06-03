@@ -24,3 +24,16 @@ data class Payload(
     val id: Int,
     val name: String
 )
+
+data class PublicUserDto(
+    val id: Int,
+    val name: String,
+    val avatar_url: String?,
+    val location: String?,
+    val sports: List<SportDto>?
+)
+
+data class SportDto(
+    val id: Int,
+    val name: String
+)

@@ -1,20 +1,26 @@
+// app/src/main/java/com/example/teamup/ui/screens/Activity/EditActivityScreen.kt
 package com.example.teamup.ui.screens.Activity
 
 import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.teamup.R
 import com.example.teamup.data.remote.EventUpdateRequest
 import com.example.teamup.data.remote.ActivityApi
+import com.example.teamup.data.remote.SportDto
 import com.example.teamup.ui.popups.DeleteActivityDialog
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -31,14 +37,19 @@ fun EditActivityScreen(
     val api = remember { ActivityApi.create() }
     val coroutineScope = rememberCoroutineScope()
 
+    // Custom outline color just for these text fields:
     val outlineColor = Color(0xFF575DFB)
     val customScheme = MaterialTheme.colorScheme.copy(outline = outlineColor)
 
+    // ─── Form state ───────────────────────────────────────────────────────
     var name by remember { mutableStateOf("") }
+    var selectedSport by remember { mutableStateOf<SportDto?>(null) }
     var sportExpanded by remember { mutableStateOf(false) }
-    var sport by remember { mutableStateOf("") }
-    val sports = listOf("Football", "Basketball", "Tennis", "Badminton", "Hockey")
-    var date by remember { mutableStateOf("") }
+    var sportsList by remember { mutableStateOf<List<SportDto>>(emptyList()) }
+
+    var date by remember { mutableStateOf("") }    // “YYYY-MM-DD”
+    var time by remember { mutableStateOf("") }    // “HH:MM”
+
     var participants by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -46,21 +57,43 @@ fun EditActivityScreen(
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
 
-    // Load event data once
+    /**
+     * 1) In one LaunchedEffect, load:
+     *    a) all sports → sportsList
+     *    b) the event detail → split its date/time, max_participants, place, etc.
+     */
     LaunchedEffect(eventId) {
+        // 1a) load sports
         try {
-            val events = api.getMyActivities("Bearer $token")
-            val event = events.find { it.id == eventId }
-
-            event?.let {
-                name = it.name
-                sport = it.sport
-                date = it.date
-                participants = it.max_participants.toString()
-                location = it.place
-            }
+            sportsList = api.getSports("Bearer $token")
         } catch (e: Exception) {
-            println("Failed to fetch event: ${e.localizedMessage}")
+            println("Falha ao carregar esportes: ${e.localizedMessage}")
+        }
+
+        // 1b) load detail of this event
+        try {
+            val eventDto = api.getEventDetail(eventId, "Bearer $token")
+
+            name = eventDto.name
+            location = eventDto.place
+
+            // split the server’s ISO timestamp into “date” + “time”
+            val raw = eventDto.date
+            if (raw.contains("T")) {
+                val parts = raw.split("T")
+                date = parts[0]                                    // “YYYY-MM-DD”
+                time = parts[1].substring(0, 5)                    // “HH:MM”
+            } else {
+                date = raw
+                time = ""
+            }
+
+            participants = eventDto.max_participants.toString()
+
+            // once sportsList is loaded, pick the matching SportDto by name:
+            selectedSport = sportsList.firstOrNull { it.name == eventDto.sport }
+        } catch (e: Exception) {
+            println("Falha ao buscar detalhes do evento: ${e.localizedMessage}")
         }
     }
 
@@ -74,6 +107,7 @@ fun EditActivityScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+            // ─── Activity Name ─────────────────────────────────────────────
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -82,13 +116,14 @@ fun EditActivityScreen(
             )
             Spacer(Modifier.height(12.dp))
 
+            // ─── Dropdown “Sport” ────────────────────────────────────────
             ExposedDropdownMenuBox(
                 expanded = sportExpanded,
                 onExpandedChange = { sportExpanded = !sportExpanded }
             ) {
                 OutlinedTextField(
-                    value = sport,
-                    onValueChange = {},
+                    value = selectedSport?.name ?: "",
+                    onValueChange = {},  // readOnly
                     readOnly = true,
                     label = { Text("Sport") },
                     trailingIcon = {
@@ -102,73 +137,125 @@ fun EditActivityScreen(
                     expanded = sportExpanded,
                     onDismissRequest = { sportExpanded = false }
                 ) {
-                    sports.forEach { s ->
+                    if (sportsList.isEmpty()) {
                         DropdownMenuItem(
-                            text = { Text(s) },
-                            onClick = {
-                                sport = s
-                                sportExpanded = false
-                            }
+                            text = { Text("Loading sports…") },
+                            onClick = { /* no-op */ },
+                            enabled = false
                         )
+                    } else {
+                        sportsList.forEach { sDto ->
+                            DropdownMenuItem(
+                                text = { Text(sDto.name) },
+                                onClick = {
+                                    selectedSport = sDto
+                                    sportExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
             Spacer(Modifier.height(12.dp))
 
+            // ─── Date Picker ───────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
-                        val datePickerDialog = DatePickerDialog(
+                        val dp = DatePickerDialog(
                             context,
                             { _, year, month, dayOfMonth ->
-                                val formattedDate = String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth)
-                                date = formattedDate
+                                date = String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth)
                             },
                             calendar.get(Calendar.YEAR),
                             calendar.get(Calendar.MONTH),
                             calendar.get(Calendar.DAY_OF_MONTH)
                         )
-                        datePickerDialog.show()
+                        dp.show()
                     }
             ) {
                 OutlinedTextField(
                     value = date,
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Date") },
+                    label = { Text("Date (YYYY-MM-DD)") },
                     trailingIcon = {
                         Icon(
-                            painter = painterResource(id = R.drawable.baseline_calendar_month_24),
-                            contentDescription = "Date picker",
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Pick date",
                             modifier = Modifier.clickable {
-                                val datePickerDialog = DatePickerDialog(
+                                val dp2 = DatePickerDialog(
                                     context,
-                                    { _, year, month, dayOfMonth ->
-                                        val formattedDate = String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth)
-                                        date = formattedDate
+                                    { _, y, m, d ->
+                                        date = String.format("%04d-%02d-%02d", y, m + 1, d)
                                     },
                                     calendar.get(Calendar.YEAR),
                                     calendar.get(Calendar.MONTH),
                                     calendar.get(Calendar.DAY_OF_MONTH)
                                 )
-                                datePickerDialog.show()
+                                dp2.show()
                             }
                         )
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-
             Spacer(Modifier.height(12.dp))
 
+            // ─── Time Picker ────────────────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val tp = TimePickerDialog(
+                            context,
+                            { _, hourOfDay, minute ->
+                                time = String.format("%02d:%02d", hourOfDay, minute)
+                            },
+                            calendar.get(Calendar.HOUR_OF_DAY),
+                            calendar.get(Calendar.MINUTE),
+                            true
+                        )
+                        tp.show()
+                    }
+            ) {
+                OutlinedTextField(
+                    value = time,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Time (HH:MM)") },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = "Pick time",
+                            modifier = Modifier.clickable {
+                                val tp2 = TimePickerDialog(
+                                    context,
+                                    { _, h, min ->
+                                        time = String.format("%02d:%02d", h, min)
+                                    },
+                                    calendar.get(Calendar.HOUR_OF_DAY),
+                                    calendar.get(Calendar.MINUTE),
+                                    true
+                                )
+                                tp2.show()
+                            }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+
+            // ─── Number of Participants ────────────────────────────────────
             OutlinedTextField(
                 value = participants,
                 onValueChange = { participants = it },
                 label = { Text("Number of Participants") },
                 trailingIcon = {
                     Icon(
-                        painter = painterResource(id = R.drawable.baseline_person_24),
+                        imageVector = Icons.Default.Person,
                         contentDescription = "Participants"
                     )
                 },
@@ -176,45 +263,47 @@ fun EditActivityScreen(
             )
             Spacer(Modifier.height(12.dp))
 
+            // ─── Location ───────────────────────────────────────────────────
             OutlinedTextField(
                 value = location,
                 onValueChange = { location = it },
                 label = { Text("Location") },
                 trailingIcon = {
                     Icon(
-                        painter = painterResource(id = R.drawable.baseline_sports_soccer_24),
-                        contentDescription = "Location picker"
+                        imageVector = Icons.Default.Place,
+                        contentDescription = "Location"
                     )
                 },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(24.dp))
 
+            // ─── SAVE CHANGES ────────────────────────────────────────────────
             Button(
                 onClick = {
                     coroutineScope.launch {
                         try {
-                            val updatedEvent = EventUpdateRequest(
-                                name = name,
-                                sport = sport,
-                                date = date,
+                            // recombine “date + time” → "YYYY-MM-DD HH:MM:00"
+                            val dateTimeUtc = "$date $time:00"
+                            val dto = EventUpdateRequest(
+                                name = name.trim(),
+                                sport_id = selectedSport?.id ?: 0,
+                                date = dateTimeUtc,
+                                place = location.trim(),
                                 max_participants = participants.toIntOrNull() ?: 0,
-                                place = location
                             )
-
-                            val response = api.updateActivity(
+                            val resp = api.updateActivity(
                                 token = "Bearer $token",
                                 id = eventId,
-                                updatedEvent = updatedEvent
+                                updatedEvent = dto
                             )
-
-                            if (response.isSuccessful) {
+                            if (resp.isSuccessful) {
                                 onSave()
                             } else {
-                                println("Update failed: ${response.code()}")
+                                println("Update falhou: HTTP ${resp.code()}")
                             }
                         } catch (e: Exception) {
-                            println("Error updating event: ${e.localizedMessage}")
+                            println("Erro ao atualizar evento: ${e.localizedMessage}")
                         }
                     }
                 },
@@ -232,6 +321,7 @@ fun EditActivityScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            // ─── DELETE ACTIVITY ─────────────────────────────────────────────
             OutlinedButton(
                 onClick = { showDeleteDialog = true },
                 modifier = Modifier
@@ -247,7 +337,6 @@ fun EditActivityScreen(
                 Text("Delete Activity")
             }
 
-            // Show Delete Dialog
             if (showDeleteDialog) {
                 AlertDialog(
                     onDismissRequest = { showDeleteDialog = false },
@@ -260,17 +349,17 @@ fun EditActivityScreen(
                                 showDeleteDialog = false
                                 coroutineScope.launch {
                                     try {
-                                        val response = api.deleteActivity(
+                                        val resp = api.deleteActivity(
                                             token = "Bearer $token",
                                             id = eventId
                                         )
-                                        if (response.isSuccessful) {
+                                        if (resp.isSuccessful) {
                                             onDelete()
                                         } else {
-                                            println("Delete failed: ${response.code()}")
+                                            println("Delete falhou: HTTP ${resp.code()}")
                                         }
                                     } catch (e: Exception) {
-                                        println("Error deleting event: ${e.localizedMessage}")
+                                        println("Erro ao deletar evento: ${e.localizedMessage}")
                                     }
                                 }
                             }
