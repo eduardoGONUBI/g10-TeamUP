@@ -20,8 +20,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.remote.ActivityApi
-import com.example.teamup.data.remote.ActivityRepositoryImpl
+import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)

@@ -8,25 +8,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.remote.ActivityApi
-import com.example.teamup.data.remote.StatusUpdateRequest
+import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.model.ParticipantUi
+import com.example.teamup.data.remote.model.StatusUpdateRequest
 import com.example.teamup.ui.components.ActivityInfoCard
-import com.example.teamup.ui.model.ParticipantUi
 import com.example.teamup.ui.model.ParticipantRow
 import com.example.teamup.ui.screens.ActivityDetailViewModel
 import com.google.android.gms.maps.model.CameraPosition
@@ -37,9 +34,6 @@ import kotlinx.coroutines.launch
 /**
  * Screen for the event creator. Shows event info, map, and a list of participants
  * (with their current level). Allows the creator to Conclude or Reopen the event.
- *
- * Crucial fix: After tapping Conclude, we call viewModel.fetchEventWithLevels() (not
- * just updating status locally). That forces a full refetch of participants + levels.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +72,7 @@ fun CreatorActivityScreen(
 
     // 4) Now we have a non-null ActivityDto
     val e = eventState!!
+    val isConcluded = e.status != "in progress"
 
     // 5) Build ParticipantUi list, mapping each ParticipantDto.level → ParticipantUi.level
     val uiParticipants = e.participants.orEmpty()
@@ -132,7 +127,6 @@ fun CreatorActivityScreen(
                         if (resp.isSuccessful) {
                             onBack()
                         } else {
-                            // you can show a Snackbar or log
                             println("Cancel failed: ${resp.code()}")
                         }
                     }
@@ -148,12 +142,10 @@ fun CreatorActivityScreen(
 
                 // ─── CONCLUDE or REOPEN ────────────────────────────────────────
                 if (e.status == "in progress") {
-                    // Conclude: blue Done icon
                     IconButton(onClick = {
                         coroutineScope.launch {
                             val resp = api.concludeByCreator("Bearer $token", e.id)
                             if (resp.isSuccessful) {
-                                // Instead of just copying status locally, re-fetch everything:
                                 viewModel.fetchEventWithLevels()
                             } else {
                                 println("Conclude failed: ${resp.code()}")
@@ -167,13 +159,11 @@ fun CreatorActivityScreen(
                         )
                     }
                 } else {
-                    // Reopen: orange Refresh icon
                     IconButton(onClick = {
                         coroutineScope.launch {
                             val body = StatusUpdateRequest(status = "in progress")
                             val resp = api.updateStatus("Bearer $token", e.id, body)
                             if (resp.isSuccessful) {
-                                // Re-fetch now that status is back to “in progress”
                                 viewModel.fetchEventWithLevels()
                             } else {
                                 println("Re-open failed: ${resp.code()}")
@@ -243,13 +233,15 @@ fun CreatorActivityScreen(
                 )
             }
 
-            // 4) ParticipantRow for each participant (shows name + “Lvl X” + star/delete)
+            // 4) ParticipantRow for each participant
             items(uiParticipants, key = { it.id }) { p ->
                 ParticipantRow(
                     p = p,
-                    isKickable = !p.isCreator,
+                    isKickable = !p.isCreator && !isConcluded,   // kick only if not concluded
                     onKickClick = { kickTarget = p },
-                    onClick = { onUserClick(p.id) }
+                    onClick = { onUserClick(p.id) },
+                    showFeedback = isConcluded,                   // show “Give feedback” when concluded
+                    onFeedback = { onUserClick(p.id) }
                 )
             }
         }

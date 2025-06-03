@@ -13,15 +13,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.remote.ActivityApi
-import com.example.teamup.data.remote.ActivityDto
+import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.model.ActivityDto
+import com.example.teamup.data.remote.model.ParticipantUi
 import com.example.teamup.ui.components.ActivityInfoCard
-import com.example.teamup.ui.model.ParticipantUi
 import com.example.teamup.ui.model.ParticipantRow
 import com.example.teamup.ui.screens.ActivityDetailViewModel
 import com.google.android.gms.maps.model.CameraPosition
@@ -61,6 +60,7 @@ fun ParticipantActivityScreen(
 
     // 3) Now eventState is non-null
     val e: ActivityDto = eventState!!
+    val isConcluded = e.status != "in progress"   // any status other than "in progress" means concluded
 
     // 4) Build ParticipantUi list (with levels)
     val uiParticipants = e.participants.orEmpty()
@@ -122,14 +122,14 @@ fun ParticipantActivityScreen(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // Info card
+            // 1) Info card
             item {
                 ActivityInfoCard(
                     activity = e,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            // Map
+            // 2) Map
             item {
                 val coords = LatLng(e.latitude, e.longitude)
                 val cameraState: CameraPositionState = rememberCameraPositionState {
@@ -157,7 +157,8 @@ fun ParticipantActivityScreen(
                     }
                 }
             }
-            // Participants header
+
+            // 3) Participants header
             item {
                 Text(
                     text = "Participants (${uiParticipants.size})",
@@ -165,13 +166,16 @@ fun ParticipantActivityScreen(
                     modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 8.dp)
                 )
             }
-            // Participant rows
+
+            // 4) Participant rows
             items(uiParticipants, key = { it.id }) { p ->
                 ParticipantRow(
                     p = p,
-                    isKickable = false,
+                    isKickable = false,                 // Participants cannot kick themselves
                     onKickClick = {},
-                    onClick = { onUserClick(p.id) }
+                    onClick = { onUserClick(p.id) },
+                    showFeedback = isConcluded,         // show “Give feedback” only when concluded
+                    onFeedback = { onUserClick(p.id) }  // navigate to that user’s public profile
                 )
             }
         }

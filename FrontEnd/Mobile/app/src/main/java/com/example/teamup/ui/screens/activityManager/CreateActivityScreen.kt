@@ -17,11 +17,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.model.CreateEventRequest
 import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.ActivityApi
-import com.example.teamup.data.remote.ActivityRepositoryImpl
-import com.example.teamup.data.remote.SportDto
+import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

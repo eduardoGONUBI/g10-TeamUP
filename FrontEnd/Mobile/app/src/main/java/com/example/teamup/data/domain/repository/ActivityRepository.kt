@@ -1,9 +1,8 @@
 package com.example.teamup.data.domain.repository
 
-import com.example.teamup.data.remote.ActivityDto
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.domain.model.CreateEventRequest
-import com.example.teamup.data.remote.SportDto
+import com.example.teamup.data.remote.model.SportDto
 
 interface ActivityRepository {
 

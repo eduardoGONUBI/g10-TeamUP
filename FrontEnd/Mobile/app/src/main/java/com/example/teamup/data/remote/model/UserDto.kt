@@ -1,4 +1,4 @@
-package com.example.teamup.data.remote
+package com.example.teamup.data.remote.model
 
 import com.example.teamup.data.domain.model.User
 

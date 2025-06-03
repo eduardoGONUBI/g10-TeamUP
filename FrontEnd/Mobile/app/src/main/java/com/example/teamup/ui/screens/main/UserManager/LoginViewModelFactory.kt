@@ -1,4 +1,4 @@
-package com.example.teamup.ui.screens.main.Main
+package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider

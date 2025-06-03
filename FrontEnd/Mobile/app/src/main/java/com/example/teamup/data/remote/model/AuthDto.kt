@@ -1,4 +1,4 @@
-package com.example.teamup.data.remote
+package com.example.teamup.data.remote.model
 
 import com.google.gson.annotations.SerializedName
 

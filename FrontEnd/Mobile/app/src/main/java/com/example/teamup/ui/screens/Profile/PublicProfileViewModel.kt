@@ -4,6 +4,13 @@ package com.example.teamup.presentation.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.teamup.data.remote.*
+import com.example.teamup.data.remote.api.AchievementsApi
+import com.example.teamup.data.remote.api.AuthApi
+import com.example.teamup.data.remote.model.AchievementDto
+import com.example.teamup.data.remote.model.AchievementsResponse
+import com.example.teamup.data.remote.model.ProfileResponse
+import com.example.teamup.data.remote.model.PublicUserDto
+import com.example.teamup.data.remote.model.ReputationResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

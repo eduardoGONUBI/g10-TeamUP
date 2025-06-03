@@ -1,4 +1,4 @@
-package com.example.teamup.data.remote
+package com.example.teamup.data.remote.model
 
 
 data class AchievementDto(
@@ -35,4 +35,9 @@ data class UserAverageResponse(
     val user_id: Int,
     val average_rating: Double?,
     )
+
+data class FeedbackRequestDto(
+    val user_id: Int,
+    val attribute: String
+)
 

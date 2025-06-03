@@ -1,7 +1,5 @@
 package com.example.teamup.data.domain.model
 
-import com.example.teamup.data.remote.ActivityDto
-
 data class ActivityItem(
     val id: String,
     val title: String,

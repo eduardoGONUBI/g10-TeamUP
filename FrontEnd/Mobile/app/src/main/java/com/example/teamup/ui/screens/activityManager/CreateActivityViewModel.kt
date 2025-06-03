@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.teamup.data.domain.model.CreateEventRequest
 import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.SportDto
+import com.example.teamup.data.remote.model.SportDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update

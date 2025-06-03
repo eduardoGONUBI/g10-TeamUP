@@ -5,10 +5,11 @@ import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.remote.AchievementsApi
-import com.example.teamup.data.remote.AuthApi
+import com.example.teamup.data.remote.api.AchievementsApi
 import com.example.teamup.data.remote.BaseUrlProvider
-import com.example.teamup.data.remote.ActivityDto
+import com.example.teamup.data.remote.api.AuthApi
+import com.example.teamup.data.remote.model.AchievementDto
+import com.example.teamup.data.remote.model.ActivityDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -32,8 +33,8 @@ class ProfileViewModel : ViewModel() {
     private val _level               = MutableStateFlow(0)
     val level: StateFlow<Int>        = _level
 
-    private val _achievements        = MutableStateFlow<List<com.example.teamup.data.remote.AchievementDto>>(emptyList())
-    val achievements: StateFlow<List<com.example.teamup.data.remote.AchievementDto>> = _achievements
+    private val _achievements        = MutableStateFlow<List<AchievementDto>>(emptyList())
+    val achievements: StateFlow<List<AchievementDto>> = _achievements
 
     private val _reputation          = MutableStateFlow<Int?>(null)
     val reputation: StateFlow<Int?>  = _reputation
@@ -189,7 +190,7 @@ class ProfileViewModel : ViewModel() {
      * Builds an `AuthApi` that injects a single
      * “Authorization: Bearer <jwt>” header into each request.
      */
-    private fun authApi(token: String): com.example.teamup.data.remote.AuthApi {
+    private fun authApi(token: String): AuthApi {
         val rawBearer = if (token.trim().startsWith("Bearer ")) token.trim() else "Bearer $token".trim()
         val client = OkHttpClient.Builder()
             .addInterceptor(object : Interceptor {
@@ -207,7 +208,7 @@ class ProfileViewModel : ViewModel() {
             .addConverterFactory(GsonConverterFactory.create())
             .client(client)
             .build()
-            .create(com.example.teamup.data.remote.AuthApi::class.java)
+            .create(AuthApi::class.java)
     }
 
     /**

@@ -23,9 +23,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.ActivityApi
-import com.example.teamup.data.remote.ActivityRepositoryImpl
-import com.example.teamup.ui.components.ActivityCard
+import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 
 /**
  * Shows all activities the user created or joined. If the user is the creator of an activity,

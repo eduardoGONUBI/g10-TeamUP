@@ -1,5 +1,10 @@
-package com.example.teamup.data.remote
+package com.example.teamup.data.remote.api
 
+import com.example.teamup.data.remote.BaseUrlProvider
+import com.example.teamup.data.remote.model.LoginRequestDto
+import com.example.teamup.data.remote.model.LoginResponseDto
+import com.example.teamup.data.remote.model.PublicUserDto
+import com.example.teamup.data.remote.model.UserDto
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -33,4 +38,3 @@ interface AuthApi {
         }
     }
 }
-
