@@ -116,7 +116,8 @@ class ProfileViewModel : ViewModel() {
                     isCreator        = dto.creator.id == userId,
                     isParticipant    = dto.creator.id == userId,
                     latitude         = dto.latitude,
-                    longitude        = dto.longitude
+                    longitude        = dto.longitude,
+                    status           = dto.status
                 )
             }
         } catch (e: Exception) {

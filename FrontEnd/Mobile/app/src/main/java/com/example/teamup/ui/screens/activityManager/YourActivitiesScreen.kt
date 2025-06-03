@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/teamup/ui/screens/activityManager/YourActivitiesScreen.kt
 package com.example.teamup.ui.screens.activityManager
 
 import androidx.compose.foundation.background
@@ -16,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -28,7 +28,8 @@ import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 
 /**
  * Shows all activities the user created or joined. If the user is the creator of an activity,
- * the card’s background is tinted light-blue, and a “You are the creator” badge appears.
+ * the card’s background is tinted light‐blue.  If an activity is concluded, it’s tinted orange.
+ * If it’s both concluded AND I’m the creator, it uses a blue↔orange gradient.
  */
 @Composable
 fun YourActivitiesScreen(
@@ -68,64 +69,110 @@ fun YourActivitiesScreen(
         // If there are any activities, display them
         if (uiState.activities.isNotEmpty()) {
             items(uiState.activities, key = { it.id }) { activity ->
-                // Determine background: light-blue if creator, white otherwise
-                val bgColor = if (activity.isCreator) Color(0xFFE3F2FD) else Color.White
+                // Determine if this event is concluded
+                val isConcluded = (activity.status != "in progress")
 
+                // Build a Brush (gradient or solid) depending on state:
+                val backgroundBrush = when {
+                    // both creator AND concluded → gradient (blue ↔ orange)
+                    isConcluded && activity.isCreator -> {
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFFE3F2FD),        // same light‐blue used before
+                                Color(0xFFFFA726)         // orange
+                            )
+                        )
+                    }
+                    // only concluded → solid orange
+                    isConcluded -> {
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFFFA726),
+                                Color(0xFFFFA726)
+                            )
+                        )
+                    }
+                    // only creator (and not concluded) → solid light‐blue (as before)
+                    activity.isCreator -> {
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFE3F2FD),
+                                Color(0xFFE3F2FD)
+                            )
+                        )
+                    }
+                    // neither creator nor concluded → white
+                    else -> {
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White,
+                                Color.White
+                            )
+                        )
+                    }
+                }
+
+                // Wrap a transparent Card with a Box that uses our brush
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onActivityClick(activity) },
-                    colors = CardDefaults.cardColors(containerColor = bgColor),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                     shape = MaterialTheme.shapes.medium
                 ) {
-                    Column(
+                    Box(
                         modifier = Modifier
+                            .background(brush = backgroundBrush, shape = MaterialTheme.shapes.medium)
                             .fillMaxWidth()
-                            .background(bgColor)
                             .padding(16.dp)
                     ) {
-                        // Title + chevron
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
                         ) {
+                            // Title + chevron
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = activity.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color(0xFF023499)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = "Go to details",
+                                    tint = Color(0xFF023499)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
                             Text(
-                                text = activity.title,
-                                style = MaterialTheme.typography.titleMedium,
+                                text = "Date: ${activity.date}",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF023499)
                             )
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = "Go to details",
-                                tint = Color(0xFF023499)
+                            Text(
+                                text = "Location: ${activity.location}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF023499)
                             )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = "${activity.participants}/${activity.maxParticipants} Participants",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF023499)
+                            )
+
+                            // Only show this badge if the user is the creator
+                            ActivityCreatorBadge(isCreator = activity.isCreator)
                         }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Date: ${activity.date}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF023499)
-                        )
-                        Text(
-                            text = "Location: ${activity.location}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF023499)
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "${activity.participants}/${activity.maxParticipants} Participants",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF023499)
-                        )
-
-                        // Only show this badge if the user is the creator
-                        ActivityCreatorBadge(isCreator = activity.isCreator)
                     }
                 }
             }
@@ -160,7 +207,6 @@ fun YourActivitiesScreen(
 
 /**
  * A simple badge that only renders when [isCreator] == true.
- * This is now a standalone @Composable (not a RowScope extension).
  */
 @Composable
 private fun ActivityCreatorBadge(isCreator: Boolean) {

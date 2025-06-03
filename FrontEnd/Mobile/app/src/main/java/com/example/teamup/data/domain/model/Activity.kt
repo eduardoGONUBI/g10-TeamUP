@@ -12,7 +12,8 @@ data class ActivityItem(
     val isParticipant: Boolean,
     val latitude: Double,
     val longitude: Double,
-    val isCreator: Boolean  
+    val isCreator: Boolean,
+    val status: String
 )
 
 data class CreateEventRequest(

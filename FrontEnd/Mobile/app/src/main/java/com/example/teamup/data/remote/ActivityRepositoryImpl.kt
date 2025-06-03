@@ -22,6 +22,7 @@ internal fun ActivityDto.toActivityItem(currentUserId: Int): ActivityItem {
         isParticipant   = participantIds.contains(currentUserId),
         latitude        = latitude,
         longitude       = longitude,
-        isCreator       = (creator.id == currentUserId)
+        isCreator       = (creator.id == currentUserId),
+        status          = status
     )
 }

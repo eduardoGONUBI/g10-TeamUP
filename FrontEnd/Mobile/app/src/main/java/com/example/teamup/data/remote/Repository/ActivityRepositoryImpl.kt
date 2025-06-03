@@ -59,7 +59,9 @@ class ActivityRepositoryImpl(
             isParticipant = true,
             latitude = e.latitude,
             longitude = e.longitude,
-            isCreator = true
+            isCreator = true,
+            status = e.status
+
         )
     }
 
