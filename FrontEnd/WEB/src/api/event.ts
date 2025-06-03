@@ -11,7 +11,7 @@ export interface Event {
   id: number
   name: string
   sport: string | null
-  date: string
+  starts_at: string 
   place: string
   status: string
   max_participants: number
@@ -27,7 +27,7 @@ export interface Event {
 export interface NewEventData {
   name: string
   sport_id: number
-  date: string
+  starts_at: string
   place: string
   max_participants: number
 

@@ -1,17 +1,13 @@
-// app/src/main/java/com/example/teamup/ui/screens/activityManager/YourActivitiesScreen.kt
+// File: app/src/main/java/com/example/teamup/ui/screens/activityManager/YourActivitiesScreen.kt
 package com.example.teamup.ui.screens.activityManager
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material.Text
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -23,10 +19,6 @@ import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.ui.components.ActivityCard
 
-/**
- * Shows all activities the user created or joined. Uses the shared [ActivityCard]
- * for consistent styling and sport‐icon display across the app.
- */
 @Composable
 fun YourActivitiesScreen(
     token: String,
@@ -65,18 +57,71 @@ fun YourActivitiesScreen(
         // If there are any activities, display them
         if (uiState.activities.isNotEmpty()) {
             items(uiState.activities, key = { it.id }) { activity ->
+                // Decide background (flat color or gradient) and labels:
+                val bgColor: Color
+                var bgBrush: Brush? = null
+                var labelCreator: String? = null
+                var labelConcluded: String? = null
+
+                when {
+                    // 1) Creator & concluded → gradient from pale blue → orange
+                    activity.isCreator && activity.status == "concluded" -> {
+                        bgBrush = Brush.horizontalGradient(
+                            listOf(
+                                Color(0xFFE3F2FD), // very pale blue
+                                Color(0xFFFFA500)  // orange
+                            )
+                        )
+                        bgColor = Color.Transparent
+                        labelCreator = "You are the creator"
+                        labelConcluded = "Event concluded"
+                    }
+
+                    // 2) Only creator (and not concluded) → pale blue
+                    activity.isCreator -> {
+                        bgColor = Color(0xFFE3F2FD) // #E3F2FD
+                        labelCreator = "You are the creator"
+                        labelConcluded = null
+                    }
+
+                    // 3) Only concluded (and not creator) → solid orange
+                    activity.status == "concluded" -> {
+                        bgColor = Color(0xFFFFA500)
+                        labelCreator = null
+                        labelConcluded = "Event concluded"
+                    }
+
+                    // 4) Only participant (not creator, not concluded) → also pale blue
+                    activity.isParticipant -> {
+                        bgColor = Color(0xFFF5F5F5)
+                        labelCreator = null
+                        labelConcluded = null
+                    }
+
+                    // 5) Neither → default lavender
+                    else -> {
+                        bgColor = Color(0xFFF5F5F5)
+                        labelCreator = null
+                        labelConcluded = null
+                    }
+                }
+
                 ActivityCard(
                     activity = activity,
-                    onClick = { onActivityClick(activity) }
+                    onClick = { onActivityClick(activity) },
+                    bgColor = bgColor,
+                    bgBrush = bgBrush,
+                    labelCreator = labelCreator,
+                    labelConcluded = labelConcluded
                 )
             }
         }
-        // If no activities at all, show "no activities" placeholder
+        // If no activities at all, show placeholder
         else if (uiState.error == null) {
             item {
                 Text(
                     text = "You have no activities.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color.Gray,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)

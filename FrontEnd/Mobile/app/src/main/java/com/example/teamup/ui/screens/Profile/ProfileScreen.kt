@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -232,7 +233,9 @@ fun ProfileScreen(
                 else -> items(activities, key = { it.id }) { act ->
                     ActivityCard(
                         activity = act,
-                        onClick = { onActivityClick(act) }
+                        onClick = { onActivityClick(act) },
+                        bgColor = Color(0xFFF5F5F5),
+                        bgBrush = null
                     )
                 }
             }
