@@ -39,7 +39,7 @@ fun ParticipantRow(
             .padding(horizontal = 24.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Only the Left column (name + level) is clickable → view profile
+        // Only this Column is clickable → view profile
         Column(
             modifier = Modifier
                 .weight(1f)

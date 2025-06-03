@@ -264,7 +264,6 @@ fun CreatorActivityScreen(
                             participantId = target.id
                         )
                         if (response.isSuccessful) {
-                            // Refresh once someone is kicked
                             viewModel.fetchEventWithLevels()
                         } else {
                             println("Kick failed: ${response.code()}")

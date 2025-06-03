@@ -117,7 +117,7 @@ fun ParticipantActivityScreen(
                 }
             }
         )
-
+        var feedbackTarget by remember { mutableStateOf<ParticipantUi?>(null) }
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
@@ -175,7 +175,7 @@ fun ParticipantActivityScreen(
                     onKickClick = {},
                     onClick = { onUserClick(p.id) },
                     showFeedback = isConcluded,         // show “Give feedback” only when concluded
-                    onFeedback = { onUserClick(p.id) }  // navigate to that user’s public profile
+                    onFeedback  = { feedbackTarget = p }   // navigate to that user’s public profile
                 )
             }
         }

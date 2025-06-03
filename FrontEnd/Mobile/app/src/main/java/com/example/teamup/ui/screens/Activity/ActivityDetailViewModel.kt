@@ -37,10 +37,10 @@ class ActivityDetailViewModel(
     }
 
     /**
-     * 1) Fetch raw event from the Events API.
-     * 2) For each participant, fetch ProfileResponse from Achievements API.
-     * 3) Construct a new ParticipantDto with level = profile.level.
-     * 4) Emit the new ActivityDto with enriched participants.
+     * 1) Fetch raw event from the Events API
+     * 2) For each ParticipantDto, fetch ProfileResponse from Achievements API
+     * 3) Construct a new ParticipantDto with level = profile.level
+     * 4) Emit the new ActivityDto with enriched participants
      */
     fun fetchEventWithLevels() {
         viewModelScope.launch {
@@ -78,7 +78,6 @@ class ActivityDetailViewModel(
 
                 // 5) Emit to StateFlow
                 _event.value = enrichedDto
-
             } catch (_: Exception) {
                 _event.value = null
             }
