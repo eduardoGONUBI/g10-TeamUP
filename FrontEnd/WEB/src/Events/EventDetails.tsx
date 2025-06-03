@@ -2,7 +2,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./EventDetails.css";
-import { fetchXpLevel } from "../api/user";
+import {
+  fetchXpLevel,
+  fetchAvatar,                    // ← ADDED
+} from "../api/user";
 import avatarDefault from "../assets/avatar-default.jpg";
 import type { Event, Me, Participant } from "../api/event";
 
@@ -45,8 +48,10 @@ const EventDetails: React.FC = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [levels, setLevels] = useState<Record<number, number>>({});
   const [feedbackSent, setFeedbackSent] = useState<Record<number, boolean>>({});
+  const [avatars, setAvatars] = useState<Record<number, string>>({}); // ← ADDED
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
+  const [openFeedback, setOpenFeedback] = useState<number | null>(null);
   const nav = useNavigate();
 
   const token =
@@ -75,8 +80,6 @@ const EventDetails: React.FC = () => {
     if (d.includes("cloud")) return <WiCloudy size={32} />;
     return <WiDaySunny size={32} />;
   }
-
-  const [openFeedback, setOpenFeedback] = useState<number | null>(null);
 
   // map lower-cased sport name → image
   const sportIcons: Record<string, string> = {
@@ -119,35 +122,77 @@ const EventDetails: React.FC = () => {
       .catch(console.error);
   }, [id, token]);
 
-  // 3) load participants + their levels
+  // 3) load participants + their levels + avatars
   useEffect(() => {
     if (!id || !token) return;
+    let mounted = true;
+
     fetch(`/api/events/${id}/participants`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
-      .then((data: { participants?: Participant[] }) => {
+      .then(async (data: { participants?: Participant[] }) => {
+        if (!mounted) return;
         const list: Participant[] = data.participants ?? [];
         setParticipants(list);
 
         // levels
-        return Promise.all(
+        const lvlArray = await Promise.all(
           list.map((p) =>
             fetchXpLevel(p.id).then((pr) => ({ id: p.id, level: pr.level }))
           )
-        ).then((arr) => {
-          const map: Record<number, number> = {};
-          arr.forEach(({ id, level }) => { map[id] = level; });
-          setLevels(map);
-
-          // initialise feedbackSent flags
-          const flags: Record<number, boolean> = {};
-          list.forEach((p) => { flags[p.id] = false; });
-          setFeedbackSent(flags);
+        );
+        if (!mounted) return;
+        const lvlMap: Record<number, number> = {};
+        lvlArray.forEach(({ id, level }) => {
+          lvlMap[id] = level;
         });
+        setLevels(lvlMap);
+
+        // initialise feedbackSent flags
+        const flags: Record<number, boolean> = {};
+        list.forEach((p) => {
+          flags[p.id] = false;
+        });
+        setFeedbackSent(flags);
+
+        // avatars
+        const avatarPairs = await Promise.all(
+          list.map(async (p) => {
+            try {
+              const url = await fetchAvatar(p.id);
+              return { id: p.id, url };
+            } catch {
+              return { id: p.id, url: "" };
+            }
+          })
+        );
+        if (!mounted) return;
+
+        // revoke any old blob URLs before setting new ones
+        Object.values(avatars).forEach((u) => {
+          if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+        });
+
+        const avMap: Record<number, string> = {};
+        avatarPairs.forEach(({ id, url }) => {
+          if (url) avMap[id] = url;
+        });
+        setAvatars(avMap);
       })
       .catch(console.error)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+      // revoke blob URLs on unmount
+      Object.values(avatars).forEach((u) => {
+        if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+      });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, token]);
 
   /* ─────────────── Feedback helper ─────────────── */
@@ -155,7 +200,6 @@ const EventDetails: React.FC = () => {
     if (!attr) return;
     if (!id || !token) return;
 
-    // ** new: strip out any leading/trailing whitespace **
     const attribute = attr.trim();
     if (!attribute) return;
 
@@ -168,7 +212,7 @@ const EventDetails: React.FC = () => {
         },
         body: JSON.stringify({
           user_id: ratedId,
-          attribute: attribute,    // send the trimmed value
+          attribute: attribute,
         }),
       });
 
@@ -185,7 +229,7 @@ const EventDetails: React.FC = () => {
     }
   }
 
-  /* ───────────────────────── Misc actions (cancel, conclude … unchanged) ── */
+  /* ───────────────────────── Misc actions ───────────────────────── */
   async function cancelEvent() {
     if (!id || !token) return;
     if (!window.confirm("Cancel this activity?")) return;
@@ -345,7 +389,7 @@ const EventDetails: React.FC = () => {
           >
             <div className="avatar-wrapper">
               <img
-                src={p.avatar_url || avatarDefault}
+                src={avatars[p.id] || p.avatar_url || avatarDefault}
                 alt={p.name}
                 className="participant-avatar"
               />
@@ -364,46 +408,45 @@ const EventDetails: React.FC = () => {
             </div>
 
             {/* Feedback dropdown (only if concluded & not me) */}
-          {isDone && p.id !== me.id && (
-  <div
-    className={`feedback-dropdown ${feedbackSent[p.id] ? 'sent' : ''}`}
-    onClick={(e) => e.stopPropagation()}
-  >
-    <button
-      className="feedback-toggle"
-      onClick={() =>
-        setOpenFeedback(openFeedback === p.id ? null : p.id)
-      }
-      aria-expanded={openFeedback === p.id}
-    >
-      {feedbackSent[p.id] ? '✓ Feedback sent' : 'Give feedback'}
-      {!feedbackSent[p.id] && (
-        <span className="arrow">
-          {openFeedback === p.id ? '▴' : '▾'}
-        </span>
-      )}
-    </button>
+            {isDone && p.id !== me.id && (
+              <div
+                className={`feedback-dropdown ${feedbackSent[p.id] ? "sent" : ""}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  className="feedback-toggle"
+                  onClick={() =>
+                    setOpenFeedback(openFeedback === p.id ? null : p.id)
+                  }
+                  aria-expanded={openFeedback === p.id}
+                >
+                  {feedbackSent[p.id] ? "✓ Feedback sent" : "Give feedback"}
+                  {!feedbackSent[p.id] && (
+                    <span className="arrow">
+                      {openFeedback === p.id ? "▴" : "▾"}
+                    </span>
+                  )}
+                </button>
 
-    {/* só mostra o menu se este p.id estiver ativo */}
-    {openFeedback === p.id && !feedbackSent[p.id] && (
-      <ul className="feedback-menu">
-        {ATTRIBUTES.slice(1).map((op) => (
-          <li key={op.value}>
-            <button
-              className="feedback-item"
-              onClick={() => {
-                giveFeedback(p.id, op.value);
-                setOpenFeedback(null); // fecha depois de enviar
-              }}
-            >
-              {op.label}
-            </button>
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-)}
+                {openFeedback === p.id && !feedbackSent[p.id] && (
+                  <ul className="feedback-menu">
+                    {ATTRIBUTES.slice(1).map((op) => (
+                      <li key={op.value}>
+                        <button
+                          className="feedback-item"
+                          onClick={() => {
+                            giveFeedback(p.id, op.value);
+                            setOpenFeedback(null);
+                          }}
+                        >
+                          {op.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {!isDone && (
               <button
