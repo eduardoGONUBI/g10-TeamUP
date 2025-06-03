@@ -29,10 +29,9 @@ fun ActivityCard(
     activity: ActivityItem,
     onClick: () -> Unit
 ) {
-    /* ─── 1) Background + icon resource ─────────────────────────────── */
-
-    val cardBg        = Color(0xFFE1DCEF)        // lavender
-    val sportName     = activity.title.substringAfter(":").trim().lowercase(Locale.ROOT)
+    // ─── 1) Background color + sport icon ───────────────────────────────
+    val cardBg = Color(0xFFE1DCEF) // a soft lavender
+    val sportName = activity.title.substringAfter(":").trim().lowercase(Locale.ROOT)
     val iconRes = when (sportName) {
         "volleyball"          -> R.drawable.voleyball
         "basketball"          -> R.drawable.basketball
@@ -45,13 +44,12 @@ fun ActivityCard(
         else                  -> R.drawable.football
     }
 
-    /* ─── 2) Parse date + time robustly  ────────────────────────────── */
-
-    val raw = activity.date ?: ""
+    // ─── 2) Parse “startsAt” into a date + time string ───────────────────
+    //    e.g. "2025-06-05T18:30:00Z" or "2025-06-05 18:30:00"
+    val raw = activity.startsAt
     val (datePart, timePart) = parseDateTime(raw)
 
-    /* ─── 3) Card layout  ───────────────────────────────────────────── */
-
+    // ─── 3) Build the card ─────────────────────────────────────────────
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -61,9 +59,8 @@ fun ActivityCard(
         colors = CardDefaults.cardColors(containerColor = cardBg),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Box(Modifier.fillMaxWidth()) {
-
-            /* ---- Main row: icon ⟶ title / location / date•time -------- */
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // ---- Main row: icon → title / location / date•time ----
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -71,8 +68,8 @@ fun ActivityCard(
                     .padding(12.dp)
             ) {
                 Surface(
-                    shape  = CircleShape,
-                    color  = MaterialTheme.colorScheme.surface,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 2.dp,
                     modifier = Modifier.size(40.dp)
                 ) {
@@ -87,29 +84,34 @@ fun ActivityCard(
                     )
                 }
 
-                Spacer(Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
+                    // Title (e.g. "Futsal : NEWDATE")
                     Text(
-                        text  = activity.title,
+                        text = activity.title,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    // Location
                     Text(
-                        text  = activity.location ?: "—",
+                        text = activity.location,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    // Date • Time (only show the “• Time” if timePart is not blank)
                     Text(
-                        text  = buildString {
+                        text = buildString {
                             if (datePart.isNotBlank()) {
                                 append(datePart)
                                 if (timePart.isNotBlank()) {
                                     append("  •  ")
                                     append(timePart)
                                 }
-                            } else append("—")
+                            } else {
+                                append("—")
+                            }
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -117,20 +119,21 @@ fun ActivityCard(
                 }
             }
 
-            /* ---- Participants (top-right) & Chevron (bottom-right) ---- */
+            // ---- Participants count (top-right) ----
             Text(
-                text     = "${activity.participants}/${activity.maxParticipants}",
-                style    = MaterialTheme.typography.bodySmall,
-                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "${activity.participants}/${activity.maxParticipants}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 8.dp, top = 8.dp)
             )
 
+            // ---- Chevron (bottom-right) ----
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "See Activity",
-                tint     = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 12.dp, bottom = 12.dp)
@@ -140,28 +143,39 @@ fun ActivityCard(
     }
 }
 
-/* ──────────────────────────────────────────────────────────────── */
-/* Helper: turn any backend string into  Pair(YYYY-MM-DD, HH:MM)   */
-/* ──────────────────────────────────────────────────────────────── */
+/**
+ * Helper: given any back-end string, return Pair(YYYY-MM-DD, HH:MM).
+ *
+ * Tries three patterns in order:
+ *  1) Full ISO (e.g. 2025-06-03T14:45:00.000000Z)
+ *  2) Local pattern "yyyy-MM-dd HH:mm:ss"
+ *  3) Fallback: treat input as a date only (no time).
+ */
 private fun parseDateTime(raw: String): Pair<String, String> {
     if (raw.isBlank()) return "" to ""
 
-    /* 1) Try full ISO offset (e.g. 2025-06-03T14:45:00.000000Z) */
+    /* 1) Try full ISO offset first */
     try {
         val zdt = ZonedDateTime.parse(raw)
         val local = zdt.withZoneSameInstant(ZoneId.systemDefault())
-        return local.toLocalDate().toString() to "%02d:%02d".format(local.hour, local.minute)
-    } catch (_: DateTimeParseException) { /* fall through */ }
+        val date = local.toLocalDate().toString()
+        val time = "%02d:%02d".format(local.hour, local.minute)
+        return date to time
+    } catch (_: DateTimeParseException) {
+        // fall through to next pattern
+    }
 
-    /* 2) Try “yyyy-MM-dd HH:mm:ss” */
+    /* 2) Try “yyyy-MM-dd HH:mm:ss” (no timezone) */
     try {
-        val ldt = LocalDateTime.parse(
-            raw,
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        )
-        return ldt.toLocalDate().toString() to "%02d:%02d".format(ldt.hour, ldt.minute)
-    } catch (_: DateTimeParseException) { /* fall through */ }
+        val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        val ldt = LocalDateTime.parse(raw, fmt)
+        val date = ldt.toLocalDate().toString()
+        val time = "%02d:%02d".format(ldt.hour, ldt.minute)
+        return date to time
+    } catch (_: DateTimeParseException) {
+        // fall through
+    }
 
-    /* 3) Only a date?  Then no time. */
+    /* 3) If still not parsed, treat entire string as “just a date” */
     return raw to ""
 }

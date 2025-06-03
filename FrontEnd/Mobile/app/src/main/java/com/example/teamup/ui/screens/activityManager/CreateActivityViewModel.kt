@@ -115,11 +115,11 @@ class CreateActivityViewModel(
             _state.value = CreateUiState.Loading
             try {
                 // Combine date + time into "YYYY-MM-DD HH:MM:00"
-                val dateTimeUtc = "${f.date} ${f.time}:00"
+                val startsAt = "${f.date} ${f.time}:00"
                 val body = CreateEventRequest(
                     name             = f.name.trim(),
                     sport_id         = chosenSport.id,
-                    date             = dateTimeUtc,
+                    startsAt         = startsAt,
                     place            = f.place.trim(),
                     max_participants = maxInt
                 )

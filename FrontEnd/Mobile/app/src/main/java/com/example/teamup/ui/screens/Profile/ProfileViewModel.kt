@@ -115,7 +115,7 @@ class ProfileViewModel : ViewModel() {
                     id               = dto.id.toString(),
                     title            = "${dto.name} : ${dto.sport}",
                     location         = dto.place,
-                    date             = dto.date,
+                    startsAt         = dto.startsAt ?: "",
                     participants     = dto.participants?.size ?: 0,
                     maxParticipants  = dto.max_participants,
                     organizer        = dto.creator.name,
