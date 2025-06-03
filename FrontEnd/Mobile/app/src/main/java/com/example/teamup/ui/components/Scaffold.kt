@@ -35,6 +35,7 @@ import com.example.teamup.ui.screens.Activity.EditActivityScreen
 import com.example.teamup.ui.screens.Activity.ParticipantActivityScreen
 import com.example.teamup.ui.screens.Activity.ViewerActivityScreen
 import com.example.teamup.ui.screens.Chat.UpChatScreens
+import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.activityManager.ActivityTabsScreen
 import java.net.URLDecoder
 import java.net.URLEncoder

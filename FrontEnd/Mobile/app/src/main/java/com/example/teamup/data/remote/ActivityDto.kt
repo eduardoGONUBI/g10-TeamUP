@@ -45,7 +45,7 @@ data class EventUpdateRequest(
 )
 
 
-data class SportDto(val id: Int, val name: String)
+
 
 data class CreateEventRawResponse(
     val message: String,

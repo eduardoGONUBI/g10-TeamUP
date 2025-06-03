@@ -16,6 +16,7 @@ import com.example.teamup.ui.screens.main.Main.LoginViewModel
 import com.example.teamup.ui.screens.main.Main.LoginViewModelFactory
 import com.example.teamup.ui.components.RootScaffold
 import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
+import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
