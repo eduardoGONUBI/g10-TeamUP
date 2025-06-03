@@ -1,6 +1,7 @@
 package com.example.teamup.data.domain.repository
 
 import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.data.domain.model.ChatItem
 import com.example.teamup.data.domain.model.CreateEventRequest
 import com.example.teamup.data.remote.model.SportDto
 
@@ -20,4 +21,6 @@ interface ActivityRepository {
 
     suspend fun createActivity(token: String, body: CreateEventRequest): ActivityItem
     suspend fun getSports(token: String): List<SportDto>
+
+    suspend fun myChats(token: String): List<ChatItem>
 }

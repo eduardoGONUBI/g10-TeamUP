@@ -34,7 +34,7 @@ import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
 import com.example.teamup.ui.screens.Activity.EditActivityScreen
 import com.example.teamup.ui.screens.Activity.ParticipantActivityScreen
 import com.example.teamup.ui.screens.Activity.ViewerActivityScreen
-import com.example.teamup.ui.screens.Chat.UpChatScreens
+import com.example.teamup.ui.screens.Chat.ChatListScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.activityManager.ActivityTabsScreen
 import java.net.URLDecoder
@@ -116,10 +116,7 @@ fun RootScaffold(
                 )
             }
 
-            /* ─── Chats ───────────────────────────────────────── */
-            composable("chats") {
-                UpChatScreens(navController = appNav)
-            }
+
 
             /* ─── Profile (token in route) ─────────────────────── */
             composable(
@@ -260,6 +257,14 @@ fun RootScaffold(
                     token  = token,
                     userId = uid,
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            /* ─── Chat ────────────────── */
+            composable("chats") {
+                ChatListScreen(
+                    navController = appNav,
+                    token         = token      //  ←  pass token
                 )
             }
         }
