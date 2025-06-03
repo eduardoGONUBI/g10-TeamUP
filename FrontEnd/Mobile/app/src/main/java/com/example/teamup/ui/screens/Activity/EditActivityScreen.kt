@@ -78,11 +78,15 @@ fun EditActivityScreen(
             location = eventDto.place
 
             // split the server’s ISO timestamp into “date” + “time”
-            val raw = eventDto.date
+            val raw = eventDto.startsAt ?: ""
             if (raw.contains("T")) {
                 val parts = raw.split("T")
-                date = parts[0]                                    // “YYYY-MM-DD”
-                time = parts[1].substring(0, 5)                    // “HH:MM”
+                date = parts[0]                               // YYYY-MM-DD
+                time = parts.getOrNull(1)?.take(5) ?: ""      // HH:MM
+            } else if (raw.contains(" ")) {                   // e.g. "YYYY-MM-DD HH:MM:SS"
+                val parts = raw.split(" ")
+                date = parts[0]
+                time = parts.getOrNull(1)?.take(5) ?: ""
             } else {
                 date = raw
                 time = ""

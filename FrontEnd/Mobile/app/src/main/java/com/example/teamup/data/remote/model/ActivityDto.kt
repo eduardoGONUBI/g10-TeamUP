@@ -7,7 +7,8 @@ data class ActivityDto(
     val id: Int,
     val name: String,
     val sport: String,
-    val date: String,
+    @SerializedName("starts_at") val startsAt: String?,   // ← can be null if backend still sends “date”
+    @SerializedName("date")      val date: String? = null,
     val place: String,
     val status: String,
     val max_participants: Int,
@@ -64,7 +65,8 @@ data class CreateEventRawDto(
     val name: String,
     @SerializedName("sport_id")
     val sportId: Int,
-    val date: String,
+    @SerializedName("starts_at")
+    val startsAt: String,
     val place: String,
     @SerializedName("user_id")
     val userId: Int,

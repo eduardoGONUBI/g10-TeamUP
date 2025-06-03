@@ -17,7 +17,7 @@ class Event extends Model
     protected $fillable = [
         'name',
         'sport_id',
-        'date',
+        'starts_at',
         'place',
         'user_id',
         'user_name',
@@ -30,7 +30,7 @@ class Event extends Model
 
         protected $casts = [
         'weather' => 'array',   
-        'date'    => 'datetime', 
+        'starts_at' => 'datetime',   // <── changed
     ];
     
 

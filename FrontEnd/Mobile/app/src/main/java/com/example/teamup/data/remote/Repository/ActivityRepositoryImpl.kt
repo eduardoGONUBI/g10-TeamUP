@@ -21,7 +21,7 @@ internal fun ActivityDto.toActivityItem(currentUserId: Int): ActivityItem {
         id              = id.toString(),
         title           = "$name : $sport",
         location        = place,
-        date            = date,
+        startsAt        = startsAt ?: date ?: "",
         participants    = participants?.size ?: 0,
         maxParticipants = max_participants,
         organizer       = creator.name,
@@ -87,7 +87,7 @@ class ActivityRepositoryImpl(
             id              = e.id.toString(),
             title           = "${e.name} : ${e.sportId}",
             location        = e.place,
-            date            = e.date,
+            startsAt        = e.startsAt ?: body.startsAt,
             participants    = 1,               // creator auto‐joined
             maxParticipants = e.maxParticipants,
             organizer       = e.userName,

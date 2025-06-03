@@ -1,10 +1,12 @@
 package com.example.teamup.data.domain.model
 
+import com.google.gson.annotations.SerializedName
+
 data class ActivityItem(
     val id: String,
     val title: String,
     val location: String,
-    val date: String,
+    @SerializedName("starts_at") val startsAt: String,
     val participants: Int,
     val maxParticipants: Int,
     val organizer: String,
@@ -19,8 +21,8 @@ data class ActivityItem(
 data class CreateEventRequest(
     val name: String,
     val sport_id: Int,
-    val date: String,
     val place: String,
-    val max_participants: Int
+    val max_participants: Int,
+    @SerializedName("starts_at") val startsAt: String
 )
 

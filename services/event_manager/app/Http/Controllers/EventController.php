@@ -94,117 +94,121 @@ class EventController extends Controller
     }
 
 
-
-
     /**
      * Store a new event.
      */
-    public function store(Request $request)
-    {
-        try {
-            $token = $this->validateToken($request);
+public function store(Request $request)
+{
+    try {
+        $token = $this->validateToken($request);
 
-            $payload = JWTAuth::setToken($token)->getPayload();
-            $userId = $payload->get('sub');
-            $userName = $payload->get('name');
+        $payload  = JWTAuth::setToken($token)->getPayload();
+        $userId   = $payload->get('sub');
+        $userName = $payload->get('name');
 
-            // Only validate the things the user really submits now
-            $validatedData = $request->validate([
-                'name' => 'required|string',
-                'sport_id' => 'required|exists:sports,id',
-                'date' => 'required|date',
-                'place' => 'required|string',
-                'max_participants' => 'required|integer|min:2',
-            ]);
+        // Only validate the fields the user submits now. Note: we require "starts_at" here.
+        $validatedData = $request->validate([
+            'name'             => 'required|string',
+            'sport_id'         => 'required|exists:sports,id',
+            'starts_at'        => 'required|date_format:Y-m-d H:i:s',
+            'place'            => 'required|string',
+            'max_participants' => 'required|integer|min:2',
+        ]);
 
-            //
-            // ─── Geocode the place ───────────────────────────────────────────────
-            //
-            $geoKey = config('services.google_maps.key')
-                ?? env('GOOGLE_MAPS_GEOCODE_API_KEY');
-            if (!$geoKey) {
-                throw new \Exception('Missing Google Geocoding API key');
-            }
+        //
+        // ─── Geocode the place ───────────────────────────────────────────────
+        //
+        $geoKey = config('services.google_maps.key')
+            ?? env('GOOGLE_MAPS_GEOCODE_API_KEY');
+        if (! $geoKey) {
+            throw new \Exception('Missing Google Geocoding API key');
+        }
 
-            $geoRes = Http::get('https://maps.googleapis.com/maps/api/geocode/json', [
-                'address' => $validatedData['place'],
-                'key' => $geoKey,
-            ])->json();
+        $geoRes = Http::get('https://maps.googleapis.com/maps/api/geocode/json', [
+            'address' => $validatedData['place'],
+            'key'     => $geoKey,
+        ])->json();
 
-             if (($geoRes['status'] ?? '') === 'ZERO_RESULTS') {
-            // user typed something Google doesn't recognize
+        if (($geoRes['status'] ?? '') === 'ZERO_RESULTS') {
+            // User typed something Google doesn't recognize
             return response()->json([
                 'error' => 'Address not found. Please enter a valid location.'
             ], 422);
         }
 
-        if (($geoRes['status'] ?? '') !== 'OK' ||
-            empty($geoRes['results'][0]['geometry']['location'])) {
+        if (
+            ($geoRes['status'] ?? '') !== 'OK' ||
+            empty($geoRes['results'][0]['geometry']['location'])
+        ) {
             $status = $geoRes['status'] ?? 'UNKNOWN';
             return response()->json([
                 'error' => "Error while searching for the address: {$status}. Please try again."
             ], 422);
         }
 
-            $loc = $geoRes['results'][0]['geometry']['location'];
-            $lat = $loc['lat'];
-            $lng = $loc['lng'];
+        $loc = $geoRes['results'][0]['geometry']['location'];
+        $lat = $loc['lat'];
+        $lng = $loc['lng'];
 
-            //
-            // ─── Fetch weather for that lat/lng + date ────────────────────────────
-            //
-            $eventDate = Carbon::parse($validatedData['date'])->format('Y-m-d');
-            $weatherData = $this->weatherService
-                ->getForecastForDate($lat, $lng, $eventDate);
+        //
+        // ─── Fetch weather for that lat/lng + date ────────────────────────────
+        //
+        // Change: use 'starts_at' when parsing the date for weather lookup
+        $eventDate   = Carbon::parse($validatedData['starts_at'])->format('Y-m-d');
+        $weatherData = $this->weatherService
+            ->getForecastForDate($lat, $lng, $eventDate);
 
-            //
-            // ─── Finally, create the event ───────────────────────────────────────
-            //
-            $event = Event::create([
-                'name' => $validatedData['name'],
-                'sport_id' => $validatedData['sport_id'],
-                'date' => $validatedData['date'],
-                'place' => $validatedData['place'],
-                'user_id' => $userId,
-                'user_name' => $userName,
-                'status' => 'in progress',
-                'max_participants' => $validatedData['max_participants'],
-                'latitude' => $lat,
-                'longitude' => $lng,
-                'weather' => json_encode($weatherData),
-            ]);
+        //
+        // ─── Finally, create the event ───────────────────────────────────────
+        //
+        $event = Event::create([
+            'name'             => $validatedData['name'],
+            'sport_id'         => $validatedData['sport_id'],
+            // Change: write into "starts_at" (instead of "date")
+            'starts_at'        => $validatedData['starts_at'],
+            'place'            => $validatedData['place'],
+            'user_id'          => $userId,
+            'user_name'        => $userName,
+            'status'           => 'in progress',
+            'max_participants' => $validatedData['max_participants'],
+            'latitude'         => $lat,
+            'longitude'        => $lng,
+            'weather'          => json_encode($weatherData),
+        ]);
 
-            // auto-join creator
-            Participant::create([
-                'event_id' => $event->id,
-                'user_id' => $userId,
-                'user_name' => $userName,
-            ]);
+        // auto-join creator
+        Participant::create([
+            'event_id'  => $event->id,
+            'user_id'   => $userId,
+            'user_name' => $userName,
+        ]);
 
-            // push to RabbitMQ
-            $msg = [
-                'event_id' => $event->id,
-                'event_name' => $event->name,
-                'user_id' => $userId,
-                'user_name' => $userName,
-                'message' => 'User joined the event',
-            ];
-            $this->publishToRabbitMQ('event_joined', json_encode($msg));
-            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($msg));
-            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($msg));
-            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($msg));
-            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($msg));
+        // push to RabbitMQ
+        $msg = [
+            'event_id'   => $event->id,
+            'event_name' => $event->name,
+            'user_id'    => $userId,
+            'user_name'  => $userName,
+            'message'    => 'User joined the event',
+        ];
+        $this->publishToRabbitMQ('event_joined',         json_encode($msg));
+        $this->publishToRabbitMQ('chat_event_join-leave', json_encode($msg));
+        $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($msg));
+        $this->publishToRabbitMQ('ach_event_join-leave', json_encode($msg));
+        $this->publishToRabbitMQ('noti_event_join-leave', json_encode($msg));
 
-            return response()->json([
-                'message' => 'Evento criado com sucesso!',
-                'event' => $event,
-            ], 201);
+        return response()->json([
+            'message' => 'Evento criado com sucesso!',
+            'event'   => $event,
+        ], 201);
 
-        } catch (\Exception $e) {
-            // if logging still fails, you'll see the error returned here
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+    } catch (\Exception $e) {
+        // If something goes wrong, return the exception message
+        return response()->json(['error' => $e->getMessage()], 400);
     }
+}
+
+
 
 
     private function geocodePlace(string $place): array
@@ -261,7 +265,7 @@ class EventController extends Controller
         'id'               => $event->id,
         'name'             => $event->name,
         'sport'            => $event->sport->name ?? null,
-        'date'             => $event->date,
+        'starts_at'        => $event->starts_at,
         'place'            => $event->place,
         'status'           => $event->status,
         'max_participants' => $event->max_participants,
@@ -326,7 +330,7 @@ public function index(Request $request)
                 'id'               => $event->id,
                 'name'             => $event->name,
                 'sport'            => $event->sport->name ?? null,
-                'date'             => $event->date,
+                'starts_at'        => $event->starts_at,
                 'place'            => $event->place,
                 'status'           => $event->status,
                 'max_participants' => $event->max_participants,
@@ -638,7 +642,7 @@ public function index(Request $request)
                 'id' => $event->id,
                 'name' => $event->name,
                 'sport' => $event->sport->name ?? null,
-                'date' => $event->date,
+                'starts_at' => $event->starts_at,
                 'place' => $event->place,
                 'status' => $event->status,
                 'max_participants' => $event->max_participants,
@@ -747,7 +751,7 @@ public function search(Request $request)
                 'id'               => $event->id,
                 'name'             => $event->name,
                 'sport'            => $event->sport->name ?? null,
-                'date'             => $event->date,
+                'starts_at'        => $event->starts_at,
                 'place'            => $event->place,
                 'status'           => $event->status,
                 'max_participants' => $event->max_participants,
@@ -798,7 +802,7 @@ public function search(Request $request)
                     'id' => $event->id,
                     'name' => $event->name,
                     'sport' => $event->sport->name ?? null,
-                    'date' => $event->date,
+                    'starts_at' => $event->starts_at,
                     'place' => $event->place,
                     'status' => $event->status,
                     'max_participants' => $event->max_participants,

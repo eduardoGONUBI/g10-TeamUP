@@ -1,3 +1,4 @@
+// File: app/src/main/java/com/example/teamup/ui/components/ActivityInfoCard.kt
 package com.example.teamup.ui.components
 
 import androidx.compose.foundation.layout.*
@@ -27,21 +28,30 @@ fun ActivityInfoCard(
     activity: ActivityDto,
     modifier: Modifier = Modifier
 ) {
-    // Try to parse the incoming ISO-8601 date string
-    val parsedInstant = runCatching { Instant.parse(activity.date) }.getOrNull()
+    // Ensure we never call Instant.parse on a null String
+    val raw = activity.startsAt ?: ""
+    val parsedInstant = runCatching { Instant.parse(raw) }.getOrNull()
+
     val zone = ZoneId.systemDefault()
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
+    // If parsing succeeded, format both date and time. Otherwise, fall back to string‐splitting.
     val dateText = parsedInstant
         ?.atZone(zone)
         ?.format(dateFormatter)
-        ?: activity.date.substringBefore('T')
+        ?: raw.substringBefore('T')
 
-    val timeText = parsedInstant
-        ?.atZone(zone)
-        ?.format(timeFormatter)
-        ?: activity.date.substringAfter('T').take(5)
+    // For time, if the raw string had a ‘T’, take the HH:mm portion; otherwise, show “–.”
+    val timeText = if (parsedInstant != null) {
+        parsedInstant.atZone(zone).format(timeFormatter)
+    } else {
+        raw.substringAfter('T')
+            .takeIf { raw.contains('T') }
+            ?.substringBeforeLast(":", missingDelimiterValue = raw.substringAfter('T'))
+            ?.take(5)
+            ?: "–"
+    }
 
     Card(
         modifier = modifier
@@ -83,7 +93,7 @@ fun ActivityInfoCard(
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = dateText,
+                        text = dateText.ifBlank { "–" },
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
