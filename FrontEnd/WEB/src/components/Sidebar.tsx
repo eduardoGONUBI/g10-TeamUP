@@ -36,7 +36,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogoClick }) => {
           >
             My Activities
           </li>
-          <li>Notifications</li>
           <li
             className={location.pathname === "/chat" ? "active" : ""}
             onClick={() => nav("/chat")}

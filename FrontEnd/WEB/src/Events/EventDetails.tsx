@@ -1,10 +1,10 @@
-// ─── src/pages/EventDetails.tsx ──────────────────────────────────────────────
+// File: src/pages/EventDetails.tsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./EventDetails.css";
 import {
   fetchXpLevel,
-  fetchAvatar,                    // ← ADDED
+  fetchAvatar,
 } from "../api/user";
 import avatarDefault from "../assets/avatar-default.jpg";
 import type { Event, Me, Participant } from "../api/event";
@@ -48,11 +48,11 @@ const EventDetails: React.FC = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [levels, setLevels] = useState<Record<number, number>>({});
   const [feedbackSent, setFeedbackSent] = useState<Record<number, boolean>>({});
-  const [avatars, setAvatars] = useState<Record<number, string>>({}); // ← ADDED
+  const [avatars, setAvatars] = useState<Record<number, string>>({});
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [openFeedback, setOpenFeedback] = useState<number | null>(null);
-  const nav = useNavigate();
+  const navigate = useNavigate();
 
   const token =
     localStorage.getItem("auth_token") ||
@@ -73,7 +73,7 @@ const EventDetails: React.FC = () => {
     if (d.includes("thunder") || d.includes("storm")) return <WiStormShowers size={32} />;
     if (d.includes("snow") || d.includes("sleet")) return <WiSnow size={32} />;
     if (d.includes("clear")) {
-      const hour = new Date(event?.date ?? "").getHours();
+      const hour = new Date(event?.starts_at ?? "").getHours();
       return hour >= 6 && hour < 18 ? <WiDaySunny size={32} /> : <WiNightClear size={32} />;
     }
     if (d.includes("cloud") && d.includes("night")) return <WiNightAltCloudy size={32} />;
@@ -97,7 +97,7 @@ const EventDetails: React.FC = () => {
     const key = sportName?.toLowerCase() ?? "";
     const src = sportIcons[key];
     if (src) {
-      return <img src={src} alt={sportName || ""} className="sport-icon-img" />;
+      return <img src={src} className="sport-icon-img" />;
     }
     return <span role="img" aria-label="sport">🏅</span>;
   };
@@ -107,8 +107,10 @@ const EventDetails: React.FC = () => {
   // 1) load current user
   useEffect(() => {
     if (!token) return;
-    fetch(`/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
+    fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
       .then(setMe)
       .catch(console.error);
   }, [token]);
@@ -116,13 +118,15 @@ const EventDetails: React.FC = () => {
   // 2) load event details
   useEffect(() => {
     if (!id || !token) return;
-    fetch(`/api/events/${id}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
+    fetch(`/api/events/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
       .then(setEvent)
       .catch(console.error);
   }, [id, token]);
 
-  // 3) load participants + their levels + avatars
+  // 3) load participants + levels + avatars
   useEffect(() => {
     if (!id || !token) return;
     let mounted = true;
@@ -130,13 +134,13 @@ const EventDetails: React.FC = () => {
     fetch(`/api/events/${id}/participants`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
+      .then((res) => res.json())
       .then(async (data: { participants?: Participant[] }) => {
         if (!mounted) return;
         const list: Participant[] = data.participants ?? [];
         setParticipants(list);
 
-        // levels
+        // fetch levels
         const lvlArray = await Promise.all(
           list.map((p) =>
             fetchXpLevel(p.id).then((pr) => ({ id: p.id, level: pr.level }))
@@ -149,14 +153,14 @@ const EventDetails: React.FC = () => {
         });
         setLevels(lvlMap);
 
-        // initialise feedbackSent flags
+        // init feedback flags
         const flags: Record<number, boolean> = {};
         list.forEach((p) => {
           flags[p.id] = false;
         });
         setFeedbackSent(flags);
 
-        // avatars
+        // fetch avatars
         const avatarPairs = await Promise.all(
           list.map(async (p) => {
             try {
@@ -169,7 +173,7 @@ const EventDetails: React.FC = () => {
         );
         if (!mounted) return;
 
-        // revoke any old blob URLs before setting new ones
+        // revoke old URLs
         Object.values(avatars).forEach((u) => {
           if (u.startsWith("blob:")) URL.revokeObjectURL(u);
         });
@@ -187,19 +191,15 @@ const EventDetails: React.FC = () => {
 
     return () => {
       mounted = false;
-      // revoke blob URLs on unmount
       Object.values(avatars).forEach((u) => {
         if (u.startsWith("blob:")) URL.revokeObjectURL(u);
       });
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, token]);
 
   /* ─────────────── Feedback helper ─────────────── */
   async function giveFeedback(ratedId: number, attr: string) {
-    if (!attr) return;
-    if (!id || !token) return;
-
+    if (!attr || !id || !token) return;
     const attribute = attr.trim();
     if (!attribute) return;
 
@@ -212,13 +212,12 @@ const EventDetails: React.FC = () => {
         },
         body: JSON.stringify({
           user_id: ratedId,
-          attribute: attribute,
+          attribute,
         }),
       });
-
-      const j = await res.json().catch(() => ({}));
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(j.error ?? res.statusText);
+        alert(json.error ?? res.statusText);
         return;
       }
       alert("Feedback sent!");
@@ -237,10 +236,10 @@ const EventDetails: React.FC = () => {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.ok) nav("/my-activities");
+    if (res.ok) navigate("/my-activities");
     else {
-      const j = await res.json().catch(() => ({}));
-      alert(j.error ?? "Failed to cancel.");
+      const json = await res.json().catch(() => ({}));
+      alert(json.error ?? "Failed to cancel.");
     }
   }
 
@@ -249,12 +248,15 @@ const EventDetails: React.FC = () => {
     if (!window.confirm("Mark as concluded?")) return;
     const res = await fetch(`/api/events/${id}/conclude`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
     if (res.ok) setEvent((e) => (e ? { ...e, status: "concluded" } : e));
     else {
-      const j = await res.json().catch(() => ({}));
-      alert(j.error ?? "Failed to conclude.");
+      const json = await res.json().catch(() => ({}));
+      alert(json.error ?? "Failed to conclude.");
     }
   }
 
@@ -271,8 +273,8 @@ const EventDetails: React.FC = () => {
     });
     if (res.ok) setEvent((e) => (e ? { ...e, status: "in progress" } : e));
     else {
-      const j = await res.json().catch(() => ({}));
-      alert(j.error ?? "Failed to reopen.");
+      const json = await res.json().catch(() => ({}));
+      alert(json.error ?? "Failed to reopen.");
     }
   }
 
@@ -286,8 +288,8 @@ const EventDetails: React.FC = () => {
       setParticipants((prev) => prev.filter((p) => p.id !== userId));
       alert("Participant removed.");
     } else {
-      const err = await res.json().catch(() => ({}));
-      alert(err.error ?? "Failed to remove participant.");
+      const json = await res.json().catch(() => ({}));
+      alert(json.error ?? "Failed to remove participant.");
     }
   }
 
@@ -308,7 +310,7 @@ const EventDetails: React.FC = () => {
           <div className="sport-name">{event.sport}</div>
           <p className="event-meta">
             {participants.length}/{event.max_participants} participants,{" "}
-            {formatDate(event.date)} {formatTime(event.date)}
+            {formatDate(event.starts_at)} {formatTime(event.starts_at)}
           </p>
         </div>
 
@@ -340,10 +342,13 @@ const EventDetails: React.FC = () => {
             loading="lazy"
             width="100%"
             height="300"
-            style={{ borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,.2)", border: 0 }}
+            style={{
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,.2)",
+              border: 0,
+            }}
             referrerPolicy="no-referrer-when-downgrade"
-            src={`https://www.google.com/maps/embed/v1/place?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-              &q=${event.latitude},${event.longitude}&zoom=15&maptype=roadmap`}
+            src={`https://www.google.com/maps/embed/v1/place?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&q=${event.latitude},${event.longitude}&zoom=15&maptype=roadmap`}
             allowFullScreen
           />
         ) : (
@@ -354,7 +359,8 @@ const EventDetails: React.FC = () => {
       {event.weather && (
         <>
           <div className="weather-forecast-header">
-            Forecast for <strong>{formatDate(event.date)}</strong> at <strong>{formatTime(event.date)}</strong>
+            Forecast for <strong>{formatDate(event.starts_at)}</strong> at{" "}
+            <strong>{formatTime(event.starts_at)}</strong>
           </div>
           <div className="weather-card">
             <div className="weather-main">
@@ -374,7 +380,7 @@ const EventDetails: React.FC = () => {
 
       <button
         className="chat-fab"
-        onClick={() => nav(`/chat/${event.id}`)}
+        onClick={() => navigate(`/chat/${event.id}`)}
         title="Go to chat"
       >
         💬
@@ -385,7 +391,7 @@ const EventDetails: React.FC = () => {
           <li
             key={p.id}
             className="participant-card"
-            onClick={() => nav(`/profile/${p.id}`)}
+            onClick={() => navigate(`/profile/${p.id}`)}
           >
             <div className="avatar-wrapper">
               <img
@@ -394,9 +400,7 @@ const EventDetails: React.FC = () => {
                 className="participant-avatar"
               />
               {levels[p.id] != null && (
-                <span className="level-badge">
-                  Lvl {levels[p.id] ?? 1}
-                </span>
+                <span className="level-badge">Lvl {levels[p.id]}</span>
               )}
             </div>
 
@@ -410,7 +414,9 @@ const EventDetails: React.FC = () => {
             {/* Feedback dropdown (only if concluded & not me) */}
             {isDone && p.id !== me.id && (
               <div
-                className={`feedback-dropdown ${feedbackSent[p.id] ? "sent" : ""}`}
+                className={`feedback-dropdown ${
+                  feedbackSent[p.id] ? "sent" : ""
+                }`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <button

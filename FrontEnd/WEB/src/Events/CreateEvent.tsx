@@ -20,7 +20,7 @@ const CreateEvent: React.FC = () => {
   const [form, setForm] = useState<NewEventData>({
     name: "",
     sport_id: 0,          // we'll require the user pick one
-    date: "",
+    starts_at: "",
     place: "",
     max_participants: 2,
   });
@@ -61,11 +61,13 @@ const CreateEvent: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
+          // datetime-local gives “YYYY-MM-DDTHH:mm”, backend wants “YYYY-MM-DD HH:mm:00”
+     const startsAt = form.starts_at.replace("T", " ") + ":00";
       // ensure they actually picked a sport
       if (!form.sport_id) {
         throw new Error("Please choose a sport");
       }
-      await createEvent(form);
+      await createEvent({ ...form, starts_at: startsAt });
       navigate("/my-activities");
     } catch (err: any) {
       setError(err.message || "Failed to create event");
@@ -138,8 +140,8 @@ const CreateEvent: React.FC = () => {
               Date &amp; Time
               <input
                 type="datetime-local"
-                value={form.date}
-                onChange={handleChange("date")}
+                value={form.starts_at}
+                onChange={handleChange("starts_at")}
                 required
               />
             </label>
