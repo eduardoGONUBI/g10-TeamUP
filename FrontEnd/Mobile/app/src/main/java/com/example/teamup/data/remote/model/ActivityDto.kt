@@ -81,3 +81,8 @@ data class CreateEventRawDto(
 data class StatusUpdateRequest(
     val status: String
 )
+
+data class SportDto(
+    val id: Int,
+    val name: String
+)

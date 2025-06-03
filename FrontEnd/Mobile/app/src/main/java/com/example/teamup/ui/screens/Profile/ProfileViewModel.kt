@@ -51,10 +51,6 @@ class ProfileViewModel : ViewModel() {
     private val _activitiesError     = MutableStateFlow<String?>(null)
     val activitiesError: StateFlow<String?> = _activitiesError
 
-    /**
-     * A single‐string label for “Reputation → top feedback count”
-     * e.g. `"Good teammate (3)"` or `"—"` if no feedback.
-     */
     private val _reputationLabel     = MutableStateFlow("—")
     val reputationLabel: StateFlow<String> = _reputationLabel
 

@@ -146,12 +146,6 @@ fun AppNavGraph() {
             )
         }
 
-        /* ─── Edit profile (no params) ───────────────────────── */
-        composable("edit_profile") {
-            EditProfileScreen(
-                onBack = { nav.popBackStack() }
-            )
-        }
 
 
         composable(

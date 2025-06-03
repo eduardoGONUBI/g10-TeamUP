@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -140,12 +141,18 @@ fun ProfileScreen(
                         .padding(top = 24.dp, bottom = 8.dp)
                 ) {
                     Button(onClick = onEditProfile) {
-                        Icon(Icons.Default.Logout /* you can replace with any other icon if desired */, contentDescription = null)
+                        Icon(
+                            imageVector = Icons.Default.Edit,             // use “Edit” icon
+                            contentDescription = "Edit Profile"
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text("Edit Profile")
                     }
                     OutlinedButton(onClick = onLogout) {
-                        Icon(Icons.Default.Logout, contentDescription = null)
+                        Icon(
+                            imageVector = Icons.Default.Logout,           // use “Logout” icon
+                            contentDescription = "Logout"
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text("Logout")
                     }

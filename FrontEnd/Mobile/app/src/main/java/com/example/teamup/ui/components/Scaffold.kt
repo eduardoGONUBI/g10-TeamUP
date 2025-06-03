@@ -135,13 +135,41 @@ fun RootScaffold(
                         val e = URLEncoder.encode(decoded, "UTF-8")
                         navController.navigate("edit_profile/$e")
                     },
-                    onLogout        = {
-                        navController.navigate("login")
+                    onLogout = {
+                        appNav.navigate("login") {
+                            popUpTo(0) { inclusive = true }   // clear everything off the back-stack
+                        }
                     },
                     onActivityClick = { id ->
                         val e = URLEncoder.encode(decoded, "UTF-8")
                         navController.navigate("viewer_activity/$id/$e")
                     }
+                )
+            }
+
+            /* ─── Edit profile ───────────────────────────────────────────── */
+            composable(
+                "edit_profile/{token}",
+                arguments = listOf(navArgument("token") { type = NavType.StringType })
+            ) { back ->
+                val raw     = back.arguments!!.getString("token")!!
+                val decoded = URLDecoder.decode(raw, "UTF-8")
+
+                // You could fetch current values first; here we pass blanks for brevity
+                EditProfileScreen(
+                    token            = decoded,
+                    usernameInitial  = "",      // pre-fill when you have them
+                    locationInitial  = "",
+                    sportsInitial    = emptyList(),
+                    onFinished       = {        // success OR deleted
+                        navController.popBackStack()
+                        if (it /*deleted*/ == true) {
+                            appNav.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    },
+                    onBack           = { navController.popBackStack() }
                 )
             }
 

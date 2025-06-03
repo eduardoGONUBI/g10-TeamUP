@@ -33,7 +33,9 @@ data class PublicUserDto(
     val sports: List<SportDto>?
 )
 
-data class SportDto(
-    val id: Int,
-    val name: String
+
+data class UpdateUserRequest(
+    val name: String?        = null,
+    val location: String?    = null,
+    val sports: List<Int>?   = null      // back-end expects an array of sport IDs
 )

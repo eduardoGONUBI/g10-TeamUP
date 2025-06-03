@@ -4,13 +4,16 @@ import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.model.LoginRequestDto
 import com.example.teamup.data.remote.model.LoginResponseDto
 import com.example.teamup.data.remote.model.PublicUserDto
+import com.example.teamup.data.remote.model.UpdateUserRequest
 import com.example.teamup.data.remote.model.UserDto
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface AuthApi {
@@ -27,6 +30,22 @@ interface AuthApi {
         @Path("id") id: Int,
         @Header("Authorization") auth: String
     ): PublicUserDto
+
+    /** PUT /api/auth/update  – partial updates */
+    @PUT("/api/auth/update")
+    suspend fun updateMe(
+        @Header("Authorization") auth: String,
+        @Body body: UpdateUserRequest
+    ): UserDto                                              // ← returns the fresh user
+
+    /** DELETE /api/auth/delete – deletes the logged-in user */
+    @DELETE("/api/auth/delete")
+    suspend fun deleteMe(
+        @Header("Authorization") auth: String
+    )
+
+
+    // ------------------------------------------------------------------
 
     companion object {
         fun create(): AuthApi {
