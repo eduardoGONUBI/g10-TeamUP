@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,10 +61,10 @@ fun ProfileScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // ── Avatar + Edit Icon ───────────────────────────────────
+            // ── Avatar (no edit icon) ───────────────────────────────────
             item {
                 Box(
-                    contentAlignment = Alignment.BottomEnd,
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 24.dp)
@@ -75,17 +74,8 @@ fun ProfileScreen(
                         contentDescription = "Default Avatar",
                         modifier = Modifier
                             .size(96.dp)
-                            .clip(CircleShape)
-                            .align(Alignment.Center),
+                            .clip(CircleShape),
                         contentScale = ContentScale.Crop
-                    )
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit photo",
-                        modifier = Modifier
-                            .offset((-4).dp, (-4).dp)
-                            .size(24.dp)
-                            .clickable(onClick = onEditProfile)
                     )
                 }
             }
@@ -150,7 +140,7 @@ fun ProfileScreen(
                         .padding(top = 24.dp, bottom = 8.dp)
                 ) {
                     Button(onClick = onEditProfile) {
-                        Icon(Icons.Default.Edit, contentDescription = null)
+                        Icon(Icons.Default.Logout /* you can replace with any other icon if desired */, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("Edit Profile")
                     }

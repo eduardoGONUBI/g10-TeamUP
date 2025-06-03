@@ -38,9 +38,9 @@ import com.example.teamup.ui.screens.Chat.UpChatScreens
 import com.example.teamup.ui.screens.activityManager.ActivityTabsScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 /* ───────────────────────── Root scaffold ───────────────────────── */
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootScaffold(
@@ -157,6 +157,7 @@ fun RootScaffold(
             ) { back ->
                 val eventId = back.arguments!!.getInt("eventId")
                 val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+                val encoded = URLEncoder.encode(decoded, "UTF-8") // for downstream
 
                 CreatorActivityScreen(
                     eventId = eventId,
@@ -165,6 +166,10 @@ fun RootScaffold(
                     onEdit  = { id ->
                         val e = URLEncoder.encode(decoded, "UTF-8")
                         navController.navigate("edit_activity/$id/$e")
+                    },
+                    onUserClick = { userId ->
+                        // Navigate to the public‐profile screen of that user:
+                        navController.navigate("public_profile/$userId/$encoded")
                     }
                 )
             }
@@ -183,7 +188,11 @@ fun RootScaffold(
                 ViewerActivityScreen(
                     eventId = eventId,
                     token   = decoded,
-                    onBack  = { navController.popBackStack() }
+                    onBack  = { navController.popBackStack() },
+                    onUserClick = { userId ->
+                        val enc = URLEncoder.encode(decoded, StandardCharsets.UTF_8.toString())
+                        navController.navigate("public_profile/$userId/$enc")
+                    }
                 )
             }
 
@@ -222,7 +231,10 @@ fun RootScaffold(
                     eventId = eventId,
                     token   = decoded,
                     onBack  = { navController.popBackStack() },
-
+                    onUserClick = { userId ->
+                        val enc = URLEncoder.encode(decoded, StandardCharsets.UTF_8.toString())
+                        navController.navigate("public_profile/$userId/$enc")
+                    }
                 )
             }
 
@@ -230,12 +242,30 @@ fun RootScaffold(
             composable("notifications") {
                 NotificationScreen()
             }
+
+            /* ─── Public profile (any user can see) ────────────────── */
+            composable(
+                route = "public_profile/{uid}/{token}",
+                arguments = listOf(
+                    navArgument("uid")   { type = NavType.IntType },
+                    navArgument("token") { type = NavType.StringType }
+                )
+            ) { back ->
+                val uid = back.arguments!!.getInt("uid")
+                val rawToken = back.arguments!!.getString("token")!!
+                val token = URLDecoder.decode(rawToken, StandardCharsets.UTF_8.toString())
+
+                PublicProfileScreen(
+                    token  = token,
+                    userId = uid,
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
 
 /* ───────────────────────── Top bar ───────────────────────────── */
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopBar(
@@ -298,7 +328,6 @@ fun TopBar(
 }
 
 /* ───────────────────── Bottom navigation ─────────────────────── */
-
 @Composable
 fun BottomNavigationBar(
     navController: NavHostController,

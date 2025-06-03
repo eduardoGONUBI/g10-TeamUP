@@ -34,7 +34,8 @@ import kotlinx.coroutines.launch
 fun ParticipantActivityScreen(
     eventId: Int,
     token: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onUserClick: (userId: Int) -> Unit
 ) {
     // 1) Use ViewModel to fetch event + levels
     val viewModel: ActivityDetailViewModel = viewModel(
@@ -169,7 +170,8 @@ fun ParticipantActivityScreen(
                 ParticipantRow(
                     p = p,
                     isKickable = false,
-                    onKickClick = {}
+                    onKickClick = {},
+                    onClick = { onUserClick(p.id) }
                 )
             }
         }

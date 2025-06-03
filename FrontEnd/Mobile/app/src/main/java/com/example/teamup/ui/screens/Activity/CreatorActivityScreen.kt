@@ -47,7 +47,8 @@ fun CreatorActivityScreen(
     eventId: Int,
     token: String,
     onBack: () -> Unit,
-    onEdit: (eventId: Int) -> Unit
+    onEdit: (eventId: Int) -> Unit,
+    onUserClick: (userId: Int) -> Unit
 ) {
     // 1) Instantiate the ViewModel (this immediately fetches the event + participant levels)
     val viewModel: ActivityDetailViewModel = viewModel(
@@ -247,7 +248,8 @@ fun CreatorActivityScreen(
                 ParticipantRow(
                     p = p,
                     isKickable = !p.isCreator,
-                    onKickClick = { kickTarget = p }
+                    onKickClick = { kickTarget = p },
+                    onClick = { onUserClick(p.id) }
                 )
             }
         }
