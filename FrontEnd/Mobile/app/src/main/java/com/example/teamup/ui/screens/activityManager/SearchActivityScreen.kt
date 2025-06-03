@@ -120,7 +120,9 @@ fun SearchActivityScreen(
                 items(state.results, key = { it.id }) { activity ->
                      ActivityCard(
                              activity = activity,
-                             onClick  = { onActivityClick(activity) }
+                             onClick  = { onActivityClick(activity) } ,
+                                     bgColor = Color(0xFFF5F5F5),
+                         bgBrush = null  // ensures no gradient is applied
                                  )
                 }
             }

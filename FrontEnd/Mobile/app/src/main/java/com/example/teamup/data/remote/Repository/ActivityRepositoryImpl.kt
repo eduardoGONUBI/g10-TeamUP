@@ -34,12 +34,22 @@ internal fun ActivityDto.toActivityItem(currentUserId: Int): ActivityItem {
     )
 }
 
-private fun ActivityDto.toChatItem() = ChatItem(
-    id     = id,
-    title  = name,
-    sport  = sport,
-    status = status
-)
+private fun ActivityDto.toChatItem(currentUserId: Int): ChatItem {
+    // Determine if the current user is the creator:
+    val creatorId = creator.id
+
+    // Determine if the current user appears in the participant list:
+    val participantIds = participants?.map { it.id }?.toSet() ?: emptySet()
+
+    return ChatItem(
+        id            = id,
+        title         = name,
+        sport         = sport,
+        status        = status,
+        isCreator     = (creatorId == currentUserId),
+        isParticipant = participantIds.contains(currentUserId)
+    )
+}
 
 /* ─── Repository implementation ───────────────────────────────────────────────── */
 
@@ -108,9 +118,11 @@ class ActivityRepositoryImpl(
      *  myChats: reuses GET /api/events/mine
      *  → maps each ActivityDto to ChatItem
      */
-    override suspend fun myChats(token: String): List<ChatItem> =
-        api.getMyActivities("Bearer $token").map { it.toChatItem() }
-
+    override suspend fun myChats(token: String): List<ChatItem> {
+        val currentUserId = extractUserId(token)
+        return api.getMyActivities("Bearer $token")
+            .map { it.toChatItem(currentUserId) }
+    }
     /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
     /**

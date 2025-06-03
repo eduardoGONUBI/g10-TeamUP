@@ -100,7 +100,7 @@ fun YourActivitiesScreen(
 
                     // 5) Neither → default lavender
                     else -> {
-                        bgColor = Color(0xFF3629B7)
+                        bgColor = Color(0xFFF5F5F5)
                         labelCreator = null
                         labelConcluded = null
                     }
