@@ -23,6 +23,7 @@ import com.example.teamup.data.remote.model.ParticipantUi
  *   • Tapping the name/level opens the user’s profile (onClick).
  *   • When showFeedback == true, a “Give feedback” button appears.
  *   • Otherwise, if isKickable, show a kick‐icon.
+ *   • If neither, display “Feedback sent”.
  */
 @Composable
 fun ParticipantRow(
@@ -87,6 +88,14 @@ fun ParticipantRow(
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
+            }
+            else -> {
+                Text(
+                    text = "Feedback sent",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                )
             }
         }
     }

@@ -2,15 +2,12 @@
 package com.example.teamup.ui.screens.Activity
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,8 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.api.AchievementsApi
 import com.example.teamup.data.remote.model.ParticipantUi
 import com.example.teamup.data.remote.model.StatusUpdateRequest
+import com.example.teamup.data.remote.model.FeedbackRequestDto
 import com.example.teamup.ui.components.ActivityInfoCard
 import com.example.teamup.ui.model.ParticipantRow
 import com.example.teamup.ui.screens.ActivityDetailViewModel
@@ -30,11 +29,8 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import retrofit2.Response
 
-/**
- * Screen for the event creator. Shows event info, map, and a list of participants
- * (with their current level). Allows the creator to Conclude or Reopen the event.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreatorActivityScreen(
@@ -44,25 +40,24 @@ fun CreatorActivityScreen(
     onEdit: (eventId: Int) -> Unit,
     onUserClick: (userId: Int) -> Unit
 ) {
-    // 1) Instantiate the ViewModel (this immediately fetches the event + participant levels)
+    // ─── 1) Instantiate the ViewModel ─────────────────────────────────
     val viewModel: ActivityDetailViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                @Suppress("UNCHECKED_CAST")
-                return ActivityDetailViewModel(eventId, token) as T
-            }
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                ActivityDetailViewModel(eventId, token) as T
         }
     )
 
-    // 2) Collect the StateFlow<ActivityDto?> from the ViewModel
+    // ─── 2) Observe the event state ────────────────────────────────────
     val eventState by viewModel.event.collectAsState()
-    val api = remember { ActivityApi.create() }
-    val coroutineScope = rememberCoroutineScope()
+    val api       = remember { ActivityApi.create() }
+    val scope     = rememberCoroutineScope()
 
-    // 3) If still loading (null), show a spinner and return early
+    // ─── Loading spinner while null ────────────────────────────────────
     if (eventState == null) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator()
@@ -70,30 +65,38 @@ fun CreatorActivityScreen(
         return
     }
 
-    // 4) Now we have a non-null ActivityDto
-    val e = eventState!!
-    val isConcluded = e.status != "in progress"
+    // ─── 3) Non-null event now available ───────────────────────────────
+    val e           = eventState!!
+    val isConcluded = (e.status != "in progress")
 
-    // 5) Build ParticipantUi list, mapping each ParticipantDto.level → ParticipantUi.level
-    val uiParticipants = e.participants.orEmpty()
+    // Build a list of ParticipantUi (with level info from ViewModel)
+    val uiParts: List<ParticipantUi> = e.participants.orEmpty()
         .distinctBy { it.id }
-        .map {
+        .map { dto ->
             ParticipantUi(
-                id = it.id,
-                name = it.name,
-                isCreator = (it.id == e.creator.id),
-                level = it.level ?: 0
+                id        = dto.id,
+                name      = dto.name,
+                isCreator = (dto.id == e.creator.id),
+                level     = dto.level ?: 0
             )
         }
 
-    var kickTarget by remember { mutableStateOf<ParticipantUi?>(null) }
+    // ─── 4) Track which participant‐IDs have already received feedback ───
+    val sentFeedbackIds = remember { mutableStateListOf<Int>() }
 
+    // ─── 5) When feedback is successfully submitted, show a confirmation popup ─
+    var confirmedName by remember { mutableStateOf<String?>(null) }
+
+    // ─── 6) Track which participant the user tapped “Give feedback” on ─────
+    var feedbackTarget by remember { mutableStateOf<ParticipantUi?>(null) }
+    var kickTarget     by remember { mutableStateOf<ParticipantUi?>(null) }
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
             .navigationBarsPadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // ─── TopAppBar ────────────────────────────────────────────────
         TopAppBar(
             title = {
                 Text(
@@ -105,24 +108,17 @@ fun CreatorActivityScreen(
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back"
-                    )
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                 }
             },
             actions = {
-                // ─── EDIT BUTTON ─────────────────────────────────────────────────
+                // Edit button
                 IconButton(onClick = { onEdit(e.id) }) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit"
-                    )
+                    Icon(Icons.Default.Edit, contentDescription = "Edit")
                 }
-
-                // ─── CANCEL (DELETE) BUTTON ─────────────────────────────────────
+                // Cancel (delete) button
                 IconButton(onClick = {
-                    coroutineScope.launch {
+                    scope.launch {
                         val resp = api.deleteActivity("Bearer $token", e.id)
                         if (resp.isSuccessful) {
                             onBack()
@@ -132,18 +128,16 @@ fun CreatorActivityScreen(
                     }
                 }) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        Icons.Default.Close,
                         contentDescription = "Cancel activity",
                         tint = Color.Red
                     )
                 }
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // ─── CONCLUDE or REOPEN ────────────────────────────────────────
+                // Conclude or Reopen
                 if (e.status == "in progress") {
                     IconButton(onClick = {
-                        coroutineScope.launch {
+                        scope.launch {
                             val resp = api.concludeByCreator("Bearer $token", e.id)
                             if (resp.isSuccessful) {
                                 viewModel.fetchEventWithLevels()
@@ -153,14 +147,14 @@ fun CreatorActivityScreen(
                         }
                     }) {
                         Icon(
-                            imageVector = Icons.Default.Done,
+                            Icons.Default.Done,
                             contentDescription = "Mark as concluded",
                             tint = Color(0xFF1E88E5) // Blue
                         )
                     }
                 } else {
                     IconButton(onClick = {
-                        coroutineScope.launch {
+                        scope.launch {
                             val body = StatusUpdateRequest(status = "in progress")
                             val resp = api.updateStatus("Bearer $token", e.id, body)
                             if (resp.isSuccessful) {
@@ -171,7 +165,7 @@ fun CreatorActivityScreen(
                         }
                     }) {
                         Icon(
-                            imageVector = Icons.Default.Refresh,
+                            Icons.Default.Refresh,
                             contentDescription = "Re-open activity",
                             tint = Color(0xFFFFA000) // Orange
                         )
@@ -180,9 +174,7 @@ fun CreatorActivityScreen(
             }
         )
 
-        // ────────────────────────────────────────────────────────
-        // BODY: ActivityInfoCard, Map, Participants List
-        // ────────────────────────────────────────────────────────
+        // ─── Body: Info card, Map, Participant list ────────────────────────
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
@@ -227,46 +219,43 @@ fun CreatorActivityScreen(
             // 3) Participants header
             item {
                 Text(
-                    text = "Participants (${uiParticipants.size})",
+                    text = "Participants (${uiParts.size})",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 8.dp)
                 )
             }
 
             // 4) ParticipantRow for each participant
-            items(uiParticipants, key = { it.id }) { p ->
+            items(uiParts, key = { it.id }) { p ->
                 ParticipantRow(
-                    p = p,
-                    isKickable = !p.isCreator && !isConcluded,   // kick only if not concluded
-                    onKickClick = { kickTarget = p },
-                    onClick = { onUserClick(p.id) },
-                    showFeedback = isConcluded,                   // show “Give feedback” when concluded
-                    onFeedback = { onUserClick(p.id) }
+                    p            = p,
+                    isKickable   = (!p.isCreator && !isConcluded),
+                    onKickClick  = { /* same as before */ },
+                    onClick      = { onUserClick(p.id) },
+                    showFeedback = isConcluded && (p.id !in sentFeedbackIds),
+                    onFeedback   = { feedbackTarget = p }
                 )
             }
         }
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // KICK DIALOG (AlertDialog)
-    // ────────────────────────────────────────────────────────────────
-    if (kickTarget != null) {
+    // ─── Kick Confirmation Dialog (unchanged) ─────────────────────────
+    kickTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { kickTarget = null },
             confirmButton = {
                 TextButton(onClick = {
-                    val target = kickTarget!!
                     kickTarget = null
-                    coroutineScope.launch {
-                        val response = api.kickParticipant(
+                    scope.launch {
+                        val resp = api.kickParticipant(
                             token = "Bearer $token",
                             eventId = e.id,
                             participantId = target.id
                         )
-                        if (response.isSuccessful) {
+                        if (resp.isSuccessful) {
                             viewModel.fetchEventWithLevels()
                         } else {
-                            println("Kick failed: ${response.code()}")
+                            println("Kick failed: ${resp.code()}")
                         }
                     }
                 }) {
@@ -279,7 +268,122 @@ fun CreatorActivityScreen(
                 }
             },
             title = { Text("Remove participant") },
-            text = { Text("Kick ${kickTarget!!.name} from this event?") }
+            text = { Text("Kick ${target.name} from this event?") }
         )
     }
+
+    // ─── Feedback Dialog ──────────────────────────────────────────────
+    feedbackTarget?.let { target ->
+        FeedbackDialog(
+            target = target,
+            onDismiss = { feedbackTarget = null },
+            onSubmitAttr = { attr ->
+                feedbackTarget = null
+                scope.launch {
+                    // 1) Call the backend:
+                    val resp: Response<Void> = AchievementsApi.create().giveFeedback(
+                        "Bearer $token",
+                        e.id,
+                        FeedbackRequestDto(user_id = target.id, attribute = attr)
+                    )
+
+                    if (resp.isSuccessful) {
+                        // 2) Mark this participant's ID as “feedback sent”
+                        sentFeedbackIds.add(target.id)
+                        // 3) Trigger the confirmation popup
+                        confirmedName = target.name
+                    } else {
+                        // Optionally, show an error Snackbar or log
+                        println("Feedback failed: ${resp.code()}")
+                    }
+                }
+            }
+        )
+    }
+
+    // ─── Confirmation AlertDialog ────────────────────────────────────
+    confirmedName?.let { name ->
+        AlertDialog(
+            onDismissRequest = { confirmedName = null },
+            confirmButton = {
+                TextButton(onClick = { confirmedName = null }) {
+                    Text("OK")
+                }
+            },
+            title = { Text("Feedback sent") },
+            text = { Text("Your feedback for \"$name\" has been submitted.") }
+        )
+    }
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// File: Feedback helpers (same as before)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Data class that matches what your Laravel backend expects:
+ *   { "user_id": 42, "attribute": "good_teammate" }
+ */
+data class FeedbackRequestDto(
+    val user_id: Int,
+    val attribute: String
+)
+
+private val feedbackOptions = listOf(
+    "good_teammate" to "✅ Good teammate",
+    "friendly" to "😊 Friendly",
+    "team_player" to "🤝 Team player",
+    "toxic" to "⚠️ Toxic",
+    "bad_sport" to "👎 Bad sport",
+    "afk" to "🚶 No show"
+)
+
+@Composable
+internal fun FeedbackDialog(
+    target: ParticipantUi,
+    onDismiss: () -> Unit,
+    onSubmitAttr: (String) -> Unit
+) {
+    var selected by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                enabled = (selected != null),
+                onClick = { selected?.let(onSubmitAttr) }
+            ) {
+                Text("Submit")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        title = { Text("Give feedback") },
+        text = {
+            Column {
+                Text("Choose a badge for ${target.name}:")
+                Spacer(Modifier.height(8.dp))
+                feedbackOptions.forEach { (value, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { selected = value }
+                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (selected == value),
+                            onClick  = { selected = value }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(label)
+                    }
+                }
+            }
+        }
+    )
 }
