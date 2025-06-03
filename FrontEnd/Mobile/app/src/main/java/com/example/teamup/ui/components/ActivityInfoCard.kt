@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.teamup.data.remote.ActivityDto
+import com.example.teamup.data.remote.model.ActivityDto
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter

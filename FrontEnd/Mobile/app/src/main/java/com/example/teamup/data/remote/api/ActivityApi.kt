@@ -1,10 +1,23 @@
-package com.example.teamup.data.remote
+package com.example.teamup.data.remote.api
 
 import com.example.teamup.data.domain.model.CreateEventRequest
+import com.example.teamup.data.remote.BaseUrlProvider
+import com.example.teamup.data.remote.model.ActivityDto
+import com.example.teamup.data.remote.model.CreateEventRawResponse
+import com.example.teamup.data.remote.model.EventUpdateRequest
+import com.example.teamup.data.remote.model.SportDto
+import com.example.teamup.data.remote.model.StatusUpdateRequest
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.*
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface ActivityApi {
 
@@ -108,7 +121,6 @@ companion object {
     suspend fun updateStatus(
         @Header("Authorization")  token: String,
         @Path("id")               id: Int,
-        @Body                     body: StatusUpdateRequest
+        @Body body: StatusUpdateRequest
     ): Response<Unit>
 }
-

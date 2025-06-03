@@ -21,12 +21,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.teamup.R
-import com.example.teamup.ui.screens.main.Main.LoginState
-import com.example.teamup.ui.screens.main.Main.LoginViewModel
+import com.example.teamup.ui.screens.main.UserManager.LoginState
+import com.example.teamup.ui.screens.main.UserManager.LoginViewModel
 
 @Composable
 fun LoginScreen(

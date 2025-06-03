@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,12 +20,26 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.teamup.R
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.components.ActivityCard
 import com.example.teamup.ui.components.AchievementsRow
-import com.example.teamup.R
 
+/**
+ * Displays the logged‐in user’s profile, including:
+ *  • avatar (placeholder),
+ *  • username,
+ *  • location,
+ *  • favourite sports,
+ *  • XP / level / behaviour / reputation,
+ *  • unlocked achievements,
+ *  • Edit / Logout buttons,
+ *  • “Recent Activities Created” list.
+ *
+ * Note: this version assumes your ProfileViewModel now exposes `location: StateFlow<String?>`
+ *       and `sports: StateFlow<List<String>>` (in addition to the existing fields).
+ */
 @Composable
 fun ProfileScreen(
     token: String,
@@ -34,14 +49,16 @@ fun ProfileScreen(
     viewModel: ProfileViewModel
 ) {
     // ─── Collect all state from ViewModel ──────────────────────────────
-    val username         by viewModel.username.collectAsState()
-    val level            by viewModel.level.collectAsState()
-    val behaviour        by viewModel.behaviour.collectAsState()
-    val reputationLabel  by viewModel.reputationLabel.collectAsState()
-    val achievements     by viewModel.achievements.collectAsState()
-    val activities       by viewModel.createdActivities.collectAsState()
-    val error            by viewModel.error.collectAsState()
-    val activitiesError  by viewModel.activitiesError.collectAsState()
+    val username        by viewModel.username.collectAsState()
+    val location        by viewModel.location.collectAsState()       // NEW: user’s location
+    val sports          by viewModel.sports.collectAsState()         // NEW: list of favourite sport names
+    val level           by viewModel.level.collectAsState()
+    val behaviour       by viewModel.behaviour.collectAsState()
+    val reputationLabel by viewModel.reputationLabel.collectAsState()
+    val achievements    by viewModel.achievements.collectAsState()
+    val activities      by viewModel.createdActivities.collectAsState()
+    val error           by viewModel.error.collectAsState()
+    val activitiesError by viewModel.activitiesError.collectAsState()
 
     // ─── Trigger loads whenever token changes ───────────────────────────
     LaunchedEffect(token) {
@@ -86,7 +103,7 @@ fun ProfileScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 16.dp)
+                        .padding(top = 8.dp, bottom = 4.dp)
                 ) {
                     Text(
                         text = username,
@@ -96,7 +113,33 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Stats Card ───────────────────────────────────────────
+            // ── Location and Favourite Sports ───────────────────────────
+            item {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    // Show “Location: …” (or “—” if null/empty)
+                    Text(
+                        text = "Location: ${location ?: "—"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    // Show “Favourite Sports: …”
+                    Text(
+                        text = "Favourite Sports: ${
+                            if (sports.isNotEmpty()) sports.joinToString(", ") else "—"
+                        }",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
+            // ── Stats Card (Level / Behaviour / Reputation) ──────────────
             item {
                 Card(
                     modifier = Modifier
@@ -111,7 +154,10 @@ fun ProfileScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         ProfileStat("Level", level.toString())
-                        ProfileStat("Behaviour", behaviour?.toInt()?.toString() ?: "—")
+                        ProfileStat(
+                            "Behaviour",
+                            behaviour?.toInt()?.toString() ?: "—"
+                        )
                         ProfileStat("Reputation", reputationLabel)
                     }
                 }
@@ -126,7 +172,7 @@ fun ProfileScreen(
                 )
             }
 
-            // ── Achievements Icons Row ───────────────────────────────
+            // ── Achievements Row ─────────────────────────────────────
             item {
                 AchievementsRow(achievements)
             }
@@ -140,12 +186,18 @@ fun ProfileScreen(
                         .padding(top = 24.dp, bottom = 8.dp)
                 ) {
                     Button(onClick = onEditProfile) {
-                        Icon(Icons.Default.Logout /* you can replace with any other icon if desired */, contentDescription = null)
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Profile"
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text("Edit Profile")
                     }
                     OutlinedButton(onClick = onLogout) {
-                        Icon(Icons.Default.Logout, contentDescription = null)
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Logout"
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text("Logout")
                     }
@@ -201,7 +253,9 @@ fun ProfileScreen(
     }
 }
 
-/* Small stat cell */
+/* ────────────────────────── */
+/* Small stat cell component */
+/* ────────────────────────── */
 @Composable
 private fun ProfileStat(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {

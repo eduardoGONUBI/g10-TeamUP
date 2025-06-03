@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.teamup.data.domain.model.CreateEventRequest
 import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.SportDto
+import com.example.teamup.data.remote.model.SportDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -26,7 +26,9 @@ data class CreateFormState(
     val place: String    = "",
     val date : String     = "",
     val time : String     = "",
-    val max  : String     = ""
+    val max  : String     = "",
+    val latitude : Double?   = null,
+    val longitude: Double?   = null
 )
 
 // ─── VIEWMODEL ────────────────────────────────────────────────

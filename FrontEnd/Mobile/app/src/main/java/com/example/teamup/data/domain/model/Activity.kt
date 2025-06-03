@@ -1,7 +1,5 @@
 package com.example.teamup.data.domain.model
 
-import com.example.teamup.data.remote.ActivityDto
-
 data class ActivityItem(
     val id: String,
     val title: String,
@@ -14,7 +12,8 @@ data class ActivityItem(
     val isParticipant: Boolean,
     val latitude: Double,
     val longitude: Double,
-    val isCreator: Boolean  
+    val isCreator: Boolean,
+    val status: String
 )
 
 data class CreateEventRequest(

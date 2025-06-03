@@ -1,4 +1,4 @@
-package com.example.teamup.data.remote
+package com.example.teamup.data.remote.model
 
 import com.google.gson.annotations.SerializedName
 
@@ -25,15 +25,10 @@ data class Payload(
     val name: String
 )
 
-data class PublicUserDto(
-    val id: Int,
-    val name: String,
-    val avatar_url: String?,
-    val location: String?,
-    val sports: List<SportDto>?
-)
 
-data class SportDto(
-    val id: Int,
-    val name: String
+
+data class UpdateUserRequest(
+    val name: String?        = null,
+    val location: String?    = null,
+    val sports: List<Int>?   = null      // back-end expects an array of sport IDs
 )

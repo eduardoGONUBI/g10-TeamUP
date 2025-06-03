@@ -6,14 +6,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.example.teamup.data.remote.AuthRepositoryImpl
+import com.example.teamup.data.remote.Repository.AuthRepositoryImpl
 import com.example.teamup.data.domain.usecase.LoginUseCase
-import com.example.teamup.data.remote.AuthApi
+import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.ui.screens.*
 import com.example.teamup.ui.screens.Activity.EditActivityScreen
 import com.example.teamup.ui.screens.Chat.ChatDetailScreen
-import com.example.teamup.ui.screens.main.Main.LoginViewModel
-import com.example.teamup.ui.screens.main.Main.LoginViewModelFactory
+import com.example.teamup.ui.screens.main.UserManager.LoginViewModel
+import com.example.teamup.ui.screens.main.UserManager.LoginViewModelFactory
 import com.example.teamup.ui.components.RootScaffold
 import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
@@ -146,12 +146,6 @@ fun AppNavGraph() {
             )
         }
 
-        /* ─── Edit profile (no params) ───────────────────────── */
-        composable("edit_profile") {
-            EditProfileScreen(
-                onBack = { nav.popBackStack() }
-            )
-        }
 
 
         composable(

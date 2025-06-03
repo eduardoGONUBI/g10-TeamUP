@@ -41,14 +41,15 @@ class SearchActivityViewModel(
         try {
             val s = _state.value
             // Call the repository; it will add "Bearer $token" internally.
-            val list: List<ActivityItem> = repo.searchActivities(
-                token,
+            val allResults: List<ActivityItem> = repo.searchActivities(token,
                 name  = s.name.takeIf { it.isNotBlank() },
                 sport = s.sport.takeIf { it.isNotBlank() },
                 place = s.place.takeIf { it.isNotBlank() },
                 date  = s.date.takeIf { it.isNotBlank() }
             )
-            _state.update { it.copy(loading = false, results = list) }
+            // Filter out anything you created or already joined
+            val filtered = allResults.filter { !it.isCreator && !it.isParticipant }
+            _state.update { it.copy(loading = false, results = filtered) }
         } catch (e: Exception) {
             _state.update { it.copy(loading = false, error = e.message) }
         }

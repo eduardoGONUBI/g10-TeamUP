@@ -1,20 +1,16 @@
 // app/src/main/java/com/example/teamup/ui/screens/activityManager/YourActivitiesScreen.kt
 package com.example.teamup.ui.screens.activityManager
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -23,13 +19,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.ActivityApi
-import com.example.teamup.data.remote.ActivityRepositoryImpl
+import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.ui.components.ActivityCard
 
 /**
- * Shows all activities the user created or joined. If the user is the creator of an activity,
- * the card’s background is tinted light-blue, and a “You are the creator” badge appears.
+ * Shows all activities the user created or joined. Uses the shared [ActivityCard]
+ * for consistent styling and sport‐icon display across the app.
  */
 @Composable
 fun YourActivitiesScreen(
@@ -59,7 +55,7 @@ fun YourActivitiesScreen(
         vm.loadMyEvents(token)
     }
 
-    // 5) UI: list or error message
+    // 5) UI: reuse ActivityCard for each item
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -69,66 +65,10 @@ fun YourActivitiesScreen(
         // If there are any activities, display them
         if (uiState.activities.isNotEmpty()) {
             items(uiState.activities, key = { it.id }) { activity ->
-                // Determine background: light-blue if creator, white otherwise
-                val bgColor = if (activity.isCreator) Color(0xFFE3F2FD) else Color.White
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onActivityClick(activity) },
-                    colors = CardDefaults.cardColors(containerColor = bgColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(bgColor)
-                            .padding(16.dp)
-                    ) {
-                        // Title + chevron
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = activity.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFF023499)
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = "Go to details",
-                                tint = Color(0xFF023499)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Date: ${activity.date}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF023499)
-                        )
-                        Text(
-                            text = "Location: ${activity.location}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF023499)
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "${activity.participants}/${activity.maxParticipants} Participants",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF023499)
-                        )
-
-                        // Only show this badge if the user is the creator
-                        ActivityCreatorBadge(isCreator = activity.isCreator)
-                    }
-                }
+                ActivityCard(
+                    activity = activity,
+                    onClick = { onActivityClick(activity) }
+                )
             }
         }
         // If no activities at all, show "no activities" placeholder
@@ -145,10 +85,10 @@ fun YourActivitiesScreen(
         }
 
         // If there was an error when loading
-        if (uiState.error != null) {
+        uiState.error?.let { err ->
             item {
                 Text(
-                    text = "Failed to load your activities: ${uiState.error}",
+                    text = "Failed to load your activities: $err",
                     color = Color.Red,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -156,21 +96,5 @@ fun YourActivitiesScreen(
                 )
             }
         }
-    }
-}
-
-/**
- * A simple badge that only renders when [isCreator] == true.
- * This is now a standalone @Composable (not a RowScope extension).
- */
-@Composable
-private fun ActivityCreatorBadge(isCreator: Boolean) {
-    if (isCreator) {
-        Text(
-            text = "You are the creator",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF1976D2),
-            modifier = Modifier.padding(top = 8.dp)
-        )
     }
 }

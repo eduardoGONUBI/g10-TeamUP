@@ -1,4 +1,4 @@
-package com.example.teamup.data.remote
+package com.example.teamup.data.remote.model
 
 import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
@@ -25,6 +25,13 @@ data class ParticipantDto(
     val name: String,
     val level: Int? = null,
     val rating: Double? = null
+)
+data class ParticipantUi(
+    val id: Int,
+    val name: String,
+    val isCreator: Boolean,
+    val level: Int,
+    val feedbackGiven: String? = null
 )
 
 data class WeatherDto(
@@ -73,4 +80,9 @@ data class CreateEventRawDto(
 
 data class StatusUpdateRequest(
     val status: String
+)
+
+data class SportDto(
+    val id: Int,
+    val name: String
 )

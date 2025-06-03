@@ -18,9 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.example.teamup.data.remote.EventUpdateRequest
-import com.example.teamup.data.remote.ActivityApi
-import com.example.teamup.data.remote.SportDto
+import com.example.teamup.data.remote.model.EventUpdateRequest
+import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.model.SportDto
 import com.example.teamup.ui.popups.DeleteActivityDialog
 import kotlinx.coroutines.launch
 import java.util.Calendar

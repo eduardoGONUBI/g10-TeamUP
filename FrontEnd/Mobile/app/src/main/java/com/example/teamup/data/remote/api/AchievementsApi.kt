@@ -1,10 +1,18 @@
-// File: app/src/main/java/com/example/teamup/data/remote/AchievementsApi.kt
-package com.example.teamup.data.remote
+package com.example.teamup.data.remote.api
 
+import com.example.teamup.data.remote.BaseUrlProvider
+import com.example.teamup.data.remote.model.AchievementsResponse
+import com.example.teamup.data.remote.model.FeedbackRequestDto
+import com.example.teamup.data.remote.model.ProfileResponse
+import com.example.teamup.data.remote.model.ReputationResponse
+import com.example.teamup.data.remote.model.UserAverageResponse
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.POST
 import retrofit2.http.Path
 
 /**
@@ -40,6 +48,16 @@ interface AchievementsApi {
         @Header("Authorization") auth: String
     ): UserAverageResponse
 
+    @POST("api/events/{event_id}/feedback")
+    suspend fun giveFeedback(
+        @Header("Authorization") bearer: String,
+        @Path("event_id") eventId: Int,
+        @Body body: FeedbackRequestDto
+    ): Response<Void>
+
+
+
+
 
     companion object {
         fun create(): AchievementsApi {
@@ -51,4 +69,3 @@ interface AchievementsApi {
         }
     }
 }
-

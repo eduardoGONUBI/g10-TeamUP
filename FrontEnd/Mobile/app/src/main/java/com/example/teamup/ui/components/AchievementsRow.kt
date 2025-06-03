@@ -16,7 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.example.teamup.data.remote.AchievementDto
+import com.example.teamup.data.remote.model.AchievementDto
 import com.example.teamup.data.remote.BaseUrlProvider
 import java.net.URI
 
