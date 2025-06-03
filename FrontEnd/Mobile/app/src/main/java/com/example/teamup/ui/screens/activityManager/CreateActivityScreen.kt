@@ -3,11 +3,16 @@ package com.example.teamup.ui.screens.activityManager
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.activity.ComponentActivity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -20,6 +25,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.data.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.AutocompletePrediction
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.android.libraries.places.api.net.PlacesClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +61,34 @@ fun CreateActivityScreen(
 
     // ─── Trigger initial load of sports when screen first appears ─────────────────
     LaunchedEffect(token) {
+        // Make sure Places SDK is initialized
+        if (!Places.isInitialized()) {
+            Places.initialize(context.applicationContext, context.getString(com.example.teamup.R.string.google_maps_key))
+        }
         viewModel.loadSports(token)
+    }
+
+    // Prepare PlacesClient for inline autocomplete
+    val placesClient: PlacesClient = remember { Places.createClient(context) }
+    var suggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
+
+    // Debounced request for predictions whenever form.place changes
+    LaunchedEffect(form.place) {
+        val query = form.place
+        if (query.length >= 3) {
+            val request = FindAutocompletePredictionsRequest.builder()
+                .setQuery(query)
+                .build()
+            placesClient.findAutocompletePredictions(request)
+                .addOnSuccessListener { response ->
+                    suggestions = response.autocompletePredictions
+                }
+                .addOnFailureListener {
+                    suggestions = emptyList()
+                }
+        } else {
+            suggestions = emptyList()
+        }
     }
 
     Column(
@@ -141,6 +178,7 @@ fun CreateActivityScreen(
             }
         }
 
+        // ─── LOCATION FIELD WITH INLINE AUTOCOMPLETE ────────────────────────────────
         OutlinedTextField(
             value = form.place,
             onValueChange = { newPlace ->
@@ -149,8 +187,36 @@ fun CreateActivityScreen(
             label = { Text("Location") },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp)
+                .padding(bottom = 4.dp),
+            trailingIcon = {
+                Icon(Icons.Default.Place, contentDescription = "Location icon")
+            }
         )
+        // Show suggestions below the text field
+        if (suggestions.isNotEmpty()) {
+            Card(
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+                    .heightIn(max = 200.dp)
+            ) {
+                LazyColumn {
+                    items(suggestions, key = { it.placeId }) { prediction ->
+                        DropdownMenuItem(
+                            text = { Text(prediction.getFullText(null).toString()) },
+                            onClick = {
+                                val chosen = prediction.getFullText(null).toString()
+                                viewModel.update { prev -> prev.copy(place = chosen) }
+                                suggestions = emptyList()
+                            }
+                        )
+                    }
+                }
+            }
+        } else {
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         OutlinedTextField(
             value = form.date,

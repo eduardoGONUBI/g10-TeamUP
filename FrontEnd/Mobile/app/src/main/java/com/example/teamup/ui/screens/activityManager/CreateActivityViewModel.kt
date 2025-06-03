@@ -26,7 +26,9 @@ data class CreateFormState(
     val place: String    = "",
     val date : String     = "",
     val time : String     = "",
-    val max  : String     = ""
+    val max  : String     = "",
+    val latitude : Double?   = null,
+    val longitude: Double?   = null
 )
 
 // ─── VIEWMODEL ────────────────────────────────────────────────
