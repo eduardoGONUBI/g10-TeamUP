@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.R
 import com.example.teamup.data.remote.Repository.UserRepositoryImpl
@@ -30,6 +31,7 @@ import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.data.remote.model.SportDto
 import com.example.teamup.presentation.profile.EditProfileUiState
 import com.example.teamup.presentation.profile.EditProfileViewModel
+import com.example.teamup.ui.popups.DeleteAccountDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +71,9 @@ fun EditProfileScreen(
 
     // Track whether the user tapped “Delete Account”
     var didDelete by remember { mutableStateOf(false) }
+
+    // Show/hide confirmation dialog
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     // ─── Side effects ───────────────────────────────────────────────────────
     // Load the list of sports once when this screen appears
@@ -240,18 +245,19 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Delete Account
-                OutlinedButton(
+                // Delete Account – full red button
+                Button(
                     enabled = !uiState.saving,
                     onClick = {
                         didDelete = true
-                        vm.deleteAccount("Bearer $token")
+                        showDeleteDialog = true
                     },
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFCD1606), // full red
+                        contentColor = Color.White
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
@@ -260,6 +266,24 @@ fun EditProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        // ── Confirmation popup before deleting ─────────────────────────────────
+        if (showDeleteDialog) {
+            Dialog(onDismissRequest = { showDeleteDialog = false }) {
+                // This Card will be automatically centered, with a translucent scrim behind it:
+                DeleteAccountDialog(
+                    onCancel = { showDeleteDialog = false },
+                    onDelete = {
+                        // 1) Perform the actual API call:
+                        didDelete = true
+                        vm.deleteAccount("Bearer $token")
+
+                        // 2) Close the dialog:
+                        showDeleteDialog = false
+                    }
+                )
+            }
         }
 
         // ── Snackbar for update/delete errors ───────────────────────────────
