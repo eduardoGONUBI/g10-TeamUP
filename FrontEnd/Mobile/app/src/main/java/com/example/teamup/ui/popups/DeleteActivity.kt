@@ -1,6 +1,7 @@
 package com.example.teamup.ui.popups
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -10,7 +11,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -23,14 +23,19 @@ fun DeleteActivityDialog(
     val dialogWidth = screenWidth * 0.9f
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        // Give the Card a solid background (remove any Transparent setting)
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .padding(16.dp)
-            .widthIn(min = 300.dp, max = dialogWidth)
+            .widthIn(min = 300.dp, max = dialogWidth),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(
-            modifier = Modifier.padding(24.dp)
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(24.dp)
         ) {
             Text(
                 text = "Delete Activity",
@@ -56,8 +61,7 @@ fun DeleteActivityDialog(
             ) {
                 OutlinedButton(
                     onClick = onCancel,
-                    modifier = Modifier
-                        .height(48.dp),
+                    modifier = Modifier.height(48.dp),
                     border = BorderStroke(1.dp, primaryColor),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryColor),
                     shape = RoundedCornerShape(8.dp)
@@ -67,8 +71,7 @@ fun DeleteActivityDialog(
 
                 Button(
                     onClick = onDelete,
-                    modifier = Modifier
-                        .height(48.dp),
+                    modifier = Modifier.height(48.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = primaryColor,
                         contentColor = Color.White
@@ -82,11 +85,3 @@ fun DeleteActivityDialog(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun DeleteActivityDialogPreview() {
-    DeleteActivityDialog(
-        onCancel = {},
-        onDelete = {}
-    )
-}

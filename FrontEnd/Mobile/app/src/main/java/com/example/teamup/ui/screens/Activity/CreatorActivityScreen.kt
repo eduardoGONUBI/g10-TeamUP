@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.api.AchievementsApi
@@ -25,6 +26,8 @@ import com.example.teamup.data.remote.model.FeedbackRequestDto
 import com.example.teamup.ui.components.ActivityInfoCard
 import com.example.teamup.ui.components.WeatherCard
 import com.example.teamup.ui.model.ParticipantRow
+import com.example.teamup.ui.popups.DeleteActivityDialog
+import com.example.teamup.ui.popups.KickParticipantDialog
 import com.example.teamup.ui.screens.ActivityDetailViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -55,6 +58,13 @@ fun CreatorActivityScreen(
     val api       = remember { ActivityApi.create() }
     val scope     = rememberCoroutineScope()
 
+    // ─── State for showing dialogs ─────────────────────────────────────
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var kickTarget by remember { mutableStateOf<ParticipantUi?>(null) }
+    var feedbackTarget by remember { mutableStateOf<ParticipantUi?>(null) }
+    var confirmedName by remember { mutableStateOf<String?>(null) }
+    val sentFeedbackIds = remember { mutableStateListOf<Int>() }
+
     // ─── Loading spinner while null ────────────────────────────────────
     if (eventState == null) {
         Box(
@@ -82,15 +92,6 @@ fun CreatorActivityScreen(
             )
         }
 
-    // ─── 4) Track which participant‐IDs have already received feedback ───
-    val sentFeedbackIds = remember { mutableStateListOf<Int>() }
-
-    // ─── 5) When feedback is successfully submitted, show a confirmation popup ─
-    var confirmedName by remember { mutableStateOf<String?>(null) }
-
-    // ─── 6) Track which participant the user tapped “Give feedback” on ─────
-    var feedbackTarget by remember { mutableStateOf<ParticipantUi?>(null) }
-    var kickTarget     by remember { mutableStateOf<ParticipantUi?>(null) }
     Column(
         Modifier
             .fillMaxSize()
@@ -117,17 +118,8 @@ fun CreatorActivityScreen(
                 IconButton(onClick = { onEdit(e.id) }) {
                     Icon(Icons.Default.Edit, contentDescription = "Edit")
                 }
-                // Cancel (delete) button
-                IconButton(onClick = {
-                    scope.launch {
-                        val resp = api.deleteActivity("Bearer $token", e.id)
-                        if (resp.isSuccessful) {
-                            onBack()
-                        } else {
-                            println("Cancel failed: ${resp.code()}")
-                        }
-                    }
-                }) {
+                // Cancel (delete) button: show confirmation dialog instead of immediate delete
+                IconButton(onClick = { showDeleteDialog = true }) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Cancel activity",
@@ -234,7 +226,7 @@ fun CreatorActivityScreen(
                 ParticipantRow(
                     p            = p,
                     isKickable   = (!p.isCreator && !isConcluded),
-                    onKickClick  = { /* same as before */ },
+                    onKickClick  = { kickTarget = p },  // open kick confirmation
                     onClick      = { onUserClick(p.id) },
                     showFeedback = isConcluded && (p.id !in sentFeedbackIds),
                     onFeedback   = { feedbackTarget = p }
@@ -243,12 +235,33 @@ fun CreatorActivityScreen(
         }
     }
 
-    // ─── Kick Confirmation Dialog (unchanged) ─────────────────────────
+    // ─── Delete Confirmation Dialog ─────────────────────────────────────
+    if (showDeleteDialog) {
+        Dialog(onDismissRequest = { showDeleteDialog = false }) {
+            DeleteActivityDialog(
+                onCancel = { showDeleteDialog = false },
+                onDelete = {
+                    showDeleteDialog = false
+                    scope.launch {
+                        val resp = api.deleteActivity("Bearer $token", e.id)
+                        if (resp.isSuccessful) {
+                            onBack()
+                        } else {
+                            println("Delete failed: ${resp.code()}")
+                        }
+                    }
+                }
+            )
+        }
+    }
+
+// ─── Kick Confirmation Dialog ───────────────────────────────────────
     kickTarget?.let { target ->
-        AlertDialog(
-            onDismissRequest = { kickTarget = null },
-            confirmButton = {
-                TextButton(onClick = {
+        Dialog(onDismissRequest = { kickTarget = null }) {
+            KickParticipantDialog(
+                name = target.name,
+                onCancel = { kickTarget = null },
+                onKick = {
                     kickTarget = null
                     scope.launch {
                         val resp = api.kickParticipant(
@@ -262,19 +275,11 @@ fun CreatorActivityScreen(
                             println("Kick failed: ${resp.code()}")
                         }
                     }
-                }) {
-                    Text("Kick")
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { kickTarget = null }) {
-                    Text("Cancel")
-                }
-            },
-            title = { Text("Remove participant") },
-            text = { Text("Kick ${target.name} from this event?") }
-        )
+            )
+        }
     }
+
 
     // ─── Feedback Dialog ──────────────────────────────────────────────
     feedbackTarget?.let { target ->
