@@ -1,6 +1,7 @@
 package com.example.teamup.ui.popups
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -23,14 +24,19 @@ fun KickParticipantDialog(
     val dialogWidth = screenWidth * 0.9f
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        // Give the Card a solid background (remove any Transparent setting)
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .padding(16.dp)
-            .widthIn(min = 300.dp, max = dialogWidth)
+            .widthIn(min = 300.dp, max = dialogWidth),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(
-            modifier = Modifier.padding(24.dp)
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(24.dp)
         ) {
             Text(
                 text = "Remove Participant",
