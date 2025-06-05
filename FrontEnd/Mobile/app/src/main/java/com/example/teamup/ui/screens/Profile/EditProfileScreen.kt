@@ -5,25 +5,47 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults.cardElevation
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Snackbar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.R
 import com.example.teamup.data.remote.Repository.UserRepositoryImpl
@@ -33,7 +55,15 @@ import com.example.teamup.presentation.profile.EditProfileUiState
 import com.example.teamup.presentation.profile.EditProfileViewModel
 import com.example.teamup.ui.popups.DeleteAccountDialog
 
-@OptIn(ExperimentalMaterial3Api::class)
+// ▶ NEW: Places imports
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.AutocompletePrediction
+import com.google.android.libraries.places.api.model.AutocompleteSessionToken
+import com.google.android.libraries.places.api.model.TypeFilter
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.android.libraries.places.api.net.PlacesClient
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
     token: String,
@@ -75,6 +105,48 @@ fun EditProfileScreen(
     // Show/hide confirmation dialog
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+
+    // ─── Places inline-autocomplete state ────────────────────────────────────
+    val context = LocalContext.current
+
+    // 1) Ensure the SDK is initialised *once*
+    LaunchedEffect(Unit) {
+        if (!Places.isInitialized()) {
+            Places.initialize(
+                context.applicationContext,
+                context.getString(R.string.google_maps_key)
+            )
+        }
+    }
+
+    val placesClient: PlacesClient = remember { Places.createClient(context) }
+    val sessionToken               = remember { AutocompleteSessionToken.newInstance() }
+    var suggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
+
+    // 2) Fetch predictions whenever `location` changes (≥ 2 chars)
+    LaunchedEffect(location) {
+        if (location.length < 2) {
+            suggestions = emptyList()
+            return@LaunchedEffect
+        }
+
+        val req = FindAutocompletePredictionsRequest
+            .builder()
+            .setSessionToken(sessionToken)
+            .setQuery(location)
+            .setTypeFilter(TypeFilter.CITIES)   // only cities & villages
+            .build()
+
+        placesClient.findAutocompletePredictions(req)
+            .addOnSuccessListener { res ->
+                suggestions = res.autocompletePredictions
+            }
+            .addOnFailureListener {
+                suggestions = emptyList()
+            }
+    }
+
+
     // ─── Side effects ───────────────────────────────────────────────────────
     // Load the list of sports once when this screen appears
     LaunchedEffect(token) {
@@ -95,6 +167,7 @@ fun EditProfileScreen(
             onFinished(didDelete)
         }
     }
+
 
     // ─── Screen UI ───────────────────────────────────────────────────────────
     Box(
@@ -196,14 +269,41 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Location
+                // Location with inline autocomplete
                 OutlinedTextField(
                     value = location,
                     onValueChange = { location = it },
-                    label = { Text("Location") },
+                    label = { Text("City / Town") },
                     singleLine = true,
+                    trailingIcon = { Icon(Icons.Default.Place, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // ▸ Dropdown with predictions (if any)
+                if (suggestions.isNotEmpty()) {
+                    Card(
+                        elevation = CardDefaults.cardElevation(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp)
+                            .heightIn(max = 200.dp)
+                    ) {
+                        LazyColumn {
+                            items(suggestions, key = { it.placeId }) { pred ->
+                                DropdownMenuItem(
+                                    text = { Text(pred.getFullText(null).toString()) },
+                                    onClick = {
+                                        // Use primary text (usually city name)
+                                        location = pred.getPrimaryText(null).toString()
+                                        suggestions = emptyList()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.height(16.dp))
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -271,15 +371,11 @@ fun EditProfileScreen(
         // ── Confirmation popup before deleting ─────────────────────────────────
         if (showDeleteDialog) {
             Dialog(onDismissRequest = { showDeleteDialog = false }) {
-                // This Card will be automatically centered, with a translucent scrim behind it:
                 DeleteAccountDialog(
                     onCancel = { showDeleteDialog = false },
                     onDelete = {
-                        // 1) Perform the actual API call:
                         didDelete = true
                         vm.deleteAccount("Bearer $token")
-
-                        // 2) Close the dialog:
                         showDeleteDialog = false
                     }
                 )
