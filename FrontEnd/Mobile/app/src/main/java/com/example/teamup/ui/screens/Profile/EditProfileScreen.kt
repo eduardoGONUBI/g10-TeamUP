@@ -5,33 +5,36 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.CardDefaults.cardElevation
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.R
 import com.example.teamup.data.remote.Repository.UserRepositoryImpl
 import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.data.remote.model.SportDto
-import com.example.teamup.presentation.profile.EditProfileUiState
 import com.example.teamup.presentation.profile.EditProfileViewModel
 import com.example.teamup.ui.popups.DeleteAccountDialog
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.*
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.android.libraries.places.api.net.PlacesClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,63 +43,90 @@ fun EditProfileScreen(
     usernameInitial: String,
     locationInitial: String,
     sportsInitial: List<Int>,
-    onFinished: (deleted: Boolean) -> Unit, // called after success or delete
+    onFinished: (deleted: Boolean) -> Unit,
     onBack: () -> Unit
 ) {
-    // ─── ViewModel instantiation ─────────────────────────────────────────────
+    /* ──────── View-model ──────── */
     val vm: EditProfileViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return EditProfileViewModel(
-                    UserRepositoryImpl(AuthApi.create())
-                ) as T
-            }
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                EditProfileViewModel(UserRepositoryImpl(AuthApi.create())) as T
         }
     )
-
-    // ─── Collect UI state from ViewModel ────────────────────────────────────
-    val uiState by vm.ui.collectAsState()
-    val allSports by vm.sports.collectAsState()
+    val uiState          by vm.ui.collectAsState()
+    val allSports        by vm.sports.collectAsState()
     val errorLoadingSports by vm.error.collectAsState()
 
-    // ─── Local form state ───────────────────────────────────────────────────
-    var username by remember { mutableStateOf(usernameInitial) }
-    var location by remember { mutableStateOf(locationInitial) }
+    /* ──────── Local form state ──────── */
+    var username  by remember { mutableStateOf(usernameInitial) }
+    var location  by remember { mutableStateOf(locationInitial) }
+    var latitude  by remember { mutableStateOf<Double?>(null) }
+    var longitude by remember { mutableStateOf<Double?>(null) }
 
-    // Dropdown state: we let the user pick exactly one sport from the list
     var chosenSportName by remember { mutableStateOf("") }
-    var chosenSportId by remember { mutableStateOf<Int?>(null) }
-    var expanded by remember { mutableStateOf(false) }
+    var chosenSportId   by remember { mutableStateOf<Int?>(null) }
+    var sportMenuOpen   by remember { mutableStateOf(false) }
 
-    // Track whether the user tapped “Delete Account”
-    var didDelete by remember { mutableStateOf(false) }
+    var didDelete       by remember { mutableStateOf(false) }
+    var showDeleteDlg   by remember { mutableStateOf(false) }
 
-    // Show/hide confirmation dialog
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    /* ──────── Google Places (inline autocomplete) ──────── */
+    val ctx = LocalContext.current
 
-    // ─── Side effects ───────────────────────────────────────────────────────
-    // Load the list of sports once when this screen appears
+    LaunchedEffect(Unit) {
+        if (!Places.isInitialized()) {
+            Places.initialize(ctx, ctx.getString(R.string.google_maps_key))
+        }
+    }
+
+    val placesClient: PlacesClient = remember { Places.createClient(ctx) }
+    val sessionToken               = remember { AutocompleteSessionToken.newInstance() }
+    var suggestions                by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
+
+    /* Re-query suggestions whenever the text changes  */
+    LaunchedEffect(location) {
+        // user is typing → reset validation
+        latitude  = null
+        longitude = null
+
+        if (location.length < 2) {
+            suggestions = emptyList()
+            return@LaunchedEffect
+        }
+        val req = FindAutocompletePredictionsRequest
+            .builder()
+            .setSessionToken(sessionToken)
+            .setQuery(location)
+            .setTypeFilter(TypeFilter.CITIES)   // only cities/villages
+            .build()
+
+        placesClient.findAutocompletePredictions(req)
+            .addOnSuccessListener { suggestions = it.autocompletePredictions }
+            .addOnFailureListener  { suggestions = emptyList() }
+    }
+
+    /* ──────── Load sports list once ──────── */
     LaunchedEffect(token) {
         vm.loadSports("Bearer $token")
-
-        // Pre-select the first initial sport if sportsInitial is non-empty
         sportsInitial.firstOrNull()?.let { initialId ->
-            allSports.find { it.id == initialId }?.let { dto ->
-                chosenSportName = dto.name
-                chosenSportId = dto.id
+            allSports.find { it.id == initialId }?.let {
+                chosenSportName = it.name
+                chosenSportId   = it.id
             }
         }
     }
 
-    // Whenever uiState.done becomes true, call onFinished(...)
-    LaunchedEffect(uiState.done) {
-        if (uiState.done) {
-            onFinished(didDelete)
-        }
-    }
+    /* Return to caller when done */
+    LaunchedEffect(uiState.done) { if (uiState.done) onFinished(didDelete) }
 
-    // ─── Screen UI ───────────────────────────────────────────────────────────
+    /* Derived flag: user must have picked a *validated* place */
+    val isLocationValid = if (location == locationInitial) {
+        true                       // unchanged → already good
+    } else {
+        latitude != null && longitude != null   // user typed → must pick a place
+    }
+    /* ───────────────────────── UI ───────────────────────── */
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -109,7 +139,7 @@ fun EditProfileScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             TopAppBar(
-                title = { Text(text = "Edit Profile", fontSize = 20.sp) },
+                title = { Text("Edit Profile", fontSize = 20.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -117,9 +147,9 @@ fun EditProfileScreen(
                 }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
 
-            // ── Avatar placeholder ───────────────────────────────────────────
+            /* Avatar placeholder ------------------------------------------------ */
             Box(
                 modifier = Modifier
                     .size(120.dp)
@@ -132,23 +162,24 @@ fun EditProfileScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {}
                 Icon(
-                    painter = painterResource(id = R.drawable.change_profile_pic),
-                    contentDescription = "Change photo",
-                    tint = Color.White.copy(alpha = 0.7f),
+                    painter = painterResource(R.drawable.change_profile_pic),
+                    contentDescription = null,
+                    tint  = Color.White.copy(alpha = .7f),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .size(32.dp)
                         .background(MaterialTheme.colorScheme.primary, CircleShape)
                         .padding(4.dp)
-                        .clickable { /* TODO: open image picker */ }
+                        .clickable { /* TODO image picker */ }
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp))
 
-            // ── Form fields ────────────────────────────────────────────────────
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                // Username
+            /* Form --------------------------------------------------------------- */
+            Column(Modifier.padding(horizontal = 16.dp)) {
+
+                /* Username */
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
@@ -157,13 +188,13 @@ fun EditProfileScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
 
-                // Favourite Sport dropdown
-                Text(text = "Favourite Sport", style = MaterialTheme.typography.bodyMedium)
+                /* Favourite sport */
+                Text("Favourite Sport", style = MaterialTheme.typography.bodyMedium)
                 ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
+                    expanded = sportMenuOpen,
+                    onExpandedChange = { sportMenuOpen = !sportMenuOpen }
                 ) {
                     OutlinedTextField(
                         value = chosenSportName,
@@ -171,141 +202,175 @@ fun EditProfileScreen(
                         readOnly = true,
                         label = { Text("Choose a sport") },
                         trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = sportMenuOpen)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor()
                     )
                     ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        expanded = sportMenuOpen,
+                        onDismissRequest = { sportMenuOpen = false }
                     ) {
-                        allSports.forEach { sportDto: SportDto ->
+                        allSports.forEach { sport ->
                             DropdownMenuItem(
-                                text = { Text(sportDto.name) },
+                                text = { Text(sport.name) },
                                 onClick = {
-                                    chosenSportName = sportDto.name
-                                    chosenSportId = sportDto.id
-                                    expanded = false
+                                    chosenSportName = sport.name
+                                    chosenSportId   = sport.id
+                                    sportMenuOpen   = false
                                 }
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
 
-                // Location
+                /* Location (inline autocomplete) */
                 OutlinedTextField(
                     value = location,
                     onValueChange = { location = it },
-                    label = { Text("Location") },
+                    label = { Text("City / Town") },
                     singleLine = true,
+                    trailingIcon = { Icon(Icons.Default.Place, contentDescription = null) },
+                    supportingText = {
+                        if (!isLocationValid && location.isNotBlank())
+                            Text("Pick a city from the list", color = MaterialTheme.colorScheme.error)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                /* Suggestions dropdown */
+                if (suggestions.isNotEmpty()) {
+                    Card(
+                        elevation = cardElevation(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp)
+                            .heightIn(max = 200.dp)
+                    ) {
+                        LazyColumn {
+                            items(suggestions, key = { it.placeId }) { pred ->
+                                DropdownMenuItem(
+                                    text = { Text(pred.getFullText(null).toString()) },
+                                    onClick = {
+                                        /* fetch full place for lat/lng */
+                                        val fields = listOf(
+                                            Place.Field.NAME,
+                                            Place.Field.LAT_LNG
+                                        )
+                                        placesClient.fetchPlace(
+                                            com.google.android.libraries.places.api.net.FetchPlaceRequest
+                                                .builder(pred.placeId, fields)
+                                                .setSessionToken(sessionToken)
+                                                .build()
+                                        ).addOnSuccessListener { rsp ->
+                                            val plc = rsp.place
+                                            location  = plc.name ?: pred.getPrimaryText(null).toString()
+                                            latitude  = plc.latLng?.latitude
+                                            longitude = plc.latLng?.longitude
+                                            suggestions = emptyList()
+                                        }.addOnFailureListener {
+                                            /* keep text but still invalid */
+                                            location  = pred.getPrimaryText(null).toString()
+                                            suggestions = emptyList()
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.height(16.dp))
+                }
 
-                // Save button
+                Spacer(Modifier.height(32.dp))
+
+                /* Save ----------------------------------------------------------- */
                 Button(
-                    enabled = !uiState.saving,
+                    enabled = !uiState.saving && isLocationValid,
                     onClick = {
                         val sportIds = chosenSportId?.let { listOf(it) } ?: emptyList()
-                        vm.save("Bearer $token", username, location, sportIds)
+                        vm.save(
+                            bearer   = "Bearer $token",
+                            username = username,
+                            location = location,
+                            lat      = latitude,
+                            lng      = longitude,
+                            sportIds = sportIds
+                        )
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = if (uiState.saving) "Saving…" else "Save")
+                    Text(if (uiState.saving) "Saving…" else "Save")
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-                // Change Password button (placeholder)
                 OutlinedButton(
-                    onClick = { /* TODO: navigate to change password */ },
+                    onClick = { /* change-password screen */ },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.Lock, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Change Password")
+                    Icon(Icons.Default.Lock, null); Spacer(Modifier.width(8.dp)); Text("Change Password")
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-                // Change Email button (placeholder)
                 OutlinedButton(
-                    onClick = { /* TODO: navigate to change email */ },
+                    onClick = { /* change-email screen */ },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.MailOutline, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Change Email")
+                    Icon(Icons.Default.MailOutline, null); Spacer(Modifier.width(8.dp)); Text("Change Email")
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp))
 
-                // Delete Account – full red button
+                /* Delete account */
                 Button(
                     enabled = !uiState.saving,
-                    onClick = {
-                        didDelete = true
-                        showDeleteDialog = true
-                    },
+                    onClick = { showDeleteDlg = true },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFCD1606), // full red
-                        contentColor = Color.White
+                        containerColor = Color(0xFFCD1606), contentColor = Color.White
                     ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Delete Account")
+                    Icon(Icons.Default.Delete, null); Spacer(Modifier.width(6.dp)); Text("Delete Account")
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp))
         }
 
-        // ── Confirmation popup before deleting ─────────────────────────────────
-        if (showDeleteDialog) {
-            Dialog(onDismissRequest = { showDeleteDialog = false }) {
-                // This Card will be automatically centered, with a translucent scrim behind it:
+        /* Delete confirmation dialog */
+        if (showDeleteDlg) {
+            Dialog(onDismissRequest = { showDeleteDlg = false }) {
                 DeleteAccountDialog(
-                    onCancel = { showDeleteDialog = false },
+                    onCancel = { showDeleteDlg = false },
                     onDelete = {
-                        // 1) Perform the actual API call:
                         didDelete = true
                         vm.deleteAccount("Bearer $token")
-
-                        // 2) Close the dialog:
-                        showDeleteDialog = false
+                        showDeleteDlg = false
                     }
                 )
             }
         }
 
-        // ── Snackbar for update/delete errors ───────────────────────────────
-        uiState.error?.let { msg ->
+        /* Snackbars --------------------------------------------------------- */
+        uiState.error?.let {
             Snackbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(16.dp)
-            ) {
-                Text(text = "Error: $msg")
-            }
+            ) { Text("Error: $it") }
         }
-
-        // ── Snackbar for “failed to load sports” ────────────────────────────
-        errorLoadingSports?.let { msg ->
+        errorLoadingSports?.let {
             Snackbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(16.dp)
-            ) {
-                Text(text = "Failed to load sports: $msg")
-            }
+            ) { Text("Failed to load sports: $it") }
         }
     }
 }

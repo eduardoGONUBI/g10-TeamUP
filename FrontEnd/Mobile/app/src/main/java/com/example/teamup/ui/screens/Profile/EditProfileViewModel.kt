@@ -31,16 +31,25 @@ class EditProfileViewModel(
     val error: StateFlow<String?> = _error
 
 
-    fun save(token: String, name: String, location: String, sportIds: List<Int>) {
+    fun save(
+        bearer   : String,
+        username : String,
+        location : String,
+        lat      : Double?,          // ← NEW
+        lng      : Double?,          // ← NEW
+        sportIds : List<Int>
+    ) {
         viewModelScope.launch {
             _ui.value = EditProfileUiState(saving = true)
             try {
                 repo.updateMe(
-                    token,
+                    bearer,
                     UpdateUserRequest(
-                        name     = name.trim().takeIf { it.isNotBlank() },
-                        location = location.trim().takeIf { it.isNotBlank() },
-                        sports   = sportIds.ifEmpty { null }
+                        name      = username.trim().takeIf { it.isNotBlank() },
+                        location  = location.trim().takeIf { it.isNotBlank() },
+                        latitude  = lat,
+                        longitude = lng,
+                        sports    = sportIds.ifEmpty { null }
                     )
                 )
                 _ui.value = EditProfileUiState(done = true)

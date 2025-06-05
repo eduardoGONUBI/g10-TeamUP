@@ -23,4 +23,6 @@ interface ActivityRepository {
     suspend fun getSports(token: String): List<SportDto>
 
     suspend fun myChats(token: String): List<ChatItem>
+
+    suspend fun getAllEvents(token: String): List<ActivityItem>
 }

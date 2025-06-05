@@ -8,8 +8,8 @@ use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rules\Password as PasswordRule; 
-use Illuminate\Support\Facades\Hash;   
+use Illuminate\Validation\Rules\Password as PasswordRule;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -106,8 +106,8 @@ class AuthController extends Controller
         $user->save();
 
         return response()->json([
-            'message'     => 'Avatar updated ✨',
-            'avatar_url'  => $user->avatar_url,  // accessor above
+            'message' => 'Avatar updated ✨',
+            'avatar_url' => $user->avatar_url,  // accessor above
         ]);
     }
 
@@ -116,22 +116,22 @@ class AuthController extends Controller
      * Sends the raw image file (good for native <img src="…"> tags).
      */
     public function getAvatar($id)
-{
-    $user = User::findOrFail($id);
+    {
+        $user = User::findOrFail($id);
 
-    // Grab the exact value from the DB (e.g. "avatars/8Rv3GqTGzqEgws9LUzF4BUB3iHLhZinNHSabg9we.jpg")
-    $rawPath = $user->getRawOriginal('avatar_url');
+        // Grab the exact value from the DB (e.g. "avatars/8Rv3GqTGzqEgws9LUzF4BUB3iHLhZinNHSabg9we.jpg")
+        $rawPath = $user->getRawOriginal('avatar_url');
 
-    // If it’s empty or missing on disk, we abort with a 404
-    if (! $rawPath || ! Storage::disk('public')->exists($rawPath)) {
-        abort(404, 'Avatar not found');
+        // If it’s empty or missing on disk, we abort with a 404
+        if (!$rawPath || !Storage::disk('public')->exists($rawPath)) {
+            abort(404, 'Avatar not found');
+        }
+
+        // Stream the file from storage/app/public/avatars/…
+        return response()->file(
+            Storage::disk('public')->path($rawPath)
+        );
     }
-
-    // Stream the file from storage/app/public/avatars/…
-    return response()->file(
-        Storage::disk('public')->path($rawPath)
-    );
-}
 
     // Get the authenticated user
     public function me()
@@ -240,6 +240,8 @@ class AuthController extends Controller
             'location' => 'sometimes|nullable|string|max:255',
             'sports' => 'sometimes|array',
             'sports.*' => 'exists:sports,id', // Validate that each sport ID exists
+            'latitude' => 'sometimes|nullable|numeric|between:-90,90',
+            'longitude' => 'sometimes|nullable|numeric|between:-180,180',
         ]);
 
         // Get the authenticated user
@@ -261,6 +263,11 @@ class AuthController extends Controller
             $user->sports()->sync($validatedData['sports']);
         }
 
+        if (array_key_exists('latitude', $validatedData))
+            $user->latitude = $validatedData['latitude'];
+        if (array_key_exists('longitude', $validatedData))
+            $user->longitude = $validatedData['longitude'];
+
         // Save the changes
         $user->save();
 
@@ -272,17 +279,17 @@ class AuthController extends Controller
     }
 
 
-       /**  Alterar password  */
+    /**  Alterar password  */
     public function changePassword(Request $request)
     {
         $request->validate([
             'current_password' => ['required'],
-            'new_password'     => ['required', 'confirmed', PasswordRule::defaults()],
+            'new_password' => ['required', 'confirmed', PasswordRule::defaults()],
         ]);
 
         $user = JWTAuth::user();                       // usa o mesmo guard JWT
 
-        if (! Hash::check($request->current_password, $user->password)) {
+        if (!Hash::check($request->current_password, $user->password)) {
             return response()->json(['message' => 'Password actual incorreta'], 422);
         }
 
@@ -300,12 +307,12 @@ class AuthController extends Controller
     {
         $request->validate([
             'new_email' => 'required|email|unique:users,email',
-            'password'  => ['required'],
+            'password' => ['required'],
         ]);
 
         $user = JWTAuth::user();
 
-        if (! Hash::check($request->password, $user->password)) {
+        if (!Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Password incorreta'], 422);
         }
 
