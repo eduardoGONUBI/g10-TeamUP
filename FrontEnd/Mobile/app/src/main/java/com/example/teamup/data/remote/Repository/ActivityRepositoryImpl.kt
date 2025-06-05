@@ -159,10 +159,22 @@ class ActivityRepositoryImpl(
         }
     }
 
-    /** /api/events – returns every event visible to the auth user */
+    /** /api/events –HOMEPAGE -  returns every event visible to the auth user excep the concluded*/
     override suspend fun getAllEvents(token: String): List<ActivityItem> {
         val uid = extractUserId(token)
-        return api.getAllEvents(auth(token))
+
+        // 1. pedir todos os eventos (sem filtros)
+        val dtoList = api.searchEvents(
+            token = auth(token),
+            name  = null,
+            sport = null,
+            place = null,
+            date  = null
+        )
+
+        // 2. mapear ➜ ActivityItem e descartar logo os “concluded”
+        return dtoList
             .map { it.toActivityItem(uid) }
+            .filter { !it.status.equals("concluded", ignoreCase = true) }
     }
 }
