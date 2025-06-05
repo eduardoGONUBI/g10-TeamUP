@@ -57,6 +57,11 @@ class ActivityRepositoryImpl(
     private val api: ActivityApi
 ) : ActivityRepository {
 
+    /* ------------ small helper --------------- */
+    private fun auth(token: String): String =
+        if (token.trim().startsWith("Bearer ")) token.trim()
+        else "Bearer ${token.trim()}"
+
     /** /api/events/mine – returns ActivityDto for each event I created or joined */
     override suspend fun getMyActivities(token: String): List<ActivityItem> {
         val currentUserId = extractUserId(token)
@@ -152,5 +157,12 @@ class ActivityRepositoryImpl(
         } catch (_: Exception) {
             0
         }
+    }
+
+    /** /api/events – returns every event visible to the auth user */
+    override suspend fun getAllEvents(token: String): List<ActivityItem> {
+        val uid = extractUserId(token)
+        return api.getAllEvents(auth(token))
+            .map { it.toActivityItem(uid) }
     }
 }

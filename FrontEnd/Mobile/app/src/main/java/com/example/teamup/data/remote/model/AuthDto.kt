@@ -28,7 +28,10 @@ data class Payload(
 
 
 data class UpdateUserRequest(
-    val name: String?        = null,
-    val location: String?    = null,
-    val sports: List<Int>?   = null      // back-end expects an array of sport IDs
+    val name      : String?  = null,
+    val email     : String?  = null,
+    val location  : String?  = null,   // “Lisbon”
+    val latitude  : Double?  = null,   // 38.7167
+    val longitude : Double?  = null,   // -9.1396
+    val sports    : List<Int>? = null
 )
