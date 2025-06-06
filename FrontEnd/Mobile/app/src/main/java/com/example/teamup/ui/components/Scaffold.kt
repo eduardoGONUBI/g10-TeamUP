@@ -126,21 +126,34 @@ fun RootScaffold(
                 val encoded = back.arguments!!.getString("token")!!
                 val decoded = URLDecoder.decode(encoded, "UTF-8")
 
-                val profileVM = remember { ProfileViewModel() }
+                // Create or hoist your ProfileViewModel:
+                val profileVM: ProfileViewModel = viewModel()
 
                 ProfileScreen(
                     token = decoded,
                     viewModel = profileVM,
-                    onEditProfile = { /* ... */ },
-                    onLogout = { /* ... */ },
+
+                    // 3a) When “Edit Profile” is tapped, navigate ***inside*** this same NavHost:
+                    onEditProfile = {
+                        // We must encode the token again into the path
+                        val e = URLEncoder.encode(decoded, "UTF-8")
+                        navController.navigate("edit_profile/$e")
+                    },
+
+                    // 3b) When “Logout” is tapped, pop everything back to Login on the outer NavController:
+                    onLogout = {
+                        appNav.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+
+                    // 3c) When a “Recent activity” is tapped, navigate to Viewer screen:
                     onActivityClick = { activityItem ->
-                        // Convert the ActivityItem’s `id: String` → Int
+                        // Extract the numeric ID from ActivityItem.id:String
                         val eventId = activityItem.id.toIntOrNull()
                         if (eventId != null) {
                             val e = URLEncoder.encode(decoded, "UTF-8")
                             navController.navigate("viewer_activity/$eventId/$e")
-                        } else {
-                            // (Optional) log or show an error if the id wasn’t actually a valid integer
                         }
                     }
                 )
