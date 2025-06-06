@@ -42,14 +42,21 @@ class ProfileViewModel : ViewModel() {
     private val _behaviour           = MutableStateFlow<Double?>(null)
     val behaviour: StateFlow<Double?> = _behaviour
 
-    private val _createdActivities   = MutableStateFlow<List<ActivityItem>>(emptyList())
-    val createdActivities: StateFlow<List<ActivityItem>> = _createdActivities
+    // ─── Pagination for created activities ───────────────────────────────
+    private val _fullCreatedActivities    = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _visibleCreatedActivities = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _currentPage              = MutableStateFlow(1)
+    private val _hasMoreCreated           = MutableStateFlow(false)
+    private val pageSize = 10
 
-    private val _error               = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?>   = _error
+    val visibleCreatedActivities: StateFlow<List<ActivityItem>> = _visibleCreatedActivities
+    val hasMoreCreated: StateFlow<Boolean>                      = _hasMoreCreated
 
     private val _activitiesError     = MutableStateFlow<String?>(null)
     val activitiesError: StateFlow<String?> = _activitiesError
+
+    private val _error               = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?>   = _error
 
     private val _reputationLabel     = MutableStateFlow("—")
     val reputationLabel: StateFlow<String> = _reputationLabel
@@ -84,22 +91,21 @@ class ProfileViewModel : ViewModel() {
     fun loadUser(token: String) = viewModelScope.launch {
         _error.value = null
         val api = authApi(token)
-      val me = api.getCurrentUser()
-        _username.value = me.name
-        _location.value = me.location
-        _sports.value = me.sports?.map { it.name } ?: emptyList()
         try {
-            val api = authApi(token)
-            _username.value = api.getCurrentUser().name
+            val me = api.getCurrentUser()
+            _username.value = me.name
+            _location.value = me.location
+            _sports.value = me.sports?.map { it.name } ?: emptyList()
         } catch (e: Exception) {
             _error.value = e.message
         }
     }
 
+    /**
+     * Fetches and paginates “created activities” so newest appear first.
+     */
     fun loadCreatedActivities(token: String) = viewModelScope.launch {
         _activitiesError.value = null
-
-        // Parse and cache userId once
         userId = parseUserId(token)
         if (userId == null) {
             _activitiesError.value = "Invalid token: cannot extract user ID."
@@ -107,10 +113,9 @@ class ProfileViewModel : ViewModel() {
         }
 
         try {
-            // Use EventsApi (which calls GET /api/events)
             val api  = eventsApi(token)
             val dtos = api.getMyEvents()
-            _createdActivities.value = dtos.map { dto ->
+            val mapped = dtos.map { dto ->
                 ActivityItem(
                     id               = dto.id.toString(),
                     title            = "${dto.name} : ${dto.sport}",
@@ -127,19 +132,41 @@ class ProfileViewModel : ViewModel() {
                     status           = dto.status
                 )
             }
+
+            // 1) Reverse so newest go first
+            val sorted = mapped.reversed()
+
+            // 2) Initialize pagination
+            val firstPage   = sorted.take(pageSize)
+            val moreExists  = sorted.size > pageSize
+
+            _fullCreatedActivities.value    = sorted
+            _visibleCreatedActivities.value = firstPage
+            _currentPage.value              = 1
+            _hasMoreCreated.value           = moreExists
+
         } catch (e: Exception) {
             _activitiesError.value = e.message
         }
     }
 
-    /**
-     * Loads XP, Level, Achievements, Reputation score (to Behaviour),
-     * and top‐feedback label (to Reputation), and ignores average‐rating entirely.
-     */
+    /** Called when “Load more” is tapped in ProfileScreen */
+    fun loadMoreCreated() {
+        val ui = _fullCreatedActivities.value
+        val current = _currentPage.value
+        if (!_hasMoreCreated.value) return
+
+        val nextPage = current + 1
+        val toIndex  = (nextPage * pageSize).coerceAtMost(ui.size)
+        val newSlice = ui.take(toIndex)
+
+        _visibleCreatedActivities.value = newSlice
+        _currentPage.value              = nextPage
+        _hasMoreCreated.value           = ui.size > toIndex
+    }
+
     fun loadStats(token: String) = viewModelScope.launch {
         _error.value = null
-
-        // Ensure userId is known
         if (userId == null) {
             userId = parseUserId(token)
         }
@@ -149,27 +176,23 @@ class ProfileViewModel : ViewModel() {
         }
 
         try {
-            // Build Retrofit for the Achievements API
             val api    = AchievementsApi.create()
             val bearer = if (token.trim().startsWith("Bearer ")) token.trim() else "Bearer $token".trim()
 
-            // 1) fetch profile (xp & level)
+            // 1) profile (xp & level)
             val profile  = api.getProfile(userId!!, bearer)
             _xp.value    = profile.xp
             _level.value = profile.level
 
-            // 2) fetch achievements list
+            // 2) achievements
             val achList  = api.listAchievements(userId!!, bearer)
             _achievements.value = achList.achievements
 
-            // 3) fetch raw reputation details (score + six feedback counts)
+            // 3) reputation
             val rep      = api.getReputation(userId!!, bearer)
             _reputation.value = rep.score
-
-            // Use the **score**‐field as “Behaviour”:
             _behaviour.value = rep.score.toDouble()
 
-            // Build a single “top feedback” label for “Reputation”:
             val counts: List<Pair<String, Int>> = listOf(
                 "Good teammate"   to (rep.good_teammate_count ?: 0),
                 "Friendly player" to (rep.friendly_count    ?: 0),
@@ -185,19 +208,12 @@ class ProfileViewModel : ViewModel() {
                 "—"
             }
 
-            // 4) We no longer need `getUserAverage(...)` at all, so skip it.
-
         } catch (e: Exception) {
             _error.value = e.message
         }
     }
 
     /* ─── RETROFIT HELPERS ───────────────────────────────────────────────── */
-
-    /**
-     * Builds an `AuthApi` that injects a single
-     * “Authorization: Bearer <jwt>” header into each request.
-     */
     private fun authApi(token: String): AuthApi {
         val rawBearer = if (token.trim().startsWith("Bearer ")) token.trim() else "Bearer $token".trim()
         val client = OkHttpClient.Builder()
@@ -219,10 +235,6 @@ class ProfileViewModel : ViewModel() {
             .create(AuthApi::class.java)
     }
 
-    /**
-     * Builds an `EventsApi` that injects a single
-     * “Authorization: Bearer <jwt>” header into each request.
-     */
     private fun eventsApi(token: String): EventsApi {
         val rawBearer = if (token.trim().startsWith("Bearer ")) token.trim() else "Bearer $token".trim()
         val client = OkHttpClient.Builder()
@@ -245,7 +257,7 @@ class ProfileViewModel : ViewModel() {
     }
 }
 
-// ――― Internal DTO interface for Events (used by eventsApi above) ―――
+// ――― Internal DTO interface for Events ―――
 private interface EventsApi {
     @GET("api/events")
     suspend fun getMyEvents(): List<ActivityDto>
