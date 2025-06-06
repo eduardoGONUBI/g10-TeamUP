@@ -1259,5 +1259,72 @@ public function search(Request $request)
     }
 
 
+    /**
+ * GET /api/users/{id}/events
+ * Returns all events created by user {id}, including weather/participants, etc.
+ */
+public function eventsByUser(Request $request, $id)
+{
+    try {
+        // 1) Validate incoming token (doesn’t need to match $id; just any valid JWT)
+        $this->validateToken($request);
+
+        // 2) Fetch all events whose creator is exactly $id
+        $events = Event::with('sport')
+            ->where('user_id', $id)
+            ->get();
+
+        // 3) Map each Event model to the same JSON structure your index() uses:
+        $response = $events->map(function ($event) {
+            $rawWeather = is_array($event->weather)
+                ? $event->weather
+                : json_decode($event->weather, true) ?? [];
+
+            $weather = [
+                'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
+                'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
+                'temp'         => $rawWeather['temp']      ?? null,
+                'high_temp'    => $rawWeather['high_temp'] ?? null,
+                'low_temp'     => $rawWeather['low_temp']  ?? null,
+                'description'  => $rawWeather['weather']['description'] ?? null,
+            ];
+
+            $participants = DB::table('event_user')
+                ->where('event_id', $event->id)
+                ->whereNull('deleted_at')
+                ->get(['user_id', 'user_name', 'rating'])
+                ->map(function ($p) {
+                    return [
+                        'id'   => $p->user_id,
+                        'name' => $p->user_name,
+                        'rating' => $p->rating,
+                    ];
+                });
+
+            return [
+                'id'               => $event->id,
+                'name'             => $event->name,
+                'sport'            => $event->sport->name ?? null,
+                'starts_at'        => $event->starts_at,
+                'place'            => $event->place,
+                'status'           => $event->status,
+                'max_participants' => $event->max_participants,
+                'latitude'         => $event->latitude,
+                'longitude'        => $event->longitude,
+                'creator'          => [
+                    'id'   => $event->user_id,
+                    'name' => $event->user_name,
+                ],
+                'weather'          => $weather,
+                'participants'     => $participants,
+            ];
+        });
+
+        return response()->json($response, 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 401);
+    }
+}
+
 
 }

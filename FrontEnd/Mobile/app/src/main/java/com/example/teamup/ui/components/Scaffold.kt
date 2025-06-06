@@ -26,6 +26,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.teamup.R
+import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 import com.example.teamup.presentation.profile.ProfileViewModel
@@ -186,11 +187,11 @@ fun RootScaffold(
                     },
                     onBack           = { navController.popBackStack() },
                     onChangePassword = {
-                        val e = java.net.URLEncoder.encode(decoded, "UTF-8")
+                        val e = URLEncoder.encode(decoded, "UTF-8")
                         navController.navigate("change_password/$e")
                     },
                     onChangeEmail = {
-                        val e = java.net.URLEncoder.encode(decoded, "UTF-8")
+                        val e = URLEncoder.encode(decoded, "UTF-8")
                         navController.navigate("change_email/$e")
                     }
 
@@ -203,7 +204,7 @@ fun RootScaffold(
                 arguments = listOf(navArgument("token") { type = NavType.StringType })
             ) { backStackEntry ->
                 val rawToken = backStackEntry.arguments!!.getString("token")!!
-                val token    = java.net.URLDecoder.decode(rawToken, "UTF-8")
+                val token    = URLDecoder.decode(rawToken, "UTF-8")
 
                 val changeVm: ChangePasswordViewModel = viewModel()
                 ChangePasswordScreen(
@@ -219,7 +220,7 @@ fun RootScaffold(
                 arguments = listOf(navArgument("token") { type = NavType.StringType })
             ) { back ->
                 val rawToken = back.arguments!!.getString("token")!!
-                val decoded = java.net.URLDecoder.decode(rawToken, "UTF-8")
+                val decoded = URLDecoder.decode(rawToken, "UTF-8")
 
                 val changeEmailVm: ChangeEmailViewModel = viewModel()
                 ChangeEmailScreen(
@@ -340,9 +341,12 @@ fun RootScaffold(
                 val token = URLDecoder.decode(rawToken, StandardCharsets.UTF_8.toString())
 
                 PublicProfileScreen(
-                    token  = token,
+                    token = token,
                     userId = uid,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onEventClick = { activityItem ->
+                        navController.navigate("viewer_activity/${activityItem.id}/$token")
+                    }
                 )
             }
 

@@ -25,4 +25,5 @@ Route::middleware('validate.jwt')->group(function () {
     Route::get('/stats', [EventController::class, 'overview']);
     Route::get('/events/{id}', [EventController::class, 'show']);
     Route::get('/sports', [SportsController::class, 'index']);
+    Route::get('/users/{id}/events', [EventController::class, 'eventsByUser']);
 });

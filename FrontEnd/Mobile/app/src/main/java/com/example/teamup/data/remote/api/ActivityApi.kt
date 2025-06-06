@@ -123,4 +123,11 @@ companion object {
         @Path("id")               id: Int,
         @Body body: StatusUpdateRequest
     ): Response<Unit>
+
+    @GET("/api/users/{id}/events")
+    suspend fun getEventsByUser(
+        @Path("id") userId: Int,
+        @Header("Authorization") token: String
+    ): List<ActivityDto>
+
 }
