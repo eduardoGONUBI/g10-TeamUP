@@ -129,20 +129,19 @@ fun RootScaffold(
                 val profileVM = remember { ProfileViewModel() }
 
                 ProfileScreen(
-                    token           = decoded,
-                    viewModel       = profileVM,
-                    onEditProfile   = {
-                        val e = URLEncoder.encode(decoded, "UTF-8")
-                        navController.navigate("edit_profile/$e")
-                    },
-                    onLogout = {
-                        appNav.navigate("login") {
-                            popUpTo(0) { inclusive = true }   // clear everything off the back-stack
+                    token = decoded,
+                    viewModel = profileVM,
+                    onEditProfile = { /* ... */ },
+                    onLogout = { /* ... */ },
+                    onActivityClick = { activityItem ->
+                        // Convert the ActivityItem’s `id: String` → Int
+                        val eventId = activityItem.id.toIntOrNull()
+                        if (eventId != null) {
+                            val e = URLEncoder.encode(decoded, "UTF-8")
+                            navController.navigate("viewer_activity/$eventId/$e")
+                        } else {
+                            // (Optional) log or show an error if the id wasn’t actually a valid integer
                         }
-                    },
-                    onActivityClick = { id ->
-                        val e = URLEncoder.encode(decoded, "UTF-8")
-                        navController.navigate("viewer_activity/$id/$e")
                     }
                 )
             }

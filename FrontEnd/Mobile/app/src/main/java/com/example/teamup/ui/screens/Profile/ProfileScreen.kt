@@ -18,29 +18,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.teamup.R
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.components.ActivityCard
 import com.example.teamup.ui.components.AchievementsRow
+import com.example.teamup.ui.popups.LogoutDialog
 
-/**
- * Displays the logged‐in user’s profile, including:
- *  • avatar (placeholder),
- *  • username,
- *  • location,
- *  • favourite sports,
- *  • XP / level / behaviour / reputation,
- *  • unlocked achievements,
- *  • Edit / Logout buttons,
- *  • “Recent Activities Created” list.
- *
- * Note: this version assumes your ProfileViewModel now exposes `location: StateFlow<String?>`
- *       and `sports: StateFlow<List<String>>` (in addition to the existing fields).
- */
 @Composable
 fun ProfileScreen(
     token: String,
@@ -51,8 +40,8 @@ fun ProfileScreen(
 ) {
     // ─── Collect all state from ViewModel ──────────────────────────────
     val username        by viewModel.username.collectAsState()
-    val location        by viewModel.location.collectAsState()       // NEW: user’s location
-    val sports          by viewModel.sports.collectAsState()         // NEW: list of favourite sport names
+    val location        by viewModel.location.collectAsState()
+    val sports          by viewModel.sports.collectAsState()
     val level           by viewModel.level.collectAsState()
     val behaviour       by viewModel.behaviour.collectAsState()
     val reputationLabel by viewModel.reputationLabel.collectAsState()
@@ -61,6 +50,9 @@ fun ProfileScreen(
     val error           by viewModel.error.collectAsState()
     val activitiesError by viewModel.activitiesError.collectAsState()
 
+    // ─── Local state for Logout confirmation dialog ───────────────────
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
     // ─── Trigger loads whenever token changes ───────────────────────────
     LaunchedEffect(token) {
         viewModel.loadUser(token)
@@ -68,7 +60,7 @@ fun ProfileScreen(
         viewModel.loadStats(token)
     }
 
-    // ─── Wrap both the scrollable content and the Snackbar in a Box ───
+    // ─── Base layout ───────────────────────────────────────────────────
     Box(modifier = Modifier.fillMaxSize()) {
         // ────────────────────────────
         // 1) Main scrolling content
@@ -79,7 +71,7 @@ fun ProfileScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // ── Avatar (no edit icon) ───────────────────────────────────
+            // ── Avatar ───────────────────────────────────────────────────
             item {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -114,7 +106,7 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Location and Favourite Sports ───────────────────────────
+            // ── Location & Favourite Sports ───────────────────────────
             item {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -122,14 +114,12 @@ fun ProfileScreen(
                         .fillMaxWidth()
                         .padding(bottom = 16.dp)
                 ) {
-                    // Show “Location: …” (or “—” if null/empty)
                     Text(
                         text = "Location: ${location ?: "—"}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontSize = 14.sp
                     )
                     Spacer(Modifier.height(4.dp))
-                    // Show “Favourite Sports: …”
                     Text(
                         text = "Favourite Sports: ${
                             if (sports.isNotEmpty()) sports.joinToString(", ") else "—"
@@ -140,7 +130,7 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Stats Card (Level / Behaviour / Reputation) ──────────────
+            // ── Stats Card ──────────────────────────────────────────────
             item {
                 Card(
                     modifier = Modifier
@@ -155,10 +145,7 @@ fun ProfileScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         ProfileStat("Level", level.toString())
-                        ProfileStat(
-                            "Behaviour",
-                            behaviour?.toInt()?.toString() ?: "—"
-                        )
+                        ProfileStat("Behaviour", behaviour?.toInt()?.toString() ?: "—")
                         ProfileStat("Reputation", reputationLabel)
                     }
                 }
@@ -187,18 +174,12 @@ fun ProfileScreen(
                         .padding(top = 24.dp, bottom = 8.dp)
                 ) {
                     Button(onClick = onEditProfile) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Profile"
-                        )
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                         Spacer(Modifier.width(8.dp))
                         Text("Edit Profile")
                     }
-                    OutlinedButton(onClick = onLogout) {
-                        Icon(
-                            imageVector = Icons.Default.Logout,
-                            contentDescription = "Logout"
-                        )
+                    OutlinedButton(onClick = { showLogoutDialog = true }) {
+                        Icon(Icons.Default.Logout, contentDescription = "Logout")
                         Spacer(Modifier.width(8.dp))
                         Text("Logout")
                     }
@@ -214,7 +195,7 @@ fun ProfileScreen(
                 )
             }
 
-            // ── Recent Activities List or Error ──────────────────────
+            // ── Recent Activities List / Error ────────────────────────
             when {
                 activitiesError != null -> item {
                     Text(
@@ -233,16 +214,14 @@ fun ProfileScreen(
                 else -> items(activities, key = { it.id }) { act ->
                     ActivityCard(
                         activity = act,
-                        onClick = { onActivityClick(act) },
-                        bgColor = Color(0xFFF5F5F5),
-                        bgBrush = null
+                        onClick = { onActivityClick(act) }
                     )
                 }
             }
         }
 
         // ────────────────────────────
-        // 2) Error banner (generic)
+        // 2) Generic error banner
         // ────────────────────────────
         if (error != null) {
             Snackbar(
@@ -253,12 +232,26 @@ fun ProfileScreen(
                 Text("Error: $error")
             }
         }
+
+        // ────────────────────────────
+        // 3) Logout confirmation dialog (centered with scrim)
+        // ────────────────────────────
+        if (showLogoutDialog) {
+            Dialog(onDismissRequest = { showLogoutDialog = false }) {
+                // This inner LogoutDialog is the same styling you saw in the DeleteActivityDialog,
+                // except it says “Log Out” and “Cancel / Log Out” buttons.
+                LogoutDialog(
+                    onCancel = { showLogoutDialog = false },
+                    onLogout = {
+                        showLogoutDialog = false
+                        onLogout()    // this lambda should clear token & navigate to login
+                    }
+                )
+            }
+        }
     }
 }
 
-/* ────────────────────────── */
-/* Small stat cell component */
-/* ────────────────────────── */
 @Composable
 private fun ProfileStat(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
