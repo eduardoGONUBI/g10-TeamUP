@@ -17,7 +17,13 @@ data class SearchUiState(
     val date: String = "",
     val loading: Boolean = false,
     val error: String? = null,
-    val results: List<ActivityItem> = emptyList()
+    // Holds the full filtered list after “Search” is pressed:
+    val fullResults: List<ActivityItem> = emptyList(),
+    // Holds just the current page (initially empty until first search):
+    val visibleResults: List<ActivityItem> = emptyList(),
+    val currentPage: Int = 1,
+    val pageSize: Int = 10,
+    val hasMore: Boolean = false
 )
 
 class SearchActivityViewModel(
@@ -38,15 +44,17 @@ class SearchActivityViewModel(
     }
 
     /**
-     * Instead of calling `/events/search`, fetch all events via getAllEvents(),
-     * then apply “name/sport/place/date” filters & exclude those you created/joined.
+     * 1) Fetch all events via getAllEvents()
+     * 2) Apply “name/sport/place/date” filters & exclude those you created/joined.
+     * 3) Initialize pagination (fullResults, visibleResults = first page, hasMore, currentPage = 1).
      */
     fun search(token: String) = viewModelScope.launch {
         _state.update { it.copy(loading = true, error = null) }
 
         try {
             val s = _state.value
-            // 1) Fetch every event (non-concluded) from backend
+
+            // 1) Fetch every event from backend
             val allEvents: List<ActivityItem> = repo.getAllEvents(token)
 
             // 2) Apply each filter locally (case-insensitive contains)
@@ -74,10 +82,43 @@ class SearchActivityViewModel(
                 matchesName && matchesSport && matchesPlace && matchesDate && notAlreadyInvolved
             }
 
-            // 3) Push results back into state
-            _state.update { it.copy(loading = false, results = filtered) }
+            // 3) Initialize pagination:
+            val firstPage = filtered.take(_state.value.pageSize)
+            val moreExists = filtered.size > _state.value.pageSize
+
+            _state.update {
+                it.copy(
+                    loading = false,
+                    fullResults = filtered,
+                    visibleResults = firstPage,
+                    currentPage = 1,
+                    hasMore = moreExists,
+                    error = null
+                )
+            }
         } catch (e: Exception) {
-            _state.update { it.copy(loading = false, error = e.message) }
+            _state.update { it.copy(loading = false, error = e.localizedMessage) }
+        }
+    }
+
+    /**
+     * Called when “Load more” is pressed.
+     * Increments currentPage, takes the next slice, updates visibleResults & hasMore.
+     */
+    fun loadMore() {
+        val ui = _state.value
+        if (!ui.hasMore) return
+
+        val nextPage = ui.currentPage + 1
+        val toIndex  = (nextPage * ui.pageSize).coerceAtMost(ui.fullResults.size)
+        val newSlice = ui.fullResults.take(toIndex)
+
+        _state.update {
+            it.copy(
+                visibleResults = newSlice,
+                currentPage = nextPage,
+                hasMore = ui.fullResults.size > toIndex
+            )
         }
     }
 }
