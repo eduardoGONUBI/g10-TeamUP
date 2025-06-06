@@ -4,8 +4,11 @@ import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.model.LoginRequestDto
 import com.example.teamup.data.remote.model.LoginResponseDto
 import com.example.teamup.data.remote.model.PublicUserDto
+import com.example.teamup.data.remote.model.RegisterRequestDto
+import com.example.teamup.data.remote.model.RegisterResponseDto
 import com.example.teamup.data.remote.model.UpdateUserRequest
 import com.example.teamup.data.remote.model.UserDto
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -17,6 +20,9 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface AuthApi {
+
+    @POST("/api/auth/register")
+    suspend fun register(@Body body: RegisterRequestDto): Response<RegisterResponseDto>
 
     @POST("/api/auth/login")
     suspend fun login(@Body body: LoginRequestDto): LoginResponseDto

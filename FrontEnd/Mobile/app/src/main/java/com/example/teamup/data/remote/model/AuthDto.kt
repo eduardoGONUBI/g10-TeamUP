@@ -35,3 +35,22 @@ data class UpdateUserRequest(
     val longitude : Double?  = null,   // -9.1396
     val sports    : List<Int>? = null
 )
+
+
+data class RegisterRequestDto(
+    val name: String,
+    val email: String,
+    val password: String,
+
+    // IMPORTANT: Laravel expects “password_confirmation”
+    @SerializedName("password_confirmation")
+    val passwordConfirmation: String,
+
+    // We are storing “location” (city)
+    val location: String
+)
+
+data class RegisterResponseDto(
+    val message: String
+)
+

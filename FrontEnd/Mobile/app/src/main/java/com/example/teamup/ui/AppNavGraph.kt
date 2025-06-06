@@ -17,6 +17,9 @@ import com.example.teamup.ui.screens.main.UserManager.LoginViewModelFactory
 import com.example.teamup.ui.components.RootScaffold
 import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
+import com.example.teamup.ui.screens.main.UserManager.RegisterScreen
+import com.example.teamup.ui.screens.main.UserManager.RegisterViewModel
+import com.example.teamup.ui.screens.main.UserManager.RegisterViewModelFactory
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -46,7 +49,22 @@ fun AppNavGraph() {
                     }
                 },
                 onForgotPasswordClick = {},
-                onRegisterClick      = {}
+                onRegisterClick      = { nav.navigate("register")}
+            )
+        }
+
+        /* ─── Register ─────────────────────────────────────────────────────── */
+        composable("register") {
+            val registerVM: RegisterViewModel = viewModel(
+                factory = remember { RegisterViewModelFactory() }
+            )
+
+            RegisterScreen(
+                registerViewModel = registerVM,
+                onBackToLogin = { nav.popBackStack("login", inclusive = false) },
+                onRegistrationDone = { nav.popBackStack("login", inclusive = false) }
+
+
             )
         }
 

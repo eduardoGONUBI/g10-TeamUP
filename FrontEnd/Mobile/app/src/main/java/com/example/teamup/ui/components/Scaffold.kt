@@ -182,7 +182,7 @@ fun RootScaffold(
                         }
                     },
                     onBack           = { navController.popBackStack() }
-                )ss
+                )
             }
 
             /* ─── Creator activity ─────────────────────────────── */
