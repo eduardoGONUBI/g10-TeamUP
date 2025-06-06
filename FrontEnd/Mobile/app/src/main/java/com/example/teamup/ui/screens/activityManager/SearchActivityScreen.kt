@@ -122,6 +122,7 @@ fun SearchActivityScreen(
         // Collapsible Filter Panel
         // ─────────────────────────────────────────────────────────────────
         Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize()
@@ -304,6 +305,7 @@ fun SearchActivityScreen(
                     items(visibleResults, key = { it.id }) { activity ->
                         ActivityCard(
                             activity = activity,
+                            bgColor  = Color(0xFFF5F5F5),
                             onClick = { onActivityClick(activity) }
                         )
                     }
