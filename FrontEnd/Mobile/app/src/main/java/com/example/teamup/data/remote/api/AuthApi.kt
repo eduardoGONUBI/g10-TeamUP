@@ -1,13 +1,13 @@
 package com.example.teamup.data.remote.api
 
 import com.example.teamup.data.remote.BaseUrlProvider
+import com.example.teamup.data.remote.model.ChangePasswordRequestDto
 import com.example.teamup.data.remote.model.ForgotPasswordRequestDto
-import com.example.teamup.data.remote.model.ForgotPasswordResponseDto
+import com.example.teamup.data.remote.model.GenericMessageResponseDto
 import com.example.teamup.data.remote.model.LoginRequestDto
 import com.example.teamup.data.remote.model.LoginResponseDto
 import com.example.teamup.data.remote.model.PublicUserDto
 import com.example.teamup.data.remote.model.RegisterRequestDto
-import com.example.teamup.data.remote.model.RegisterResponseDto
 import com.example.teamup.data.remote.model.UpdateUserRequest
 import com.example.teamup.data.remote.model.UserDto
 import retrofit2.Response
@@ -24,7 +24,7 @@ import retrofit2.http.Path
 interface AuthApi {
 
     @POST("/api/auth/register")
-    suspend fun register(@Body body: RegisterRequestDto): Response<RegisterResponseDto>
+    suspend fun register(@Body body: RegisterRequestDto): Response<GenericMessageResponseDto>
 
     @POST("/api/auth/login")
     suspend fun login(@Body body: LoginRequestDto): LoginResponseDto
@@ -53,7 +53,15 @@ interface AuthApi {
     )
     // ─── NEW “send reset link” endpoint ─────────────────────────────────
     @POST("/api/password/email")
-    suspend fun sendResetLink(@Body body: ForgotPasswordRequestDto): Response<ForgotPasswordResponseDto>
+    suspend fun sendResetLink(@Body body: ForgotPasswordRequestDto): Response<GenericMessageResponseDto>
+
+    @POST("/api/auth/change-password")
+    suspend fun changePassword(
+        @Header("Authorization") auth: String,
+        @Body body: ChangePasswordRequestDto
+    ): Response<GenericMessageResponseDto>
+
+
 
 
     // ------------------------------------------------------------------

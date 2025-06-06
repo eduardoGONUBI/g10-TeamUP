@@ -3,9 +3,12 @@ package com.example.teamup.data.remote.Repository
 
 import com.example.teamup.data.domain.repository.AuthRepository
 import com.example.teamup.data.remote.api.AuthApi
+import com.example.teamup.data.remote.model.ChangePasswordRequestDto
 import com.example.teamup.data.remote.model.ForgotPasswordRequestDto
 import com.example.teamup.data.remote.model.LoginRequestDto
 import com.example.teamup.data.remote.model.RegisterRequestDto
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import retrofit2.HttpException
 
@@ -86,6 +89,53 @@ class AuthRepositoryImpl(private val api: AuthApi) : AuthRepository {
             Result.failure(Exception("Server error: ${e.message}"))
         } catch (e: Exception) {
             Result.failure(Exception("Network error: ${e.localizedMessage ?: "Unknown"}"))
+        }
+    }
+
+    override suspend fun changePassword(
+        token: String,
+        currentPassword: String,
+        newPassword: String,
+        newPasswordConfirmation: String
+    ): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Build request body
+                val dto = ChangePasswordRequestDto(
+                    currentPassword = currentPassword,
+                    newPassword = newPassword,
+                    newPasswordConfirmation = newPasswordConfirmation
+                )
+
+                val bearerHeader = if (token.startsWith("Bearer ")) token else "Bearer $token"
+                val response = api.changePassword(bearerHeader, dto)
+
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    Result.success(body?.message ?: "Password changed successfully")
+                } else {
+                    val errorJson = response.errorBody()?.string() ?: ""
+                    val msg = try {
+                        val obj = JSONObject(errorJson)
+                        if (obj.has("errors")) {
+                            val errs = obj.getJSONObject("errors")
+                            val firstKey = errs.keys().next()
+                            errs.getJSONArray(firstKey).getString(0)
+                        } else if (obj.has("message")) {
+                            obj.getString("message")
+                        } else {
+                            "Failed to change password"
+                        }
+                    } catch (_: Exception) {
+                        "Failed to change password"
+                    }
+                    Result.failure(Exception(msg))
+                }
+            } catch (e: HttpException) {
+                Result.failure(Exception("Server error: ${e.message}"))
+            } catch (e: Exception) {
+                Result.failure(Exception("Network error: ${e.localizedMessage}"))
+            }
         }
     }
 }

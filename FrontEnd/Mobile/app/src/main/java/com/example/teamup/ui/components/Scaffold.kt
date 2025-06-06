@@ -37,6 +37,8 @@ import com.example.teamup.ui.screens.Activity.ViewerActivityScreen
 import com.example.teamup.ui.screens.Chat.ChatListScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.activityManager.ActivityTabsScreen
+import com.example.teamup.ui.screens.main.UserManager.ChangePasswordScreen
+import com.example.teamup.ui.screens.main.UserManager.ChangePasswordViewModel
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -181,9 +183,35 @@ fun RootScaffold(
                             }
                         }
                     },
-                    onBack           = { navController.popBackStack() }
+                    onBack           = { navController.popBackStack() },
+                    onChangePassword = {
+                        val e = java.net.URLEncoder.encode(decoded, "UTF-8")
+                        navController.navigate("change_password/$e")
+                    }
+
                 )
             }
+
+            /* ─── CHANGE PASSWORD (nested under Profile) ────────────────────────── */
+            composable(
+                route = "change_password/{token}",
+                arguments = listOf(navArgument("token") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val rawToken = backStackEntry.arguments!!.getString("token")!!
+                val token    = java.net.URLDecoder.decode(rawToken, "UTF-8")
+
+                val changeVm: ChangePasswordViewModel = viewModel()
+                ChangePasswordScreen(
+                    changePasswordViewModel = changeVm,
+                    token                   = token,
+                    onBack                  = { appNav.popBackStack() },
+                    onPasswordChanged       = {
+                        // After successful password change, pop back to EditProfileScreen
+                        appNav.popBackStack()
+                    }
+                )
+            }
+
 
             /* ─── Creator activity ─────────────────────────────── */
             composable(

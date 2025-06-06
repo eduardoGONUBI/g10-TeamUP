@@ -50,12 +50,21 @@ data class RegisterRequestDto(
     val location: String
 )
 
-data class RegisterResponseDto(
+data class GenericMessageResponseDto(
     val message: String
 )
 data class ForgotPasswordRequestDto(
     val email: String
 )
-data class ForgotPasswordResponseDto(
-    val message: String
+
+data class ChangePasswordRequestDto(
+    @SerializedName("current_password")
+    val currentPassword: String,
+
+    @SerializedName("new_password")
+    val newPassword: String,
+
+    // Laravel expects "new_password_confirmation" (matching your controller's "confirmed" rule)
+    @SerializedName("new_password_confirmation")
+    val newPasswordConfirmation: String
 )
