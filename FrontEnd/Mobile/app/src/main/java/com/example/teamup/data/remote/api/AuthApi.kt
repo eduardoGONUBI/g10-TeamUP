@@ -1,11 +1,17 @@
 package com.example.teamup.data.remote.api
 
 import com.example.teamup.data.remote.BaseUrlProvider
+import com.example.teamup.data.remote.model.ChangeEmailRequestDto
+import com.example.teamup.data.remote.model.ChangePasswordRequestDto
+import com.example.teamup.data.remote.model.ForgotPasswordRequestDto
+import com.example.teamup.data.remote.model.GenericMessageResponseDto
 import com.example.teamup.data.remote.model.LoginRequestDto
 import com.example.teamup.data.remote.model.LoginResponseDto
 import com.example.teamup.data.remote.model.PublicUserDto
+import com.example.teamup.data.remote.model.RegisterRequestDto
 import com.example.teamup.data.remote.model.UpdateUserRequest
 import com.example.teamup.data.remote.model.UserDto
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -17,6 +23,9 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface AuthApi {
+
+    @POST("/api/auth/register")
+    suspend fun register(@Body body: RegisterRequestDto): Response<GenericMessageResponseDto>
 
     @POST("/api/auth/login")
     suspend fun login(@Body body: LoginRequestDto): LoginResponseDto
@@ -43,6 +52,23 @@ interface AuthApi {
     suspend fun deleteMe(
         @Header("Authorization") auth: String
     )
+    // ─── NEW “send reset link” endpoint ─────────────────────────────────
+    @POST("/api/password/email")
+    suspend fun sendResetLink(@Body body: ForgotPasswordRequestDto): Response<GenericMessageResponseDto>
+
+    @POST("/api/auth/change-password")
+    suspend fun changePassword(
+        @Header("Authorization") auth: String,
+        @Body body: ChangePasswordRequestDto
+    ): Response<GenericMessageResponseDto>
+
+    @POST("/api/auth/change-email")
+    suspend fun changeEmail(
+        @Header("Authorization") auth: String,
+        @Body body: ChangeEmailRequestDto
+    ): Response<GenericMessageResponseDto>
+
+
 
 
     // ------------------------------------------------------------------
