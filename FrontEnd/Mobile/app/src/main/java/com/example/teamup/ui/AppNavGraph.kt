@@ -15,7 +15,6 @@ import com.example.teamup.ui.screens.Chat.ChatDetailScreen
 import com.example.teamup.ui.screens.main.UserManager.LoginViewModel
 import com.example.teamup.ui.screens.main.UserManager.LoginViewModelFactory
 import com.example.teamup.ui.components.RootScaffold
-import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.main.UserManager.ForgotPasswordScreen
 import com.example.teamup.ui.screens.main.UserManager.ForgotPasswordViewModel
@@ -137,35 +136,6 @@ fun AppNavGraph() {
             )
         }
 
-        /* ─── Creator activity (deep-link) ───────────────────── */
-        composable(
-            route = "creator_activity/{eventId}/{token}",
-            arguments = listOf(
-                navArgument("eventId") { type = NavType.IntType },
-                navArgument("token")   { type = NavType.StringType }
-            )
-        ) { back ->
-            val id    = back.arguments!!.getInt("eventId")
-            val token = URLDecoder.decode(
-                back.arguments!!.getString("token")!!,
-                StandardCharsets.UTF_8.toString()
-            )
-
-            CreatorActivityScreen(
-                eventId   = id,
-                token     = token,
-                onBack    = { nav.popBackStack() },
-                onEdit    = { eid ->
-                    val re = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
-                    nav.navigate("edit_activity/$eid/$re")
-                },
-                onUserClick = { userId ->
-                    // navigate to that user’s public profile
-                    val enc = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
-                    nav.navigate("public_profile/$userId/$enc")
-                }
-            )
-        }
 
         /* ─── Edit activity (deep-link) ──────────────────────── */
         composable(

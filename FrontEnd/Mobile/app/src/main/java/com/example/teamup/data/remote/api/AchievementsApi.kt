@@ -48,7 +48,7 @@ interface AchievementsApi {
         @Header("Authorization") auth: String
     ): UserAverageResponse
 
-    @POST("api/events/{event_id}/feedback")
+    @POST("/api/events/{event_id}/feedback")
     suspend fun giveFeedback(
         @Header("Authorization") bearer: String,
         @Path("event_id") eventId: Int,

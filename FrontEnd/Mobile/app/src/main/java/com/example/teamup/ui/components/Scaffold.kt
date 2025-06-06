@@ -29,12 +29,12 @@ import com.example.teamup.R
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.model.StatusUpdateRequest
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.screens.*
-import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
+import com.example.teamup.ui.screens.Activity.ActivityScreen
 import com.example.teamup.ui.screens.Activity.EditActivityScreen
-import com.example.teamup.ui.screens.Activity.ParticipantActivityScreen
-import com.example.teamup.ui.screens.Activity.ViewerActivityScreen
+import com.example.teamup.ui.screens.ActivityDetailViewModel.ActivityRole
 import com.example.teamup.ui.screens.Chat.ChatListScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.activityManager.ActivityTabsScreen
@@ -42,6 +42,7 @@ import com.example.teamup.ui.screens.main.UserManager.ChangeEmailScreen
 import com.example.teamup.ui.screens.main.UserManager.ChangeEmailViewModel
 import com.example.teamup.ui.screens.main.UserManager.ChangePasswordScreen
 import com.example.teamup.ui.screens.main.UserManager.ChangePasswordViewModel
+import kotlinx.coroutines.launch
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -56,7 +57,7 @@ fun RootScaffold(
 ) {
     // 1) Create a NavController for this scaffold
     val navController = rememberNavController()
-
+    val scope = rememberCoroutineScope()
     // 2) Instantiate HomeViewModel via ActivityRepositoryImpl
     val homeViewModel: HomeViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
@@ -232,54 +233,7 @@ fun RootScaffold(
             }
 
 
-            /* ─── Creator activity ─────────────────────────────── */
-            composable(
-                "creator_activity/{eventId}/{token}",
-                arguments = listOf(
-                    navArgument("eventId") { type = NavType.IntType },
-                    navArgument("token")   { type = NavType.StringType }
-                )
-            ) { back ->
-                val eventId = back.arguments!!.getInt("eventId")
-                val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
-                val encoded = URLEncoder.encode(decoded, "UTF-8") // for downstream
 
-                CreatorActivityScreen(
-                    eventId = eventId,
-                    token   = decoded,
-                    onBack  = { navController.popBackStack() },
-                    onEdit  = { id ->
-                        val e = URLEncoder.encode(decoded, "UTF-8")
-                        navController.navigate("edit_activity/$id/$e")
-                    },
-                    onUserClick = { userId ->
-                        // Navigate to the public‐profile screen of that user:
-                        navController.navigate("public_profile/$userId/$encoded")
-                    }
-                )
-            }
-
-            /* ─── Viewer activity ──────────────────────────────── */
-            composable(
-                "viewer_activity/{eventId}/{token}",
-                arguments = listOf(
-                    navArgument("eventId") { type = NavType.IntType },
-                    navArgument("token")   { type = NavType.StringType }
-                )
-            ) { back ->
-                val eventId = back.arguments!!.getInt("eventId")
-                val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
-
-                ViewerActivityScreen(
-                    eventId = eventId,
-                    token   = decoded,
-                    onBack  = { navController.popBackStack() },
-                    onUserClick = { userId ->
-                        val enc = URLEncoder.encode(decoded, StandardCharsets.UTF_8.toString())
-                        navController.navigate("public_profile/$userId/$enc")
-                    }
-                )
-            }
 
             /* ─── Edit activity ───────────────────────────────── */
             composable(
@@ -301,6 +255,98 @@ fun RootScaffold(
                 )
             }
 
+
+            /* ─── Creator activity ─────────────────────────────── */
+            composable(
+                "creator_activity/{eventId}/{token}",
+                arguments = listOf(
+                    navArgument("eventId") { type = NavType.IntType },
+                    navArgument("token")   { type = NavType.StringType }
+                )
+            ) { back ->
+                val eventId = back.arguments!!.getInt("eventId")
+                val decodedToken = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+                val reEncoded   = URLEncoder.encode(decodedToken, "UTF-8")
+
+                ActivityScreen(
+                    eventId = eventId,
+                    token = decodedToken,
+                    role = ActivityRole.CREATOR,
+                    onBack = { navController.popBackStack() },
+                    onEdit = {
+                        navController.navigate("edit_activity/$eventId/$reEncoded")
+                    },
+                    onCancel = {
+                        navController.popBackStack()
+                    },
+                    onConclude = {
+                        // ← replace LaunchedEffect with scope.launch
+                        scope.launch {
+                            val resp = ActivityApi.create()
+                                .concludeByCreator("Bearer $decodedToken", eventId)
+                            if (resp.isSuccessful) {
+                                navController.popBackStack()
+                            } else {
+                                println("Conclude failed: ${resp.code()}")
+                            }
+                        }
+                    },
+                    onReopen = {
+                        scope.launch {
+                            val body = StatusUpdateRequest(status = "in progress")
+                            val resp = ActivityApi.create()
+                                .updateStatus("Bearer $decodedToken", eventId, body)
+                            if (resp.isSuccessful) {
+                                navController.popBackStack()
+                            } else {
+                                println("Re-open failed: ${resp.code()}")
+                            }
+                        }
+                    },
+                    onUserClick = { userId ->
+                        navController.navigate("public_profile/$userId/$reEncoded")
+                    }
+                )
+            }
+
+            /* ─── Viewer activity ──────────────────────────────── */
+            composable(
+                "viewer_activity/{eventId}/{token}",
+                arguments = listOf(
+                    navArgument("eventId") { type = NavType.IntType },
+                    navArgument("token")   { type = NavType.StringType }
+                )
+            ) { back ->
+                val eventId = back.arguments!!.getInt("eventId")
+                val decodedToken = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+                val reEncoded    = URLEncoder.encode(decodedToken, "UTF-8")
+
+                ActivityScreen(
+                    eventId = eventId,
+                    token = decodedToken,
+                    role = ActivityRole.VIEWER,
+                    onBack = { navController.popBackStack() },
+                    onJoin  = {
+                        scope.launch {
+                            val resp = ActivityApi.create().joinEvent("Bearer $decodedToken", eventId)
+                            if (resp.isSuccessful) {
+                                // Instead of popping back, open the Participant screen:
+                                navController.navigate("participant_activity/$eventId/$reEncoded") {
+                                    // remove the "viewer_activity" from the back stack so
+                                    // back button doesn’t go back to “viewer” (optional):
+                                    popUpTo("viewer_activity/$eventId/$reEncoded") { inclusive = true }
+                                }
+                            } else {
+                                println("Join failed: ${resp.code()}")
+                            }
+                        }
+                              },
+                    onUserClick = { userId ->
+                        navController.navigate("public_profile/$userId/$reEncoded")
+                    }
+                )
+            }
+
             /* ─── Participant activity ─────────────────────────────── */
             composable(
                 "participant_activity/{eventId}/{token}",
@@ -310,15 +356,27 @@ fun RootScaffold(
                 )
             ) { back ->
                 val eventId = back.arguments!!.getInt("eventId")
-                val decoded = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+                val decodedToken = URLDecoder.decode(back.arguments!!.getString("token")!!, "UTF-8")
+                val reEncoded    = URLEncoder.encode(decodedToken, "UTF-8")
 
-                ParticipantActivityScreen(
+                ActivityScreen(
                     eventId = eventId,
-                    token   = decoded,
-                    onBack  = { navController.popBackStack() },
+                    token = decodedToken,
+                    role = ActivityRole.PARTICIPANT,
+                    onBack = { navController.popBackStack() },
+                    onLeave = {
+                        scope.launch {
+                            val resp = ActivityApi.create()
+                                .leaveEvent("Bearer $decodedToken", eventId)
+                            if (resp.isSuccessful) {
+                                navController.popBackStack()
+                            } else {
+                                println("Leave failed: ${resp.code()}")
+                            }
+                        }
+                    },
                     onUserClick = { userId ->
-                        val enc = URLEncoder.encode(decoded, StandardCharsets.UTF_8.toString())
-                        navController.navigate("public_profile/$userId/$enc")
+                        navController.navigate("public_profile/$userId/$reEncoded")
                     }
                 )
             }
