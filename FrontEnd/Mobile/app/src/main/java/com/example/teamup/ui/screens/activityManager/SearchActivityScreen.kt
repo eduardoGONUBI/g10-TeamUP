@@ -14,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,12 +31,6 @@ import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.model.SportDto
 import com.example.teamup.ui.components.ActivityCard
-import com.google.android.libraries.places.api.Places
-import com.google.android.libraries.places.api.model.AutocompletePrediction
-import com.google.android.libraries.places.api.model.TypeFilter
-import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
-import com.google.android.libraries.places.api.net.PlacesClient
-import com.google.android.libraries.places.api.model.AutocompleteSessionToken
 import java.time.LocalDate
 import java.util.*
 
@@ -50,19 +43,12 @@ fun SearchActivityScreen(
 ) {
     val context = LocalContext.current
 
-    // 1) Initialize Google Places (once)
-    LaunchedEffect(Unit) {
-        if (!Places.isInitialized()) {
-            Places.initialize(context, "YOUR_GOOGLE_MAPS_API_KEY")
-        }
-    }
-
-    // 2) Build repository
+    // 1) Build repository
     val repo: ActivityRepository = remember {
         ActivityRepositoryImpl(ActivityApi.create())
     }
 
-    // 3) Create ViewModel internally
+    // 2) Create ViewModel internally
     val vm: SearchActivityViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -72,73 +58,72 @@ fun SearchActivityScreen(
         }
     )
 
-    // 4) Observe state
-    val state by vm.state.collectAsState()
+    // 3) Kick off loading all events once
+    LaunchedEffect(token) {
+        vm.loadAllEvents(token)
+    }
 
-    // 5) Local UI state for sports dropdown
+    // 4) Collect each piece of state separately
+    val name by vm.name.collectAsState()
+    val sport by vm.sport.collectAsState()
+    val place by vm.place.collectAsState()
+    val date by vm.date.collectAsState()
+    val loading by vm.loading.collectAsState()
+    val error by vm.error.collectAsState()
+    val filtered by vm.filtered.collectAsState()
+    val visibleResults by vm.visibleResults.collectAsState()
+    val hasMore by vm.hasMore.collectAsState()
+
+    // 5) Local UI state for Sports dropdown
     var sportsList by remember { mutableStateOf<List<SportDto>>(emptyList()) }
     var sportExpanded by remember { mutableStateOf(false) }
 
-    // 6) Local UI state for Google Places autocomplete
-    val placesClient: PlacesClient = remember { Places.createClient(context) }
-    val sessionToken = remember { AutocompleteSessionToken.newInstance() }
-    var locationSuggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
-    var locationDropdownVisible by remember { mutableStateOf(false) }
-
-    // 7) Local UI state for showing Android DatePickerDialog
+    // 6) Local UI state for showing DatePickerDialog
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // 8) Whether the filter‐panel is expanded or collapsed
+    // 7) Collapsible Filters state
     var filtersExpanded by remember { mutableStateOf(true) }
 
-    // 9) Load sports from backend once
+    // 8) Load sports from backend once
     LaunchedEffect(Unit) {
         try {
             val fetched: List<SportDto> = repo.getSports(token)
             sportsList = fetched
         } catch (_: Exception) {
-            // ignore or handle error
+            // ignore or log
         }
     }
 
-    // 10) Build an instance of DatePickerDialog when needed
+    // 9) Show native DatePickerDialog if requested
     if (showDatePicker) {
-        val todayCalendar = Calendar.getInstance()
-        val year = todayCalendar.get(Calendar.YEAR)
-        val month = todayCalendar.get(Calendar.MONTH)
-        val day = todayCalendar.get(Calendar.DAY_OF_MONTH)
-
+        val today = Calendar.getInstance()
         DatePickerDialog(
             context,
-            { _: DatePicker, pickedYear: Int, pickedMonth: Int, pickedDay: Int ->
-                val pickedDate = LocalDate.of(pickedYear, pickedMonth + 1, pickedDay)
+            { _: DatePicker, year: Int, month: Int, dayOfMonth: Int ->
+                val pickedDate = LocalDate.of(year, month + 1, dayOfMonth)
                 vm.updateFilter("date", pickedDate.toString())
                 showDatePicker = false
             },
-            year, month, day
+            today.get(Calendar.YEAR),
+            today.get(Calendar.MONTH),
+            today.get(Calendar.DAY_OF_MONTH)
         ).apply {
             setOnCancelListener { showDatePicker = false }
         }.show()
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Main Column: collapse/expand filter‐panel at top, results fill the rest
-    // ─────────────────────────────────────────────────────────────────────────────
+    // 10) Main UI
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // ────────────────
+        // ─────────────────────────────────────────────────────────────────
         // Collapsible Filter Panel
-        // ────────────────
+        // ─────────────────────────────────────────────────────────────────
         Card(
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFE3F2FD) // very pale blue  // or use primaryContainer, etc.
-            ),
             modifier = Modifier
                 .fillMaxWidth()
-                // animate height changes when expanded/collapsed
                 .animateContentSize()
         ) {
             Column {
@@ -163,18 +148,15 @@ fun SearchActivityScreen(
                 }
 
                 if (filtersExpanded) {
-                    // Scrollable container for all filter fields:
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        // ————————————————————————————
-                        // 1) SEARCH BY NAME
-                        // ————————————————————————————
+                        // a) Search by Name
                         OutlinedTextField(
-                            value = state.name,
+                            value = name,
                             onValueChange = { vm.updateFilter("name", it) },
                             label = { Text("Search by Name") },
                             singleLine = true,
@@ -185,15 +167,13 @@ fun SearchActivityScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // ————————————————————————————
-                        // 2) SEARCH BY SPORT (dropdown)
-                        // ————————————————————————————
+                        // b) Search by Sport (dropdown)
                         ExposedDropdownMenuBox(
                             expanded = sportExpanded,
                             onExpandedChange = { sportExpanded = !sportExpanded }
                         ) {
                             OutlinedTextField(
-                                value = state.sport,
+                                value = sport,
                                 onValueChange = { /* read-only */ },
                                 label = { Text("Search by Sport") },
                                 readOnly = true,
@@ -222,97 +202,62 @@ fun SearchActivityScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // ——————————————————————————————
-                        // 3) SEARCH BY LOCATION (autocomplete)
-                        // ——————————————————————————————
-                        Column {
-                            OutlinedTextField(
-                                value = state.place,
-                                onValueChange = {
-                                    vm.updateFilter("place", it)
-                                    locationDropdownVisible = true
-                                },
-                                label = { Text("Search by Location") },
-                                singleLine = true,
-                                trailingIcon = {
-                                    Icon(Icons.Default.Place, contentDescription = null)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                            )
-
-                            if (locationDropdownVisible && locationSuggestions.isNotEmpty()) {
-                                Card(
-                                    elevation = CardDefaults.cardElevation(4.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .wrapContentHeight()
-                                ) {
-                                    LazyColumn {
-                                        items(locationSuggestions) { prediction ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text(prediction.getFullText(null).toString())
-                                                },
-                                                onClick = {
-                                                    val selected = prediction.getFullText(null).toString()
-                                                    vm.updateFilter("place", selected)
-                                                    locationDropdownVisible = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        // c) Search by Location (simple text field)
+                        OutlinedTextField(
+                            value = place,
+                            onValueChange = { vm.updateFilter("place", it) },
+                            label = { Text("Search by Location") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // ——————————————————————————————
-                        // 4) SEARCH BY DATE (native DatePickerDialog)
-                        // ——————————————————————————————
+                        // d) Search by Date (native DatePicker or type)
                         OutlinedTextField(
-                            value = state.date,
-                            onValueChange = { /* read-only */ },
+                            value = date,
+                            onValueChange = { vm.updateFilter("date", it) },
                             label = { Text("Search by Date (YYYY-MM-DD)") },
-                            readOnly = true,
+                            singleLine = true,
                             trailingIcon = {
-                                Icon(Icons.Default.DateRange, contentDescription = null)
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = "Pick date",
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clickable { showDatePicker = true }
+                                )
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
-                                .clickable { showDatePicker = true }
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // ——————————————————————————————
-                        // 5) SEARCH BUTTON
-                        // ——————————————————————————————
+                        // Optional: “Refresh Results” button
                         Button(
-                            onClick = { vm.search(token) },
+                            onClick = { vm.loadAllEvents(token) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 12.dp)
                         ) {
-                            Text("Search Activity")
+                            Text("Refresh Results")
                         }
                     }
                 }
             }
-        } // end of Card for filters
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // 6) RESULTS / LOADING / ERROR
-        // This LazyColumn now uses Modifier.weight(1f) so it fills whatever
-        // space is left after the (collapsible) filter panel.
-        // ─────────────────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────
+        // Results / Loading / Error (fill remaining space)
+        // ─────────────────────────────────────────────────────────────────
         when {
-            state.loading -> {
+            loading -> {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -323,7 +268,7 @@ fun SearchActivityScreen(
                     CircularProgressIndicator()
                 }
             }
-            state.error != null -> {
+            error != null -> {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -332,13 +277,12 @@ fun SearchActivityScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Error: ${state.error}",
+                        text = "Error: $error",
                         color = MaterialTheme.colorScheme.error
                     )
                 }
             }
-            state.fullResults.isEmpty() && !state.loading -> {
-                // No results at all (either never searched or nothing matched).
+            filtered.isEmpty() && !loading -> {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -355,20 +299,16 @@ fun SearchActivityScreen(
                         .fillMaxWidth()
                         .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 12.dp, horizontal = 0.dp)
+                    contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
-                    // Show only the current "page" of results:
-                    items(state.visibleResults, key = { it.id }) { activity ->
+                    items(visibleResults, key = { it.id }) { activity ->
                         ActivityCard(
                             activity = activity,
-                            bgColor = Color(0xFFF5F5F5),
                             onClick = { onActivityClick(activity) }
-                            // The defaults for bgColor, bgBrush, etc. are used.
                         )
                     }
 
-                    // "Load more" button if there's another page
-                    if (state.hasMore) {
+                    if (hasMore) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -389,29 +329,6 @@ fun SearchActivityScreen(
                     }
                 }
             }
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // 7) QUERY GOOGLE PLACES FOR LOCATION SUGGESTIONS
-    // ─────────────────────────────────────────────────────────────────────────────
-    LaunchedEffect(state.place) {
-        val queryText = state.place
-        if (queryText.isNotBlank()) {
-            val request = FindAutocompletePredictionsRequest.builder()
-                .setSessionToken(sessionToken)
-                .setTypeFilter(TypeFilter.CITIES)
-                .setQuery(queryText)
-                .build()
-            placesClient.findAutocompletePredictions(request)
-                .addOnSuccessListener { response ->
-                    locationSuggestions = response.autocompletePredictions
-                }
-                .addOnFailureListener {
-                    locationSuggestions = emptyList()
-                }
-        } else {
-            locationSuggestions = emptyList()
         }
     }
 }
