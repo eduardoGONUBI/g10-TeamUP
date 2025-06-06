@@ -12,5 +12,11 @@ interface AuthRepository {
         newPassword: String,
         newPasswordConfirmation: String
     ): Result<String>
+
+    suspend fun changeEmail(
+        token: String,
+        newEmail: String,
+        password: String
+    ): Result<String>
 }
 

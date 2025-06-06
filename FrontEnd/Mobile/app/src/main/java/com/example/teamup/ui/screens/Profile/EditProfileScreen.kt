@@ -45,7 +45,8 @@ fun EditProfileScreen(
     sportsInitial: List<Int>,
     onFinished: (deleted: Boolean) -> Unit,
     onBack: () -> Unit,
-    onChangePassword: () -> Unit
+    onChangePassword: () -> Unit,
+    onChangeEmail: () -> Unit
 ) {
     /* ──────── View-model ──────── */
     val vm: EditProfileViewModel = viewModel(
@@ -321,11 +322,14 @@ fun EditProfileScreen(
                 Spacer(Modifier.height(12.dp))
 
                 OutlinedButton(
-                    onClick = { /* change-email screen */ },
+                    onClick = { onChangeEmail() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.MailOutline, null); Spacer(Modifier.width(8.dp)); Text("Change Email")
+                    Icon(Icons.Default.MailOutline, contentDescription = "Change Email")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Change Email")
                 }
+
 
                 Spacer(Modifier.height(32.dp))
 

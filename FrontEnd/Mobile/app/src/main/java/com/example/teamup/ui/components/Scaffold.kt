@@ -37,6 +37,8 @@ import com.example.teamup.ui.screens.Activity.ViewerActivityScreen
 import com.example.teamup.ui.screens.Chat.ChatListScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.activityManager.ActivityTabsScreen
+import com.example.teamup.ui.screens.main.UserManager.ChangeEmailScreen
+import com.example.teamup.ui.screens.main.UserManager.ChangeEmailViewModel
 import com.example.teamup.ui.screens.main.UserManager.ChangePasswordScreen
 import com.example.teamup.ui.screens.main.UserManager.ChangePasswordViewModel
 import java.net.URLDecoder
@@ -187,6 +189,10 @@ fun RootScaffold(
                     onChangePassword = {
                         val e = java.net.URLEncoder.encode(decoded, "UTF-8")
                         navController.navigate("change_password/$e")
+                    },
+                    onChangeEmail = {
+                        val e = java.net.URLEncoder.encode(decoded, "UTF-8")
+                        navController.navigate("change_email/$e")
                     }
 
                 )
@@ -204,11 +210,24 @@ fun RootScaffold(
                 ChangePasswordScreen(
                     changePasswordViewModel = changeVm,
                     token                   = token,
-                    onBack                  = { appNav.popBackStack() },
-                    onPasswordChanged       = {
-                        // After successful password change, pop back to EditProfileScreen
-                        appNav.popBackStack()
-                    }
+                    onBack                  = { navController.popBackStack() },
+                    onPasswordChanged       = { navController.popBackStack() }
+                )
+            }
+            /* ─── CHANGE EMAIL ──────────────────────────────────────────────── */
+            composable(
+                route = "change_email/{token}",
+                arguments = listOf(navArgument("token") { type = NavType.StringType })
+            ) { back ->
+                val rawToken = back.arguments!!.getString("token")!!
+                val decoded = java.net.URLDecoder.decode(rawToken, "UTF-8")
+
+                val changeEmailVm: ChangeEmailViewModel = viewModel()
+                ChangeEmailScreen(
+                    changeEmailViewModel = changeEmailVm,
+                    token                 = decoded,
+                    onBack                = { navController.popBackStack() },
+                    onEmailChanged        = { navController.popBackStack() }
                 )
             }
 

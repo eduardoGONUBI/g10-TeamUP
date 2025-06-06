@@ -1,6 +1,7 @@
 package com.example.teamup.data.remote.api
 
 import com.example.teamup.data.remote.BaseUrlProvider
+import com.example.teamup.data.remote.model.ChangeEmailRequestDto
 import com.example.teamup.data.remote.model.ChangePasswordRequestDto
 import com.example.teamup.data.remote.model.ForgotPasswordRequestDto
 import com.example.teamup.data.remote.model.GenericMessageResponseDto
@@ -59,6 +60,12 @@ interface AuthApi {
     suspend fun changePassword(
         @Header("Authorization") auth: String,
         @Body body: ChangePasswordRequestDto
+    ): Response<GenericMessageResponseDto>
+
+    @POST("/api/auth/change-email")
+    suspend fun changeEmail(
+        @Header("Authorization") auth: String,
+        @Body body: ChangeEmailRequestDto
     ): Response<GenericMessageResponseDto>
 
 

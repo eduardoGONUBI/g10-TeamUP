@@ -68,3 +68,9 @@ data class ChangePasswordRequestDto(
     @SerializedName("new_password_confirmation")
     val newPasswordConfirmation: String
 )
+data class ChangeEmailRequestDto(
+    @SerializedName("new_email")
+    val newEmail: String,
+
+    val password: String
+)

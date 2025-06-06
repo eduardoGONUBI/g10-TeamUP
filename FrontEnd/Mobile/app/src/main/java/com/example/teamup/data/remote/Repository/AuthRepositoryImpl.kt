@@ -3,6 +3,7 @@ package com.example.teamup.data.remote.Repository
 
 import com.example.teamup.data.domain.repository.AuthRepository
 import com.example.teamup.data.remote.api.AuthApi
+import com.example.teamup.data.remote.model.ChangeEmailRequestDto
 import com.example.teamup.data.remote.model.ChangePasswordRequestDto
 import com.example.teamup.data.remote.model.ForgotPasswordRequestDto
 import com.example.teamup.data.remote.model.LoginRequestDto
@@ -130,6 +131,48 @@ class AuthRepositoryImpl(private val api: AuthApi) : AuthRepository {
                         "Failed to change password"
                     }
                     Result.failure(Exception(msg))
+                }
+            } catch (e: HttpException) {
+                Result.failure(Exception("Server error: ${e.message}"))
+            } catch (e: Exception) {
+                Result.failure(Exception("Network error: ${e.localizedMessage}"))
+            }
+        }
+    }
+
+    override suspend fun changeEmail(
+        token: String,
+        newEmail: String,
+        password: String
+    ): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val dto = ChangeEmailRequestDto(
+                    newEmail = newEmail,
+                    password = password
+                )
+                val bearer = if (token.startsWith("Bearer ")) token else "Bearer $token"
+                val response = api.changeEmail(bearer, dto)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    Result.success(body?.message ?: "Email changed successfully")
+                } else {
+                    val errorJson = response.errorBody()?.string() ?: ""
+                    val errorMsg = try {
+                        val obj = JSONObject(errorJson)
+                        when {
+                            obj.has("errors") -> {
+                                val errs = obj.getJSONObject("errors")
+                                val firstKey = errs.keys().next()
+                                errs.getJSONArray(firstKey).getString(0)
+                            }
+                            obj.has("message") -> obj.getString("message")
+                            else -> "Failed to change email"
+                        }
+                    } catch (_: Exception) {
+                        "Failed to change email"
+                    }
+                    Result.failure(Exception(errorMsg))
                 }
             } catch (e: HttpException) {
                 Result.failure(Exception("Server error: ${e.message}"))
