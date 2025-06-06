@@ -53,4 +53,9 @@ data class RegisterRequestDto(
 data class RegisterResponseDto(
     val message: String
 )
-
+data class ForgotPasswordRequestDto(
+    val email: String
+)
+data class ForgotPasswordResponseDto(
+    val message: String
+)

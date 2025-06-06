@@ -1,4 +1,5 @@
-package com.example.teamup.ui
+// src/main/java/com/example/teamup/ui/screens/main/UserManager/LoginScreen.kt
+package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -27,12 +28,18 @@ import com.example.teamup.R
 import com.example.teamup.ui.screens.main.UserManager.LoginState
 import com.example.teamup.ui.screens.main.UserManager.LoginViewModel
 
+/**
+ * @param loginViewModel       The ViewModel that drives the login logic
+ * @param onForgotPasswordClick Called when the user taps “Forgot Password?”
+ * @param onRegisterClick      Called when the user taps “Register now!”
+ * @param onLoginSuccess       Called when login succeeds (returning a token)
+ */
 @Composable
 fun LoginScreen(
     loginViewModel: LoginViewModel,
     onForgotPasswordClick: () -> Unit = {},
     onRegisterClick: () -> Unit = {},
-    onLoginSuccess: (String) -> Unit = {} // Pass token or navigate
+    onLoginSuccess: (String) -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -199,5 +206,3 @@ fun LoginScreen(
         }
     }
 }
-
-// No preview possible without a fake LoginViewModel

@@ -1,12 +1,13 @@
+// src/main/java/com/example/teamup/data/remote/Repository/AuthRepositoryImpl.kt
 package com.example.teamup.data.remote.Repository
 
-import android.net.http.HttpException
-import android.os.Build
-import androidx.annotation.RequiresExtension
 import com.example.teamup.data.domain.repository.AuthRepository
 import com.example.teamup.data.remote.api.AuthApi
+import com.example.teamup.data.remote.model.ForgotPasswordRequestDto
 import com.example.teamup.data.remote.model.LoginRequestDto
 import com.example.teamup.data.remote.model.RegisterRequestDto
+import org.json.JSONObject
+import retrofit2.HttpException
 
 class AuthRepositoryImpl(private val api: AuthApi) : AuthRepository {
     override suspend fun login(email: String, password: String): Result<String> {
@@ -18,20 +19,17 @@ class AuthRepositoryImpl(private val api: AuthApi) : AuthRepository {
         }
     }
 
-
-    @RequiresExtension(extension = Build.VERSION_CODES.S, version = 7)
     override suspend fun register(request: RegisterRequestDto): Result<String> {
         return try {
             val response = api.register(request)
             if (response.isSuccessful) {
-                // We only need the “message” or just a success indicator
                 val body = response.body()
                 Result.success(body?.message ?: "Registered successfully")
             } else {
                 // Try to extract Laravel’s validation error (first message)
                 val errorMsg = try {
                     val errorJson = response.errorBody()?.string() ?: ""
-                    val jsonObj = org.json.JSONObject(errorJson)
+                    val jsonObj = JSONObject(errorJson)
                     when {
                         jsonObj.has("errors") -> {
                             val errors = jsonObj.getJSONObject("errors")
@@ -48,13 +46,46 @@ class AuthRepositoryImpl(private val api: AuthApi) : AuthRepository {
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: HttpException) {
+            // Use e.message (property), not e.message()
             Result.failure(Exception("Server error: ${e.message}"))
         } catch (e: Exception) {
-            Result.failure(Exception("Network error: ${e.localizedMessage}"))
+            Result.failure(Exception("Network error: ${e.localizedMessage ?: "Unknown"}"))
         }
     }
 
+    override suspend fun forgotPassword(email: String): Result<String> {
+        return try {
+            val dto = ForgotPasswordRequestDto(email = email)
+            val response = api.sendResetLink(dto)
 
-
+            if (response.isSuccessful) {
+                val body = response.body()
+                Result.success(body?.message ?: "Reset link sent")
+            } else {
+                // Extract Laravel validation errors or fallback
+                val errorJson = response.errorBody()?.string() ?: ""
+                val parsed = try {
+                    val obj = JSONObject(errorJson)
+                    when {
+                        obj.has("errors") -> {
+                            val errs = obj.getJSONObject("errors")
+                            val firstKey = errs.keys().next()
+                            val arr = errs.getJSONArray(firstKey)
+                            arr.getString(0)
+                        }
+                        obj.has("message") -> obj.getString("message")
+                        else -> "Failed to send reset link"
+                    }
+                } catch (_: Exception) {
+                    "Failed to send reset link"
+                }
+                Result.failure(Exception(parsed))
+            }
+        } catch (e: HttpException) {
+            // Use e.message (property), not e.message()
+            Result.failure(Exception("Server error: ${e.message}"))
+        } catch (e: Exception) {
+            Result.failure(Exception("Network error: ${e.localizedMessage ?: "Unknown"}"))
+        }
+    }
 }
-

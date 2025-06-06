@@ -17,6 +17,9 @@ import com.example.teamup.ui.screens.main.UserManager.LoginViewModelFactory
 import com.example.teamup.ui.components.RootScaffold
 import com.example.teamup.ui.screens.Activity.CreatorActivityScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
+import com.example.teamup.ui.screens.main.UserManager.ForgotPasswordScreen
+import com.example.teamup.ui.screens.main.UserManager.ForgotPasswordViewModel
+import com.example.teamup.ui.screens.main.UserManager.LoginScreen
 import com.example.teamup.ui.screens.main.UserManager.RegisterScreen
 import com.example.teamup.ui.screens.main.UserManager.RegisterViewModel
 import com.example.teamup.ui.screens.main.UserManager.RegisterViewModelFactory
@@ -30,11 +33,12 @@ fun AppNavGraph() {
 
     NavHost(navController = nav, startDestination = "login") {
 
-        /* ─── Login ───────────────────────────────────────────── */
+        /* ─── 1) LOGIN ─────────────────────────────────────────── */
         composable("login") {
+            // Create / remember a LoginViewModel via factory
             val loginVM: LoginViewModel = viewModel(
                 factory = remember {
-                    val repo   = AuthRepositoryImpl(AuthApi.create())
+                    val repo = AuthRepositoryImpl(AuthApi.create())
                     val useCase = LoginUseCase(repo)
                     LoginViewModelFactory(useCase)
                 }
@@ -42,17 +46,39 @@ fun AppNavGraph() {
 
             LoginScreen(
                 loginViewModel = loginVM,
+                onForgotPasswordClick = {
+                    // Navigate to the “forgot password” screen
+                    nav.navigate("forgot_password")
+                },
+                onRegisterClick = {
+                    // Navigate to the “register” screen
+                    nav.navigate("register")
+                },
                 onLoginSuccess = { token ->
-                    val enc = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
-                    nav.navigate("splash/$enc") {
+                    // After login success, go to Splash (or main) – encode token in route
+                    val encoded = java.net.URLEncoder.encode(token, "UTF-8")
+                    nav.navigate("splash/$encoded") {
                         popUpTo("login") { inclusive = true }
                     }
-                },
-                onForgotPasswordClick = {},
-                onRegisterClick      = { nav.navigate("register")}
+                }
             )
         }
 
+        /* ─── 2) FORGOT PASSWORD ───────────────────────────────── */
+        composable("forgot_password") {
+            val forgotVM: ForgotPasswordViewModel = viewModel()
+            ForgotPasswordScreen(
+                forgotPasswordViewModel = forgotVM,
+                onBack = {
+                    // Go back to the login screen
+                    nav.popBackStack("login", inclusive = false)
+                },
+                onResetLinkSent = {
+                    // After success, pop back to login
+                    nav.popBackStack("login", inclusive = false)
+                }
+            )
+        }
         /* ─── Register ─────────────────────────────────────────────────────── */
         composable("register") {
             val registerVM: RegisterViewModel = viewModel(

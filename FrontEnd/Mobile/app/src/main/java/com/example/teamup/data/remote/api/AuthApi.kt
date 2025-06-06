@@ -1,6 +1,8 @@
 package com.example.teamup.data.remote.api
 
 import com.example.teamup.data.remote.BaseUrlProvider
+import com.example.teamup.data.remote.model.ForgotPasswordRequestDto
+import com.example.teamup.data.remote.model.ForgotPasswordResponseDto
 import com.example.teamup.data.remote.model.LoginRequestDto
 import com.example.teamup.data.remote.model.LoginResponseDto
 import com.example.teamup.data.remote.model.PublicUserDto
@@ -49,6 +51,9 @@ interface AuthApi {
     suspend fun deleteMe(
         @Header("Authorization") auth: String
     )
+    // ─── NEW “send reset link” endpoint ─────────────────────────────────
+    @POST("/api/password/email")
+    suspend fun sendResetLink(@Body body: ForgotPasswordRequestDto): Response<ForgotPasswordResponseDto>
 
 
     // ------------------------------------------------------------------
