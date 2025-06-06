@@ -326,17 +326,21 @@ fun RootScaffold(
                     token = decodedToken,
                     role = ActivityRole.VIEWER,
                     onBack = { navController.popBackStack() },
-                    onJoin = {
+                    onJoin  = {
                         scope.launch {
-                            val resp = ActivityApi.create()
-                                .joinEvent("Bearer $decodedToken", eventId)
+                            val resp = ActivityApi.create().joinEvent("Bearer $decodedToken", eventId)
                             if (resp.isSuccessful) {
-                                navController.popBackStack()
+                                // Instead of popping back, open the Participant screen:
+                                navController.navigate("participant_activity/$eventId/$reEncoded") {
+                                    // remove the "viewer_activity" from the back stack so
+                                    // back button doesn’t go back to “viewer” (optional):
+                                    popUpTo("viewer_activity/$eventId/$reEncoded") { inclusive = true }
+                                }
                             } else {
                                 println("Join failed: ${resp.code()}")
                             }
                         }
-                    },
+                              },
                     onUserClick = { userId ->
                         navController.navigate("public_profile/$userId/$reEncoded")
                     }

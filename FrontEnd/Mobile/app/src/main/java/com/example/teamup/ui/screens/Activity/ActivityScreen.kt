@@ -1,6 +1,7 @@
 // File: app/src/main/java/com/example/teamup/ui/screens/Activity/ActivityScreen.kt
 package com.example.teamup.ui.screens.Activity
 
+import android.util.Base64
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -36,13 +37,14 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import retrofit2.Response
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActivityScreen(
     eventId: Int,
-    token: String,
+    token: String,                    // raw JWT (no “Bearer ” prefix)
     role: ActivityRole,
     onBack: () -> Unit,
     onEdit: (() -> Unit)? = null,
@@ -53,7 +55,7 @@ fun ActivityScreen(
     onReopen: (() -> Unit)? = null,
     onUserClick: ((Int) -> Unit)? = null
 ) {
-    // ─── 1) Use the shared ViewModel to load “ActivityDto + enriched participants” ─────────
+    // ─── 1) Shared ViewModel to load “ActivityDto + enriched participants” ─
     val viewModel: ActivityDetailViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -62,38 +64,57 @@ fun ActivityScreen(
             }
         }
     )
-    val eventState by viewModel.event.collectAsState()
-    val api = remember { ActivityApi.create() }
-    val scope = rememberCoroutineScope()
 
-    // ─── 2) Show spinner until event is non‐null ─────────────────────────────────────────────
+    val eventState by viewModel.event.collectAsState()
+    val api        = remember { ActivityApi.create() }
+    val scope      = rememberCoroutineScope()
+
+    // ─── 2) Show spinner until eventState != null ──────────────────────────
     if (eventState == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
     }
-    val e: ActivityDto = eventState!!
-    val isConcluded = (e.status != "in progress")
 
-    // ─── 3) Build a list of ParticipantUi for display (with enriched levels) ───────────────
+    // ─── 3) Once loaded: extract ActivityDto ──────────────────────────────
+    val e: ActivityDto = eventState!!
+
+    // ─── 4) Compute “isConcluded” only if status == "concluded" ───────────
+    val isConcluded = e.status.trim().equals("concluded", ignoreCase = true)
+
+    // ─── 5) Parse currentUserId from JWT (same logic as ViewModel) ────────
+    val currentUserId: Int? = remember(token) {
+        try {
+            val rawJwt = token.removePrefix("Bearer ").trim()
+            val parts  = rawJwt.split(".")
+            if (parts.size < 2) return@remember null
+            val payloadBytes = Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP)
+            val payloadJson  = JSONObject(String(payloadBytes, Charsets.UTF_8))
+            payloadJson.getInt("sub")
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    // ─── 6) Build ParticipantUi list with enriched levels ─────────────────
     val uiParticipants: List<ParticipantUi> = e.participants.orEmpty()
         .distinctBy { it.id }
         .map { dto ->
             ParticipantUi(
-                id = dto.id,
-                name = dto.name,
+                id        = dto.id,
+                name      = dto.name,
                 isCreator = (dto.id == e.creator.id),
-                level = dto.level ?: 0
+                level     = dto.level ?: 0
             )
         }
 
-    // ─── 4) Keep track of which participants have already been given feedback ───────────────
+    // ─── 7) Track which participants already received feedback ─────────────
     val sentFeedbackIds = remember { mutableStateListOf<Int>() }
-    var feedbackTarget by remember { mutableStateOf<ParticipantUi?>(null) }
-    var confirmedName by remember { mutableStateOf<String?>(null) }
+    var feedbackTarget   by remember { mutableStateOf<ParticipantUi?>(null) }
+    var confirmedName    by remember { mutableStateOf<String?>(null) }
     var showCancelDialog by remember { mutableStateOf(false) }
-    var kickTarget by remember { mutableStateOf<ParticipantUi?>(null) }
+    var kickTarget       by remember { mutableStateOf<ParticipantUi?>(null) }
 
     Scaffold(
         topBar = {
@@ -114,14 +135,12 @@ fun ActivityScreen(
                 actions = {
                     when (role) {
                         ActivityRole.CREATOR -> {
-                            // ─── C R E A T O R : Edit / Cancel / Conclude / Reopen ───
-                            // Edit button (if provided)
+                            // ─── CREATOR: Edit / Cancel / Conclude / Reopen ───
                             onEdit?.let {
                                 IconButton(onClick = it) {
                                     Icon(Icons.Default.Edit, contentDescription = "Edit")
                                 }
                             }
-                            // Cancel (delete) button
                             IconButton(onClick = { showCancelDialog = true }) {
                                 Icon(
                                     Icons.Default.Close,
@@ -129,8 +148,7 @@ fun ActivityScreen(
                                     tint = Color.Red
                                 )
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            // Conclude or Reopen
+                            Spacer(Modifier.width(8.dp))
                             if (!isConcluded) {
                                 onConclude?.let { concludeLambda ->
                                     IconButton(onClick = concludeLambda) {
@@ -155,7 +173,7 @@ fun ActivityScreen(
                         }
 
                         ActivityRole.PARTICIPANT -> {
-                            // ─── P A R T I C I P A N T : Only “Leave” ─────────────────
+                            // ─── PARTICIPANT: Only “Leave” ────────────────
                             onLeave?.let { leaveLambda ->
                                 IconButton(onClick = leaveLambda) {
                                     Icon(
@@ -169,7 +187,7 @@ fun ActivityScreen(
                         }
 
                         ActivityRole.VIEWER -> {
-                            // ─── V I E W E R : Only “Join” ────────────────────────────
+                            // ─── VIEWER: Only “Join” ───────────────────
                             onJoin?.let { joinLambda ->
                                 IconButton(onClick = joinLambda) {
                                     Icon(
@@ -186,7 +204,7 @@ fun ActivityScreen(
             )
         }
     ) { paddingValues ->
-        // ─── 5) Shared body: Info card, Map, Weather, Participant list + Feedback ─────────
+        // ─── 8) Shared body: Info card, Map, Weather, Participant list + Feedback ─────────
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -194,7 +212,7 @@ fun ActivityScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // 5a) Activity info
+            // 8a) Activity info
             item {
                 ActivityInfoCard(
                     activity = e,
@@ -202,9 +220,9 @@ fun ActivityScreen(
                 )
             }
 
-            // 5b) Map
+            // 8b) Map
             item {
-                val coords = LatLng(e.latitude, e.longitude)
+                val coords      = LatLng(e.latitude, e.longitude)
                 val cameraState = rememberCameraPositionState {
                     position = CameraPosition.fromLatLngZoom(coords, 15f)
                 }
@@ -227,12 +245,12 @@ fun ActivityScreen(
                 }
             }
 
-            // 5c) Weather
+            // 8c) Weather
             item {
                 WeatherCard(weather = e.weather, modifier = Modifier.padding(horizontal = 24.dp))
             }
 
-            // 5d) Participant header
+            // 8d) Participant header
             item {
                 Text(
                     text = "Participants (${uiParticipants.size})",
@@ -241,21 +259,29 @@ fun ActivityScreen(
                 )
             }
 
-            // 5e) Participant rows
+            // 8e) Participant rows
             items(uiParticipants, key = { it.id }) { p ->
+                val thisIsKickable   = (role == ActivityRole.CREATOR && !isConcluded && !p.isCreator)
+                val thisShowFeedback = (
+                        isConcluded &&
+                                (p.id !in sentFeedbackIds) &&
+                                (p.id != currentUserId)
+                        )
+
                 ParticipantRow(
-                    p = p,
-                    isKickable = (role == ActivityRole.CREATOR && !isConcluded && !p.isCreator),
-                    onKickClick = { kickTarget = p },
-                    onClick = { onUserClick?.invoke(p.id) },
-                    showFeedback = isConcluded && (p.id !in sentFeedbackIds),
-                    onFeedback = { feedbackTarget = p }
+                    p            = p,
+                    isConcluded  = isConcluded,
+                    isKickable   = thisIsKickable,
+                    onKickClick  = { kickTarget = p },
+                    onClick      = { onUserClick?.invoke(p.id) },
+                    showFeedback = thisShowFeedback,
+                    onFeedback   = { feedbackTarget = p }
                 )
             }
         }
     }
 
-    // ─── 6) “Cancel” dialog (only if CREATOR pressed “Cancel”) ────────────────────────────
+    // ─── 9) “Cancel” dialog (only for CREATOR) ─────────────────────────────────────
     if (showCancelDialog && role == ActivityRole.CREATOR) {
         Dialog(onDismissRequest = { showCancelDialog = false }) {
             DeleteActivityDialog(
@@ -275,7 +301,7 @@ fun ActivityScreen(
         }
     }
 
-    // ─── 7) “Kick” dialog (only CREATOR) ────────────────────────────────────────────────
+    // ─── 10) “Kick” dialog (only CREATOR) ─────────────────────────────────────────
     if (kickTarget != null && role == ActivityRole.CREATOR) {
         val target = kickTarget!!
         Dialog(onDismissRequest = { kickTarget = null }) {
@@ -301,32 +327,23 @@ fun ActivityScreen(
         }
     }
 
-    // ─── 8) “Feedback” dialog (all roles, but only after concluded) ─────────────────────
+    // ─── 11) “Feedback” dialog (only after isConcluded == true) ────────────────
     if (feedbackTarget != null && isConcluded) {
         val target = feedbackTarget!!
         FeedbackDialog(
-            target = target,
+            target    = target,
+            eventId   = e.id,
+            token     = token,
             onDismiss = { feedbackTarget = null },
-            onSubmitAttr = { attr ->
-                feedbackTarget = null
-                scope.launch {
-                    val resp: Response<Void> = AchievementsApi.create().giveFeedback(
-                        "Bearer $token",
-                        e.id,
-                        FeedbackRequestDto(user_id = target.id, attribute = attr)
-                    )
-                    if (resp.isSuccessful) {
-                        sentFeedbackIds.add(target.id)
-                        confirmedName = target.name
-                    } else {
-                        println("Feedback failed: ${resp.code()}")
-                    }
-                }
+            onSuccess = {
+                // Only called when /feedback returned 2xx
+                sentFeedbackIds.add(target.id)
+                confirmedName = target.name
             }
         )
     }
 
-    // ─── 9) Confirmation pop‐up (feedback sent) ──────────────────────────────────────────
+    // ─── 12) Confirmation pop‐up (“Feedback sent”) ────────────────────────────
     if (confirmedName != null) {
         AlertDialog(
             onDismissRequest = { confirmedName = null },
@@ -336,70 +353,7 @@ fun ActivityScreen(
                 }
             },
             title = { Text("Feedback sent") },
-            text = { Text("Your feedback for “${confirmedName}” has been submitted.") }
+            text  = { Text("Your feedback for “${confirmedName}” has been submitted.") }
         )
     }
-}
-
-
-// ─────────────────────────────────────────────────────────────
-//  FeedbackDialog is the same as before
-// ─────────────────────────────────────────────────────────────
-
-@Composable
-private fun FeedbackDialog(
-    target: ParticipantUi,
-    onDismiss: () -> Unit,
-    onSubmitAttr: (String) -> Unit
-) {
-    var selected by remember { mutableStateOf<String?>(null) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                enabled = (selected != null),
-                onClick = { selected?.let(onSubmitAttr) }
-            ) {
-                Text("Submit")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        },
-        title = { Text("Give feedback") },
-        text = {
-            Column {
-                Text("Choose a badge for ${target.name}:")
-                Spacer(Modifier.height(8.dp))
-
-                val options = listOf(
-                    "good_teammate" to "✅ Good teammate",
-                    "friendly" to "😊 Friendly",
-                    "team_player" to "🤝 Team player",
-                    "toxic" to "⚠️ Toxic",
-                    "bad_sport" to "👎 Bad sport",
-                    "afk" to "🚶 No show"
-                )
-
-                options.forEach { (value, label) ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { selected = value }
-                            .padding(vertical = 6.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = (selected == value),
-                            onClick = { selected = value }
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(label)
-                    }
-                }
-            }
-        }
-    )
 }
