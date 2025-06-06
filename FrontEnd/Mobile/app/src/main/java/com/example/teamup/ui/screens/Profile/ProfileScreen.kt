@@ -46,7 +46,8 @@ fun ProfileScreen(
     val behaviour       by viewModel.behaviour.collectAsState()
     val reputationLabel by viewModel.reputationLabel.collectAsState()
     val achievements    by viewModel.achievements.collectAsState()
-    val activities      by viewModel.createdActivities.collectAsState()
+    val activities      by viewModel.visibleCreatedActivities.collectAsState()
+    val hasMore         by viewModel.hasMoreCreated.collectAsState()
     val error           by viewModel.error.collectAsState()
     val activitiesError by viewModel.activitiesError.collectAsState()
 
@@ -130,12 +131,13 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Stats Card ──────────────────────────────────────────────
+            // ── Stats Card (pale blue background) ──────────────────────
             item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Row(
@@ -195,7 +197,7 @@ fun ProfileScreen(
                 )
             }
 
-            // ── Recent Activities List / Error ────────────────────────
+            // ── Recent Activities List / Error / Load More ────────────
             when {
                 activitiesError != null -> item {
                     Text(
@@ -211,11 +213,33 @@ fun ProfileScreen(
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                 }
-                else -> items(activities, key = { it.id }) { act ->
-                    ActivityCard(
-                        activity = act,
-                        onClick = { onActivityClick(act) }
-                    )
+                else -> {
+                    items(activities, key = { it.id }) { act ->
+                        ActivityCard(
+                            activity = act,
+                            bgColor = Color(0xFFF5F5F5),
+                            onClick = { onActivityClick(act) }
+                        )
+                    }
+                    if (hasMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Button(
+                                    onClick = { viewModel.loadMoreCreated() },
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.5f)
+                                        .padding(8.dp)
+                                ) {
+                                    Text("Load more")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -234,17 +258,15 @@ fun ProfileScreen(
         }
 
         // ────────────────────────────
-        // 3) Logout confirmation dialog (centered with scrim)
+        // 3) Logout confirmation dialog
         // ────────────────────────────
         if (showLogoutDialog) {
             Dialog(onDismissRequest = { showLogoutDialog = false }) {
-                // This inner LogoutDialog is the same styling you saw in the DeleteActivityDialog,
-                // except it says “Log Out” and “Cancel / Log Out” buttons.
                 LogoutDialog(
                     onCancel = { showLogoutDialog = false },
                     onLogout = {
                         showLogoutDialog = false
-                        onLogout()    // this lambda should clear token & navigate to login
+                        onLogout()
                     }
                 )
             }

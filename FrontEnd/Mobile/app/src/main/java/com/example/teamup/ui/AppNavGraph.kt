@@ -191,23 +191,5 @@ fun AppNavGraph() {
         }
 
 
-
-        composable(
-            route = "public_profile/{uid}/{token}",
-            arguments = listOf(
-                navArgument("uid")   { type = NavType.IntType },
-                navArgument("token") { type = NavType.StringType }
-            )
-        ) { back ->
-            val uid = back.arguments!!.getInt("uid")
-            val raw = back.arguments!!.getString("token")!!
-            val token = URLDecoder.decode(raw, StandardCharsets.UTF_8.toString())
-
-            PublicProfileScreen(
-                token  = token,
-                userId = uid,
-                onBack = { nav.popBackStack() }
-            )
-        }
     }
 }

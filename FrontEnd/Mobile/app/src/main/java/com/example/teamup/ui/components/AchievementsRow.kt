@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.teamup.data.remote.model.AchievementDto
@@ -102,23 +103,13 @@ private fun AchievementIcon(
     val base    = BaseUrlProvider.getBaseUrl().trimEnd('/')
     val iconUrl = "$base$path"
 
-    // Now render a smaller card:
-    Card(
+    // Render the icon without any Card or background:
+    AsyncImage(
+        model = iconUrl,
+        contentDescription = null,
         modifier = Modifier
-            .size(48.dp)               // ↓ smaller than 64dp
-            .clickable { onClick(achievement) },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant // ↓ a subtler background
-        )
-    ) {
-        // We shave off a little padding so the icon occupies more of the 48dp:
-        AsyncImage(
-            model = iconUrl,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(4.dp)         // ↓ less padding (was 8dp)
-        )
-    }
+            .size(48.dp)
+            .clickable { onClick(achievement) }
+            .padding(4.dp)
+    )
 }

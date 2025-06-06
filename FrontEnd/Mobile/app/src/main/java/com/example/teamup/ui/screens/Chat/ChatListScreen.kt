@@ -1,7 +1,9 @@
+// File: app/src/main/java/com/example/teamup/ui/screens/Chat/ChatListScreen.kt
 package com.example.teamup.ui.screens.Chat
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,13 +16,13 @@ import androidx.navigation.NavController
 import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.ui.components.ChatCard
-import androidx.compose.foundation.lazy.items
+
 @Composable
 fun ChatListScreen(
     navController: NavController,
     token: String
 ) {
-    /* 1) VM with existing ActivityRepositoryImpl */
+    // 1) VM with ActivityRepositoryImpl
     val vm: ChatListScreenViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -31,13 +33,13 @@ fun ChatListScreen(
         }
     )
 
-    /* 2) Load once */
+    // 2) Load once
     LaunchedEffect(token) { vm.load(token) }
 
-    /* 3) Observe */
+    // 3) Observe
     val ui by vm.state.collectAsState()
 
-    /* 4) Tabs */
+    // 4) Tabs
     var tab by remember { mutableStateOf(0) }
     val titles = listOf("Chats", "Archive")
 
@@ -53,18 +55,27 @@ fun ChatListScreen(
         }
 
         when {
-            ui.loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
-            ui.error != null -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Error: ${ui.error}") }
+            ui.loading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            ui.error != null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Text("Error: ${ui.error}")
+            }
             else -> {
-                val list = if (tab == 0) ui.active else ui.archive
-                if (list.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No chats.") }
+                // Pick the right “visible” slice and “hasMore” flag
+                val visibleList = if (tab == 0) ui.visibleActive else ui.visibleArchive
+                val hasMore     = if (tab == 0) ui.hasMoreActive else ui.hasMoreArchive
+
+                if (visibleList.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                        Text("No chats.")
+                    }
                 } else {
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(list, key = { it.id }) { chat ->
+                        items(visibleList, key = { it.id }) { chat ->
                             ChatCard(
                                 chat = chat,
                                 onClick = {
@@ -72,6 +83,30 @@ fun ChatListScreen(
                                     navController.navigate("chatDetail/$safe")
                                 }
                             )
+                        }
+
+                        // 5) “Load more” button at the bottom
+                        if (hasMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            if (tab == 0) vm.loadMoreActive()
+                                            else           vm.loadMoreArchive()
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.5f)
+                                            .padding(8.dp)
+                                    ) {
+                                        Text("Load more")
+                                    }
+                                }
+                            }
                         }
                     }
                 }

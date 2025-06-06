@@ -4,6 +4,7 @@ package com.example.teamup.ui.screens.activityManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -42,21 +43,21 @@ fun YourActivitiesScreen(
     // 3) Observe state
     val uiState by vm.state.collectAsState()
 
-    // 4) Trigger load
+    // 4) Trigger initial load
     LaunchedEffect(token) {
         vm.loadMyEvents(token)
     }
 
-    // 5) UI: reuse ActivityCard for each item
+    // 5) UI: show “visibleActivities” and a “Load more” button if needed
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // If there are any activities, display them
-        if (uiState.activities.isNotEmpty()) {
-            items(uiState.activities, key = { it.id }) { activity ->
+        // If there are any visible activities, display them
+        if (uiState.visibleActivities.isNotEmpty()) {
+            items(uiState.visibleActivities, key = { it.id }) { activity ->
                 // Decide background (flat color or gradient) and labels:
                 val bgColor: Color
                 var bgBrush: Brush? = null
@@ -91,14 +92,14 @@ fun YourActivitiesScreen(
                         labelConcluded = "Event concluded"
                     }
 
-                    // 4) Only participant (not creator, not concluded) → also pale blue
+                    // 4) Only participant (not creator, not concluded) → also pale gray
                     activity.isParticipant -> {
                         bgColor = Color(0xFFF5F5F5)
                         labelCreator = null
                         labelConcluded = null
                     }
 
-                    // 5) Neither → default lavender
+                    // 5) Neither → default lavender/light gray
                     else -> {
                         bgColor = Color(0xFFF5F5F5)
                         labelCreator = null
@@ -116,8 +117,8 @@ fun YourActivitiesScreen(
                 )
             }
         }
-        // If no activities at all, show placeholder
-        else if (uiState.error == null) {
+        // If there are no activities at all (and not loading & no error), show placeholder
+        else if (!uiState.loading && uiState.error == null && uiState.fullActivities.isEmpty()) {
             item {
                 Text(
                     text = "You have no activities.",
@@ -139,6 +140,27 @@ fun YourActivitiesScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                 )
+            }
+        }
+
+        // “Load more” button at the bottom if there are more pages
+        if (uiState.hasMore) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    Button(
+                        onClick = { vm.loadMore() },
+                        modifier = Modifier
+                            .fillMaxWidth(0.5f)
+                            .padding(8.dp)
+                    ) {
+                        Text("Load more")
+                    }
+                }
             }
         }
     }
