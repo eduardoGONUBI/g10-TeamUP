@@ -83,4 +83,10 @@ class ActivityDetailViewModel(
             }
         }
     }
+
+    enum class ActivityRole {
+        CREATOR,
+        PARTICIPANT,
+        VIEWER
+    }
 }
