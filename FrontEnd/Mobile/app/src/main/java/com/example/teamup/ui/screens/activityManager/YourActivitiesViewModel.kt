@@ -43,9 +43,12 @@ class YourActivitiesViewModel(
                     item.copy(isCreator = (item.creatorId == currentUserId))
                 }
 
+                /// Reverse so that newest appear first
+                val sorted = annotated.reversed()
+
                 // 4) Compute initial “visible” slice (first page)
-                val firstPage = annotated.take(_state.value.pageSize)
-                val moreExists = annotated.size > _state.value.pageSize
+                val firstPage = sorted.take(_state.value.pageSize)
+                val moreExists = sorted.size > _state.value.pageSize
 
                 _state.value = _state.value.copy(
                     fullActivities = annotated,
