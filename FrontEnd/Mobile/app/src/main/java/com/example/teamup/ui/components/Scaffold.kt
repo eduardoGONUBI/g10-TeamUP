@@ -93,7 +93,6 @@ fun RootScaffold(
             composable("home") {
                 HomeScreen(
                     token = token,
-                    viewModel = homeViewModel,
                     onActivityClick = { activity ->
                         val encoded = URLEncoder.encode(token, "UTF-8")
                         when {
