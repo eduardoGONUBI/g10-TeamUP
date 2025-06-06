@@ -180,7 +180,7 @@ fun RootScaffold(
                                 popUpTo(0) { inclusive = true }
                             }
                         }
-                    },
+                    },s
                     onBack           = { navController.popBackStack() }
                 )
             }
