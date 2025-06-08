@@ -1,7 +1,7 @@
 // src/api/user.ts
 import authFetch from "./event" // custom wrapper that automatically sends credentials & parses JSON
+import type { Sport } from "./sports"
 
-export interface Sport { id: number; name: string }
 export interface User {
   id: number
   name: string
@@ -11,6 +11,9 @@ export interface User {
   behaviour_label: string
   avatar_url: string | null
   sports: Sport[]
+  location?: string
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface Achievement {
@@ -32,6 +35,16 @@ export interface Reputation {
   afk_count: number
 }
 
+// after
+export interface UpdateMePayload {
+  name?: string
+  email?: string
+  sports?: number[]
+  location?: string
+  latitude?: number
+  longitude?: number
+}
+
 // ────────────────────────────────────────────────────────────────────────────────
 // BASIC PROFILE / AUTH
 // ────────────────────────────────────────────────────────────────────────────────
@@ -39,14 +52,17 @@ export async function fetchMe(): Promise<User> {
   return authFetch("/api/auth/me")
 }
 
+
+
 export async function updateMe(
-  payload: Partial<{ name: string; email: string; sports: number[] }>
+  payload: Partial<UpdateMePayload>
 ) {
   return authFetch("/api/auth/update", {
     method: "PUT",
     body: JSON.stringify(payload),
   })
 }
+
 
 export async function deleteMe() {
   return authFetch("/api/auth/delete", { method: "DELETE" })
@@ -106,6 +122,8 @@ export async function changeEmail(newEmail: string, password: string) {
     }),
   })
 }
+
+
 
 // ────────────────────────────────────────────────────────────────────────────────
 // AVATAR ENDPOINTS

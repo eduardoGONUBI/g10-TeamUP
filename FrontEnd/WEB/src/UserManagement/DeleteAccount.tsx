@@ -31,7 +31,7 @@ export default function DeleteAccountPage() {
   };
 
   return (
-    <div className="container">
+    <div className="container perfil-form-layout">
       <div className="form-panel">
         <h1>Delete Account</h1>
         <p>To confirm, enter your password and click <strong>Delete Account.</strong></p>

@@ -26,10 +26,10 @@ export default function ChangeEmailPage() {
   };
 
   return (
-    <div className="container">
+    <div className="container perfil-form-layout">
       <div className="form-panel">
-        <h1>Alterar E-mail</h1>
-        <p>Insere o novo e-mail e confirma com a tua password.</p>
+        <h1>Change E-mail</h1>
+        <p>Enter the new email and confirm with your password.</p>
 
         {msg && <div className="success">{msg}</div>}
         {err && <div className="error">{err}</div>}
@@ -48,7 +48,7 @@ export default function ChangeEmailPage() {
           </label>
 
           <label>
-            Password actual
+            Current Password
             <input
               type="password"
               value={pwd}
@@ -57,14 +57,14 @@ export default function ChangeEmailPage() {
             />
           </label>
 
-          <button type="submit">Alterar E-mail</button>
+          <button type="submit">Change E-mail</button>
         </form>
 
         <button
           style={{ marginTop: "1rem" }}
           onClick={() => navigate("/account")}
         >
-          Voltar ao Perfil
+          Back to Profile
         </button>
       </div>
 

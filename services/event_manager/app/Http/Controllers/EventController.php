@@ -582,6 +582,7 @@ public function index(Request $request)
             /* ─── 3. Participantes (apenas event_user) ────────────────────────── */
             $participants = DB::table('event_user')
                 ->where('event_id', $id)
+                ->whereNull('deleted_at')
                 ->get(['user_id', 'user_name', 'rating'])   // same columns as antes
                 ->map(function ($p) {
                     return [

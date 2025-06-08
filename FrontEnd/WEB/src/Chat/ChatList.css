@@ -89,3 +89,36 @@
   text-align: center;
   color: #666;
 }
+/* make pager text and buttons darker / blue */
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.pager span {
+  font-size: 0.9rem;
+  color: #333;       /* dark grey for the “3 / 4” */
+}
+
+.pager button {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #0d47ff;
+  background: #fff;
+  color: #0d47ff;    /* blue buttons */
+  cursor: pointer;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.pager button:hover:not(:disabled) {
+  background: #0d47ff;
+  color: #fff;
+}
+
+.pager button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  color: #aaa;       /* grey out disabled */
+}
