@@ -57,8 +57,11 @@ const MyActivities: React.FC = () => {
   const navigate                          = useNavigate();
 
   useEffect(() => {
-    fetchMyEvents()
-      .then(setEvents)
+  fetchMyEvents()
+    .then(raw => {
+      // reverse so the newest activities come first
+      setEvents([...raw].reverse());
+    })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);

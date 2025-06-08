@@ -17,11 +17,18 @@ const ChatList: React.FC = () => {
 
   useEffect(() => {
     setLoading(true);
-    fetchMyEvents()
-      .then((events) => {
-        setActive(events.filter((e) => e.status === "in progress"));
-        setArchived(events.filter((e) => e.status === "concluded"));
-      })
+   fetchMyEvents()
+  .then((events) => {
+    const act = events
+      .filter((e) => e.status === "in progress")
+      .reverse();    // newest first
+    const arch = events
+      .filter((e) => e.status === "concluded")
+      .reverse();    // newest first
+
+    setActive(act);
+    setArchived(arch);
+  })
       .catch(() => setError("Não foi possível carregar os chats."))
       .finally(() => setLoading(false));
   }, []);
