@@ -160,9 +160,18 @@ const Dashboard: React.FC = () => {
     { name: "Joined", value: stats?.participants_joined_this_month ?? 0, fill: BRAND },
     { name: "Left",   value: stats?.participants_left_this_month ?? 0, fill: WARNING },
   ];
-  const locationBars = (stats?.top_locations ?? [])
-    .sort((a, b) => b.total - a.total)
-    .map((l) => ({ name: l.place, total: l.total }));
+const locationBars = (stats?.top_locations ?? [])
+  .sort((a, b) => b.total - a.total)
+  .map(({ place, total }) => {
+    // split on commas, trim whitespace
+    const parts = place.split(",").map((p) => p.trim());
+    // pick the second-to-last part if it exists (city/region), otherwise fallback
+    const name =
+      parts.length >= 2
+        ? parts[parts.length - 2]
+        : parts[0] || place;
+    return { name, total };
+  });
   const joinTrend = [
     {
       period: "01",

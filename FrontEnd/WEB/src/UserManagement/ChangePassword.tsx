@@ -18,7 +18,7 @@ export default function ChangePasswordPage() {
     setMsg(null);
 
     if (next !== confirm) {
-      setErr("A nova password não coincide.");
+      setErr("The new password does not match.");
       return;
     }
 
@@ -35,7 +35,7 @@ export default function ChangePasswordPage() {
    <div className="container perfil-form-layout">
       <div className="form-panel">
         <h1>Change Password</h1>
-        <p>Introduz a tua password actual e define uma nova.</p>
+        <p>Enter your current password and set a new one."</p>
 
         {msg && <div className="success">{msg}</div>}
         {err && <div className="error">{err}</div>}
