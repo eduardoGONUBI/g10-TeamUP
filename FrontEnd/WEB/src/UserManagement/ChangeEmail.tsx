@@ -26,7 +26,7 @@ export default function ChangeEmailPage() {
   };
 
   return (
-    <div className="container">
+    <div className="container perfil-form-layout">
       <div className="form-panel">
         <h1>Change E-mail</h1>
         <p>Enter the new email and confirm with your password.</p>

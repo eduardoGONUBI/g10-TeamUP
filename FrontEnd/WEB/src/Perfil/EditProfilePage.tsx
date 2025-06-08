@@ -97,7 +97,7 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="container">
+<div className="container perfil-form-layout">
       <div className="form-panel">
         <h1>Edit Profile</h1>
         <p>Update your name, location (must choose from suggestions), and favourite sports.</p>

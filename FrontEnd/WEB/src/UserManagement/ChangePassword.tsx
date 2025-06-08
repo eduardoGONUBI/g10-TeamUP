@@ -32,7 +32,7 @@ export default function ChangePasswordPage() {
   };
 
   return (
-    <div className="container">
+   <div className="container perfil-form-layout">
       <div className="form-panel">
         <h1>Change Password</h1>
         <p>Introduz a tua password actual e define uma nova.</p>
@@ -80,7 +80,7 @@ export default function ChangePasswordPage() {
           style={{ marginTop: "1rem" }}
           onClick={() => navigate("/account")}
         >
-          Back to Perfil
+          Back to Profile
         </button>
       </div>
 
