@@ -34,7 +34,7 @@ export default function ChangePasswordPage() {
   return (
     <div className="container">
       <div className="form-panel">
-        <h1>Alterar Password</h1>
+        <h1>Change Password</h1>
         <p>Introduz a tua password actual e define uma nova.</p>
 
         {msg && <div className="success">{msg}</div>}
@@ -42,7 +42,7 @@ export default function ChangePasswordPage() {
 
         <form onSubmit={onSubmit}>
           <label>
-            Password actual
+            Current Password
             <input
               type="password"
               value={current}
@@ -54,7 +54,7 @@ export default function ChangePasswordPage() {
           </label>
 
           <label>
-            Nova password
+            New password
             <input
               type="password"
               value={next}
@@ -64,7 +64,7 @@ export default function ChangePasswordPage() {
           </label>
 
           <label>
-            Confirmar nova password
+            Confirm new password
             <input
               type="password"
               value={confirm}
@@ -73,14 +73,14 @@ export default function ChangePasswordPage() {
             />
           </label>
 
-          <button type="submit">Alterar Password</button>
+          <button type="submit">Change Password</button>
         </form>
 
         <button
           style={{ marginTop: "1rem" }}
           onClick={() => navigate("/account")}
         >
-          Voltar ao Perfil
+          Back to Perfil
         </button>
       </div>
 

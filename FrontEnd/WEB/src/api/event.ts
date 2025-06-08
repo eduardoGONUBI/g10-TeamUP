@@ -74,4 +74,5 @@ export async function createEvent(data: NewEventData): Promise<Event> {
   return json.event as Event
 }
 
+
 export default authFetch;
