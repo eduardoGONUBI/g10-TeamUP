@@ -1,4 +1,4 @@
-// ─── src/Events/ActivitiesList.tsx ────────────────────────────────────────────
+// src/Events/ActivitiesList.tsx
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate }          from "react-router-dom";
 import { fetchMyEvents, type Event }  from "../api/event";
@@ -46,13 +46,16 @@ const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 /* component ------------------------------------------------------------------ */
-const MyActivities: React.FC = () => {
-  const [events,   setEvents]   = useState<Event[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
-  const   navigate               = useNavigate();
+const PAGE_SIZE = 5;
 
-  /* fetch once on mount ------------------------------------------------------ */
+const MyActivities: React.FC = () => {
+  const [events,         setEvents]        = useState<Event[]>([]);
+  const [loading,        setLoading]       = useState(true);
+  const [error,          setError]         = useState<string | null>(null);
+  const [activePage,     setActivePage]    = useState(1);
+  const [concludedPage,  setConcludedPage] = useState(1);
+  const navigate                          = useNavigate();
+
   useEffect(() => {
     fetchMyEvents()
       .then(setEvents)
@@ -66,10 +69,13 @@ const MyActivities: React.FC = () => {
   const active    = events.filter(e => e.status === "in progress");
   const concluded = events.filter(e => e.status === "concluded");
 
-  /* render a single column list --------------------------------------------- */
-  const renderList = (arr: Event[]) =>
-    arr.map(ev => {
-      const when = ev.starts_at ?? (ev as any).date;  // <— graceful fallback
+  const totalActivePages    = Math.ceil(active.length / PAGE_SIZE) || 1;
+  const totalConcludedPages = Math.ceil(concluded.length / PAGE_SIZE) || 1;
+
+  const renderPaginated = (arr: Event[], page: number) => {
+    const start = (page - 1) * PAGE_SIZE;
+    return arr.slice(start, start + PAGE_SIZE).map(ev => {
+      const when = ev.starts_at;
       return (
         <article
           key={ev.id}
@@ -107,8 +113,16 @@ const MyActivities: React.FC = () => {
         </article>
       );
     });
+  };
 
-  /* final UI ----------------------------------------------------------------- */
+  const renderPager = (page: number, total: number, onPrev: () => void, onNext: () => void) => (
+    <div className="pager">
+      <button onClick={onPrev} disabled={page <= 1}>‹ Prev</button>
+      <span>{page} / {total}</span>
+      <button onClick={onNext} disabled={page >= total}>Next ›</button>
+    </div>
+  );
+
   return (
     <>
       <div className="list-header">
@@ -119,11 +133,29 @@ const MyActivities: React.FC = () => {
       <div className="activities-columns">
         <div className="column">
           <h3>Active Activities ({active.length})</h3>
-          {active.length === 0 ? <p>No active activities.</p> : renderList(active)}
+          {active.length === 0
+            ? <p>No active activities.</p>
+            : renderPaginated(active, activePage)
+          }
+          {active.length > PAGE_SIZE && renderPager(
+            activePage,
+            totalActivePages,
+            () => setActivePage(p => Math.max(1, p - 1)),
+            () => setActivePage(p => Math.min(totalActivePages, p + 1))
+          )}
         </div>
         <div className="column">
           <h3>Concluded Activities ({concluded.length})</h3>
-          {concluded.length === 0 ? <p>No concluded activities.</p> : renderList(concluded)}
+          {concluded.length === 0
+            ? <p>No concluded activities.</p>
+            : renderPaginated(concluded, concludedPage)
+          }
+          {concluded.length > PAGE_SIZE && renderPager(
+            concludedPage,
+            totalConcludedPages,
+            () => setConcludedPage(p => Math.max(1, p - 1)),
+            () => setConcludedPage(p => Math.min(totalConcludedPages, p + 1))
+          )}
         </div>
       </div>
     </>
