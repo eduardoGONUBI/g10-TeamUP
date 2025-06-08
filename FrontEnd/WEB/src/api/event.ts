@@ -74,5 +74,24 @@ export async function createEvent(data: NewEventData): Promise<Event> {
   return json.event as Event
 }
 
+/** PUT /api/events/{id} — update */
+export async function updateEvent(
+  id: string,
+  data: {
+    name: string;
+    sport_id: number;
+    starts_at: string;          // “YYYY-MM-DD HH:mm:00”
+    place: string;
+    max_participants: number;
+    latitude: number;
+    longitude: number;
+  }
+) {
+  return authFetch(`/api/events/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  }) as Promise<{ message: string; event: Event }>;
+}
+
 
 export default authFetch;

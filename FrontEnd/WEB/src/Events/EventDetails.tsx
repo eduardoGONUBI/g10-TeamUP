@@ -319,6 +319,12 @@ const EventDetails: React.FC = () => {
           <div className="event-actions">
             {!isDone ? (
               <>
+                        <button
+                  className="btn btn-primary"
+                  onClick={() => navigate(`/events/${event.id}/edit`)}
+                >
+                  Edit
+                </button>
                 <button className="btn btn-danger" onClick={cancelEvent}>
                   Cancel
                 </button>
@@ -414,9 +420,8 @@ const EventDetails: React.FC = () => {
             {/* Feedback dropdown (only if concluded & not me) */}
             {isDone && p.id !== me.id && (
               <div
-                className={`feedback-dropdown ${
-                  feedbackSent[p.id] ? "sent" : ""
-                }`}
+                className={`feedback-dropdown ${feedbackSent[p.id] ? "sent" : ""
+                  }`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <button

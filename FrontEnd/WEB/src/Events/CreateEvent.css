@@ -99,3 +99,16 @@
   width: 100%;
   box-sizing: border-box;
 }
+.btn-primary {
+  background: #0d47ff;
+  color: #fff;
+}
+.create-page .create-form button[type="button"] {
+  margin-top: 1rem;
+  background: transparent;
+  color: #666;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}

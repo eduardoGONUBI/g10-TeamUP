@@ -21,7 +21,7 @@ import ChangePassword from "./UserManagement/ChangePassword";
 import ChangeEmail from "./UserManagement/ChangeEmail";
 import DeleteAccountPage from "./UserManagement/DeleteAccount";
 import EditProfilePage from "./Perfil/EditProfilePage";
-
+import EditEvent from "./Events/EditEvent";
 import "./main.css";
 
 
@@ -53,6 +53,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/change-email" element={<ChangeEmail />} />
           <Route path="/delete-account" element={<DeleteAccountPage />} />
           <Route path="/account/edit" element={<EditProfilePage />} />
+          <Route path="/events/:id/edit" element={<EditEvent />} />
         </Route>
 
         {/* fallback 404 -------------------------------------------------------- */}
