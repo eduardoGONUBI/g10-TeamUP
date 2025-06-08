@@ -9,6 +9,8 @@ import {
 import avatarDefault from "../assets/avatar-default.jpg";
 import type { Event, Me, Participant } from "../api/event";
 
+import ConfirmModal from "../components/ConfirmModal";
+
 // ── weather icons ────────────────────────────────────────────────────────────
 import {
   WiDaySunny,
@@ -54,9 +56,17 @@ const EventDetails: React.FC = () => {
   const [openFeedback, setOpenFeedback] = useState<number | null>(null);
   const navigate = useNavigate();
 
+  // modal state
+  const [modal, setModal] = useState<{
+    open: boolean;
+    action: "cancel" | "conclude" | "reopen" | "kick";
+    targetId?: number;
+  }>({ open: false, action: "cancel", targetId: undefined });
+
   const token =
     localStorage.getItem("auth_token") ||
     sessionStorage.getItem("auth_token");
+
 
   /* ───────────────────────── Helpers ───────────────────────── */
   const fmt = (n?: number) => (n != null ? `${Math.round(n)}°C` : "—");
@@ -64,6 +74,8 @@ const EventDetails: React.FC = () => {
     new Date(iso).toLocaleDateString("en-GB");
   const formatTime = (iso: string) =>
     new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+
 
   function pickIcon(desc: string) {
     const d = desc.toLowerCase();
@@ -80,6 +92,30 @@ const EventDetails: React.FC = () => {
     if (d.includes("cloud")) return <WiCloudy size={32} />;
     return <WiDaySunny size={32} />;
   }
+
+function onModalConfirm() {
+  setModal(m => ({ ...m, open: false }));
+  switch (modal.action) {
+    case "cancel":
+      cancelEvent();
+      break;
+    case "conclude":
+      concludeEvent();
+      break;
+    case "reopen":
+      reopenEvent();
+      break;
+    case "kick":
+      if (modal.targetId != null) kickParticipant(modal.targetId);
+      break;
+  }
+}
+
+  function onModalCancel() {
+    setModal(m => ({ ...m, open: false }));
+  }
+
+
 
   // map lower-cased sport name → image
   const sportIcons: Record<string, string> = {
@@ -231,7 +267,7 @@ const EventDetails: React.FC = () => {
   /* ───────────────────────── Misc actions ───────────────────────── */
   async function cancelEvent() {
     if (!id || !token) return;
-    if (!window.confirm("Cancel this activity?")) return;
+
     const res = await fetch(`/api/events/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
@@ -245,7 +281,6 @@ const EventDetails: React.FC = () => {
 
   async function concludeEvent() {
     if (!id || !token) return;
-    if (!window.confirm("Mark as concluded?")) return;
     const res = await fetch(`/api/events/${id}/conclude`, {
       method: "PUT",
       headers: {
@@ -262,7 +297,6 @@ const EventDetails: React.FC = () => {
 
   async function reopenEvent() {
     if (!id || !token) return;
-    if (!window.confirm("Reopen activity?")) return;
     const res = await fetch(`/api/events/${id}`, {
       method: "PUT",
       headers: {
@@ -279,14 +313,12 @@ const EventDetails: React.FC = () => {
   }
 
   async function kickParticipant(userId: number) {
-    if (!window.confirm("Are you sure you want to remove this participant?")) return;
     const res = await fetch(`/api/events/${id}/participants/${userId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) {
       setParticipants((prev) => prev.filter((p) => p.id !== userId));
-      alert("Participant removed.");
     } else {
       const json = await res.json().catch(() => ({}));
       alert(json.error ?? "Failed to remove participant.");
@@ -301,6 +333,39 @@ const EventDetails: React.FC = () => {
 
   return (
     <section className="event-page">
+      <ConfirmModal
+        isOpen={modal.open}
+        title={
+          modal.action === "kick"
+            ? "Remove this participant?"
+            : modal.action === "cancel"
+              ? "Cancel this event?"
+              : modal.action === "conclude"
+                ? "Mark as concluded?"
+                : "Re-open this event?"
+        }
+        message={
+          modal.action === "kick"
+            ? "Are you sure you want to remove this participant from the event?"
+            : modal.action === "cancel"
+              ? "All participants will be notified."
+              : modal.action === "conclude"
+                ? "Participants will no longer be able to join."
+                : "Participants will be able to join again."
+        }
+        confirmText={
+          modal.action === "kick"
+            ? "Yes, remove"
+            : modal.action === "cancel"
+              ? "Yes, cancel"
+              : modal.action === "conclude"
+                ? "Yes, conclude"
+                : "Yes, reopen"
+        }
+        cancelText="No, go back"
+        onConfirm={onModalConfirm}
+        onCancel={onModalCancel}
+      />
       <header className="event-header">
         <div className="event-header-main">
           <h2 className="event-title">
@@ -319,21 +384,30 @@ const EventDetails: React.FC = () => {
           <div className="event-actions">
             {!isDone ? (
               <>
-                        <button
+                <button
                   className="btn btn-primary"
                   onClick={() => navigate(`/events/${event.id}/edit`)}
                 >
                   Edit
                 </button>
-                <button className="btn btn-danger" onClick={cancelEvent}>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => setModal({ open: true, action: "cancel" })}
+                >
                   Cancel
                 </button>
-                <button className="btn btn-success" onClick={concludeEvent}>
+                <button
+                  className="btn btn-success"
+                  onClick={() => setModal({ open: true, action: "conclude" })}
+                >
                   Conclude
                 </button>
               </>
             ) : (
-              <button className="btn btn-warning" onClick={reopenEvent}>
+              <button
+                className="btn btn-warning"
+                onClick={() => setModal({ open: true, action: "reopen" })}
+              >
                 Reopen
               </button>
             )}
@@ -462,9 +536,9 @@ const EventDetails: React.FC = () => {
             {!isDone && (
               <button
                 className="kick-btn"
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation();
-                  kickParticipant(p.id);
+                  setModal({ open: true, action: "kick", targetId: p.id });
                 }}
                 title="Remove participant"
               >

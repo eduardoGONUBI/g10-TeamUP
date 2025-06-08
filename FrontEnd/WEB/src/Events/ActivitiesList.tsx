@@ -127,7 +127,7 @@ const MyActivities: React.FC = () => {
     <>
       <div className="list-header">
         <h2>Activities Management</h2>
-        <Link to="/events/create" className="create-btn">+ Create Event</Link>
+        <Link to="/events/create" className="create-btn"> Create Event</Link>
       </div>
 
       <div className="activities-columns">
