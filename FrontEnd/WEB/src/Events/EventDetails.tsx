@@ -1,5 +1,5 @@
 // File: src/pages/EventDetails.tsx
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./EventDetails.css";
 import {
@@ -55,6 +55,24 @@ const EventDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [openFeedback, setOpenFeedback] = useState<number | null>(null);
   const navigate = useNavigate();
+  const storageKey = (eventId: string, myId: number | null) =>
+    `fb:${eventId}:${myId ?? 0}`;
+
+  const loadRatedIds = (eventId: string, myId: number | null): number[] => {
+    try {
+      return JSON.parse(localStorage.getItem(storageKey(eventId, myId)) || "[]");
+    } catch {
+      return [];
+    }
+  };
+
+  const saveRatedIds = (
+    eventId: string,
+    myId: number | null,
+    arr: number[]
+  ) => {
+    localStorage.setItem(storageKey(eventId, myId), JSON.stringify(arr));
+  };
 
   // modal state
   const [modal, setModal] = useState<{
@@ -93,23 +111,23 @@ const EventDetails: React.FC = () => {
     return <WiDaySunny size={32} />;
   }
 
-function onModalConfirm() {
-  setModal(m => ({ ...m, open: false }));
-  switch (modal.action) {
-    case "cancel":
-      cancelEvent();
-      break;
-    case "conclude":
-      concludeEvent();
-      break;
-    case "reopen":
-      reopenEvent();
-      break;
-    case "kick":
-      if (modal.targetId != null) kickParticipant(modal.targetId);
-      break;
+  function onModalConfirm() {
+    setModal(m => ({ ...m, open: false }));
+    switch (modal.action) {
+      case "cancel":
+        cancelEvent();
+        break;
+      case "conclude":
+        concludeEvent();
+        break;
+      case "reopen":
+        reopenEvent();
+        break;
+      case "kick":
+        if (modal.targetId != null) kickParticipant(modal.targetId);
+        break;
+    }
   }
-}
 
   function onModalCancel() {
     setModal(m => ({ ...m, open: false }));
@@ -153,7 +171,7 @@ function onModalConfirm() {
 
   // 2) load event details
   useEffect(() => {
-    if (!id || !token) return;
+   if (!id || !token) return;  
     fetch(`/api/events/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -163,111 +181,81 @@ function onModalConfirm() {
   }, [id, token]);
 
   // 3) load participants + levels + avatars
-  /* ─────────────── API: participants ─────────────── */
-// ─────────── participants, levels, avatars (normalises IDs) ───────────
-const loadParticipants = useCallback(async () => {
-  if (!id || !token) return;
-
-  try {
-    /* 1️⃣ fetch raw list --------------------------------------------------- */
-    const { participants: raw = [] } = await fetch(
-      `/api/events/${id}/participants`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    ).then((r) => r.json());
-
-    // always store IDs as numbers so every comparison is consistent
-    const list: Participant[] = raw.map((p: any) => ({
-      ...p,
-      id: Number(p.id),
-    }));
-
-    setParticipants(list);
-
-    /* 2️⃣ levels (parallel) ------------------------------------------------ */
-    setLevels(
-      Object.fromEntries(
-        await Promise.all(
-          list.map(async (p) => [p.id, (await fetchXpLevel(p.id)).level])
-        )
-      )
-    );
-
-    /* 3️⃣ feedback flags --------------------------------------------------- */
-    setFeedbackSent(Object.fromEntries(list.map((p) => [p.id, false])));
-
-    /* 4️⃣ avatars (revoke old blobs first, then fetch fresh) -------------- */
-    setAvatars((prev) => {
-      Object.values(prev).forEach((url) => {
-        if (url.startsWith("blob:")) URL.revokeObjectURL(url);
-      });
-      return {}; // clear while we fetch new ones
-    });
-
-    const avatarPairs = await Promise.all(
-      list.map(async (p) => {
-        try {
-          return [p.id, await fetchAvatar(p.id)] as const;
-        } catch {
-          return [p.id, ""] as const;
-        }
-      })
-    );
-
-    setAvatars(Object.fromEntries(avatarPairs));
-  } finally {
-    /* 5️⃣ done ------------------------------------------------------------- */
-    setLoading(false);
-  }
-}, [id, token]);
-
-
   useEffect(() => {
-  loadParticipants();
-  // revoke blobs on unmount
-  return () => {
-    Object.values(avatars).forEach((u) => {
-      if (u.startsWith("blob:")) URL.revokeObjectURL(u);
-    });
-  };
-}, [loadParticipants]);
+    if (!id || !token || !me) return;  
+    let mounted = true;
 
-  /* ─────────────── Feedback helper ─────────────── */
- async function kickParticipant(userId: number) {
-    const res = await fetch(`/api/events/${id}/participants/${userId}`, {
-      method: "DELETE",
+    fetch(`/api/events/${id}/participants`, {
       headers: { Authorization: `Bearer ${token}` },
-    });
+    })
+      .then((res) => res.json())
+      .then(async (data: { participants?: Participant[] }) => {
+        if (!mounted) return;
+        const list: Participant[] = data.participants ?? [];
+        setParticipants(list);
 
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}));
-      alert(json.error ?? "Failed to remove participant.");
-      return;
-    }
+        // fetch levels
+        const lvlArray = await Promise.all(
+          list.map((p) =>
+            fetchXpLevel(p.id).then((pr) => ({ id: p.id, level: pr.level }))
+          )
+        );
+        if (!mounted) return;
+        const lvlMap: Record<number, number> = {};
+        lvlArray.forEach(({ id, level }) => {
+          lvlMap[id] = level;
+        });
+        setLevels(lvlMap);
 
-    // local optimistic update: strip from every slice
-    setParticipants((prev) => prev.filter((p) => p.id !== userId));
+        const alreadyRated = loadRatedIds(id!, me?.id ?? null);
+        const flags: Record<number, boolean> = {};
+        list.forEach((p) => {
+          flags[p.id] = alreadyRated.includes(p.id);
+        });
+        setFeedbackSent(flags);
 
-    setLevels((prev) => {
-      const { [userId]: _rm, ...rest } = prev;
-      return rest;
-    });
+        // fetch avatars
+        const avatarPairs = await Promise.all(
+          list.map(async (p) => {
+            try {
+              const url = await fetchAvatar(p.id);
+              return { id: p.id, url };
+            } catch {
+              return { id: p.id, url: "" };
+            }
+          })
+        );
+        if (!mounted) return;
 
-    setFeedbackSent((prev) => {
-      const { [userId]: _rm, ...rest } = prev;
-      return rest;
-    });
+        // revoke old URLs
+        Object.values(avatars).forEach((u) => {
+          if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+        });
 
-    setAvatars((prev) => {
-      const url = prev[userId];
-      if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
-      const { [userId]: _rm, ...rest } = prev;
-      return rest;
-    });
-  }
+        const avMap: Record<number, string> = {};
+        avatarPairs.forEach(({ id, url }) => {
+          if (url) avMap[id] = url;
+        });
+        setAvatars(avMap);
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+      Object.values(avatars).forEach((u) => {
+        if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+      });
+    };
+  }, [id, token, me]); 
 
   /* ─────────────── Feedback helper ─────────────── */
   async function giveFeedback(ratedId: number, attr: string) {
     if (!attr || !id || !token) return;
+      // guard: already rated → exit silently
+  if (feedbackSent[ratedId]) return;
     const attribute = attr.trim();
     if (!attribute) return;
 
@@ -278,30 +266,44 @@ const loadParticipants = useCallback(async () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ user_id: ratedId, attribute }),
+        body: JSON.stringify({
+          user_id: ratedId,
+          attribute,
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         alert(json.error ?? res.statusText);
         return;
       }
-      alert("Feedback sent!");
-      setFeedbackSent((prev) => ({ ...prev, [ratedId]: true }));
+
+    // mark as sent (UI)
+    setFeedbackSent((prev) => ({ ...prev, [ratedId]: true }));
+
+    // persist so it sticks after refresh
+    const ratedArr = loadRatedIds(id!, me?.id ?? null);
+    if (!ratedArr.includes(ratedId)) {
+      saveRatedIds(id!, me?.id ?? null, [...ratedArr, ratedId]);
+    }
     } catch (err) {
       console.error(err);
       alert("Failed to send feedback.");
     }
   }
 
-  /* ─────────────── Other event actions ─────────────── */
+  /* ───────────────────────── Misc actions ───────────────────────── */
   async function cancelEvent() {
     if (!id || !token) return;
+
     const res = await fetch(`/api/events/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) navigate("/my-activities");
-    else alert("Failed to cancel.");
+    else {
+      const json = await res.json().catch(() => ({}));
+      alert(json.error ?? "Failed to cancel.");
+    }
   }
 
   async function concludeEvent() {
@@ -337,6 +339,18 @@ const loadParticipants = useCallback(async () => {
     }
   }
 
+  async function kickParticipant(userId: number) {
+    const res = await fetch(`/api/events/${id}/participants/${userId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      setParticipants((prev) => prev.filter((p) => p.id !== userId));
+    } else {
+      const json = await res.json().catch(() => ({}));
+      alert(json.error ?? "Failed to remove participant.");
+    }
+  }
 
   /* ───────────────────────── Render ───────────────────────── */
   if (loading || !me) return <p className="loading">Loading…</p>;
@@ -480,9 +494,9 @@ const loadParticipants = useCallback(async () => {
       </button>
 
       <ul className="participants-grid">
-        {participants.map((p, idx) => (
+        {participants.map((p) => (
           <li
-            key={p.id ?? `tmp-${idx}`} 
+            key={p.id}
             className="participant-card"
             onClick={() => navigate(`/profile/${p.id}`)}
           >
