@@ -1,5 +1,5 @@
 // File: src/pages/EventDetails.tsx
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./EventDetails.css";
 import {
@@ -163,75 +163,107 @@ function onModalConfirm() {
   }, [id, token]);
 
   // 3) load participants + levels + avatars
-  useEffect(() => {
-    if (!id || !token) return;
-    let mounted = true;
+  /* ─────────────── API: participants ─────────────── */
+// ─────────── participants, levels, avatars (normalises IDs) ───────────
+const loadParticipants = useCallback(async () => {
+  if (!id || !token) return;
 
-    fetch(`/api/events/${id}/participants`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then(async (data: { participants?: Participant[] }) => {
-        if (!mounted) return;
-        const list: Participant[] = data.participants ?? [];
-        setParticipants(list);
+  try {
+    /* 1️⃣ fetch raw list --------------------------------------------------- */
+    const { participants: raw = [] } = await fetch(
+      `/api/events/${id}/participants`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    ).then((r) => r.json());
 
-        // fetch levels
-        const lvlArray = await Promise.all(
-          list.map((p) =>
-            fetchXpLevel(p.id).then((pr) => ({ id: p.id, level: pr.level }))
-          )
-        );
-        if (!mounted) return;
-        const lvlMap: Record<number, number> = {};
-        lvlArray.forEach(({ id, level }) => {
-          lvlMap[id] = level;
-        });
-        setLevels(lvlMap);
+    // always store IDs as numbers so every comparison is consistent
+    const list: Participant[] = raw.map((p: any) => ({
+      ...p,
+      id: Number(p.id),
+    }));
 
-        // init feedback flags
-        const flags: Record<number, boolean> = {};
-        list.forEach((p) => {
-          flags[p.id] = false;
-        });
-        setFeedbackSent(flags);
+    setParticipants(list);
 
-        // fetch avatars
-        const avatarPairs = await Promise.all(
-          list.map(async (p) => {
-            try {
-              const url = await fetchAvatar(p.id);
-              return { id: p.id, url };
-            } catch {
-              return { id: p.id, url: "" };
-            }
-          })
-        );
-        if (!mounted) return;
+    /* 2️⃣ levels (parallel) ------------------------------------------------ */
+    setLevels(
+      Object.fromEntries(
+        await Promise.all(
+          list.map(async (p) => [p.id, (await fetchXpLevel(p.id)).level])
+        )
+      )
+    );
 
-        // revoke old URLs
-        Object.values(avatars).forEach((u) => {
-          if (u.startsWith("blob:")) URL.revokeObjectURL(u);
-        });
+    /* 3️⃣ feedback flags --------------------------------------------------- */
+    setFeedbackSent(Object.fromEntries(list.map((p) => [p.id, false])));
 
-        const avMap: Record<number, string> = {};
-        avatarPairs.forEach(({ id, url }) => {
-          if (url) avMap[id] = url;
-        });
-        setAvatars(avMap);
+    /* 4️⃣ avatars (revoke old blobs first, then fetch fresh) -------------- */
+    setAvatars((prev) => {
+      Object.values(prev).forEach((url) => {
+        if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+      });
+      return {}; // clear while we fetch new ones
+    });
+
+    const avatarPairs = await Promise.all(
+      list.map(async (p) => {
+        try {
+          return [p.id, await fetchAvatar(p.id)] as const;
+        } catch {
+          return [p.id, ""] as const;
+        }
       })
-      .catch(console.error)
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+    );
 
-    return () => {
-      mounted = false;
-      Object.values(avatars).forEach((u) => {
-        if (u.startsWith("blob:")) URL.revokeObjectURL(u);
-      });
-    };
-  }, [id, token]);
+    setAvatars(Object.fromEntries(avatarPairs));
+  } finally {
+    /* 5️⃣ done ------------------------------------------------------------- */
+    setLoading(false);
+  }
+}, [id, token]);
+
+
+  useEffect(() => {
+  loadParticipants();
+  // revoke blobs on unmount
+  return () => {
+    Object.values(avatars).forEach((u) => {
+      if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+    });
+  };
+}, [loadParticipants]);
+
+  /* ─────────────── Feedback helper ─────────────── */
+ async function kickParticipant(userId: number) {
+    const res = await fetch(`/api/events/${id}/participants/${userId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      alert(json.error ?? "Failed to remove participant.");
+      return;
+    }
+
+    // local optimistic update: strip from every slice
+    setParticipants((prev) => prev.filter((p) => p.id !== userId));
+
+    setLevels((prev) => {
+      const { [userId]: _rm, ...rest } = prev;
+      return rest;
+    });
+
+    setFeedbackSent((prev) => {
+      const { [userId]: _rm, ...rest } = prev;
+      return rest;
+    });
+
+    setAvatars((prev) => {
+      const url = prev[userId];
+      if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+      const { [userId]: _rm, ...rest } = prev;
+      return rest;
+    });
+  }
 
   /* ─────────────── Feedback helper ─────────────── */
   async function giveFeedback(ratedId: number, attr: string) {
@@ -246,10 +278,7 @@ function onModalConfirm() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          user_id: ratedId,
-          attribute,
-        }),
+        body: JSON.stringify({ user_id: ratedId, attribute }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -264,19 +293,15 @@ function onModalConfirm() {
     }
   }
 
-  /* ───────────────────────── Misc actions ───────────────────────── */
+  /* ─────────────── Other event actions ─────────────── */
   async function cancelEvent() {
     if (!id || !token) return;
-
     const res = await fetch(`/api/events/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) navigate("/my-activities");
-    else {
-      const json = await res.json().catch(() => ({}));
-      alert(json.error ?? "Failed to cancel.");
-    }
+    else alert("Failed to cancel.");
   }
 
   async function concludeEvent() {
@@ -312,18 +337,6 @@ function onModalConfirm() {
     }
   }
 
-  async function kickParticipant(userId: number) {
-    const res = await fetch(`/api/events/${id}/participants/${userId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      setParticipants((prev) => prev.filter((p) => p.id !== userId));
-    } else {
-      const json = await res.json().catch(() => ({}));
-      alert(json.error ?? "Failed to remove participant.");
-    }
-  }
 
   /* ───────────────────────── Render ───────────────────────── */
   if (loading || !me) return <p className="loading">Loading…</p>;
@@ -467,9 +480,9 @@ function onModalConfirm() {
       </button>
 
       <ul className="participants-grid">
-        {participants.map((p) => (
+        {participants.map((p, idx) => (
           <li
-            key={p.id}
+            key={p.id ?? `tmp-${idx}`} 
             className="participant-card"
             onClick={() => navigate(`/profile/${p.id}`)}
           >
