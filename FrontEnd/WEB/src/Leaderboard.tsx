@@ -1,8 +1,10 @@
 // src/pages/Leaderboard.tsx
 import React, { useEffect, useState } from "react";
-import "./Leaderboard.css";
+import { DataGrid, type GridColDef, type GridPaginationModel } from "@mui/x-data-grid";
+import { Box, Typography } from "@mui/material";
 
-interface LeaderboardRow {
+interface Row {
+  id: number;           // DataGrid needs an “id” field → we’ll copy rank
   rank: number;
   user_id: number;
   level: number;
@@ -17,57 +19,61 @@ interface Meta {
 }
 
 export default function Leaderboard() {
-  const [rows, setRows] = useState<LeaderboardRow[]>([]);
-  const [meta, setMeta] = useState<Meta | null>(null);
-  const [page, setPage] = useState(1);
+  const [rows, setRows]   = useState<Row[]>([]);
+  const [meta, setMeta]   = useState<Meta | null>(null);
+  const [pageSize, setPS] = useState(15);      // synced with backend
+  const [page, setPage]   = useState(0);       // 0-based for DataGrid
 
+  /* ------------------------------------------------------------------ */
+  /* fetch page every time `page` or `pageSize` changes                 */
+  /* ------------------------------------------------------------------ */
   useEffect(() => {
-    fetch(`/api/leaderboard?per_page=15&page=${page}`)
-      .then((res) => res.json())
+    const backendPage = page + 1;              // backend is 1-based
+    fetch(`/api/leaderboard?per_page=${pageSize}&page=${backendPage}`)
+      .then(r => r.json())
       .then(({ data, meta }) => {
-        setRows(data);
+        // DataGrid expects `id` prop
+        setRows(data.map((r: any) => ({ ...r, id: r.rank })));
         setMeta(meta);
       })
       .catch(console.error);
-  }, [page]);
+  }, [page, pageSize]);
 
+  /* ------------------------------------------------------------------ */
+  /* Column definitions – you can style / format as you wish            */
+  /* ------------------------------------------------------------------ */
+  const columns: GridColDef[] = [
+    { field: "rank",    headerName: "#",       width: 80 },
+    { field: "user_id", headerName: "User ID", flex: 1 },
+    { field: "level",   headerName: "Level",   width: 120, align: "right", headerAlign: "right" },
+    { field: "xp",      headerName: "XP",      width: 120, align: "right", headerAlign: "right" },
+  ];
+
+  /* ------------------------------------------------------------------ */
   return (
-    <div className="leaderboard-container">
-      <h2 className="leaderboard-title">🏆 Leaderboard</h2>
-      <table className="leaderboard-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>User ID</th>
-            <th>Level</th>
-            <th>XP</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.user_id}>
-              <td className="rank">{r.rank}</td>
-              <td className="user">{r.user_id}</td>
-              <td className="level">{r.level}</td>
-              <td className="xp">{r.xp}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <Box sx={{ maxWidth: 800, mx: "auto", mt: 4 }}>
+      <Typography variant="h4" align="center" gutterBottom>
+        🏆 Leaderboard
+      </Typography>
 
-      {meta && (
-        <div className="pagination">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page <= 1}>
-            ‹ Prev
-          </button>
-          <span>{meta.current_page} / {meta.last_page}</span>
-          <button onClick={() => setPage(p => Math.min(meta.last_page, p + 1))}
-                  disabled={page >= meta.last_page}>
-            Next ›
-          </button>
-        </div>
-      )}
-    </div>
-);
+      <DataGrid
+        columns={columns}
+        rows={rows}
+        autoHeight
+        pageSizeOptions={[15, 30, 50]}
+        paginationModel={{ pageSize, page }}
+        rowCount={meta?.total ?? 0}
+        paginationMode="server"
+        onPaginationModelChange={(model: GridPaginationModel) => {
+          setPS(model.pageSize);
+          setPage(model.page);
+        }}
+        disableRowSelectionOnClick
+        sx={{
+          "& .MuiDataGrid-columnHeaders":  { bgcolor: "#f5f5f5" },
+          "& .MuiDataGrid-row:hover":      { bgcolor: "#fafafa" },
+        }}
+      />
+    </Box>
+  );
 }
