@@ -186,3 +186,9 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
 
   return res.json() as Promise<{ url: string }>;
 }
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Leaderboard
+// ────────────────────────────────────────────────────────────────────────────────
+
+

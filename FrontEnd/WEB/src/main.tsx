@@ -23,6 +23,7 @@ import DeleteAccountPage from "./UserManagement/DeleteAccount";
 import EditProfilePage from "./Perfil/EditProfilePage";
 import EditEvent from "./Events/EditEvent";
 import "./main.css";
+import Leaderboard from "./Leaderboard";
 
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -54,6 +55,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/delete-account" element={<DeleteAccountPage />} />
           <Route path="/account/edit" element={<EditProfilePage />} />
           <Route path="/events/:id/edit" element={<EditEvent />} />
+          <Route path="/leaderboard"     element={<Leaderboard />} />
         </Route>
 
         {/* fallback 404 -------------------------------------------------------- */}
