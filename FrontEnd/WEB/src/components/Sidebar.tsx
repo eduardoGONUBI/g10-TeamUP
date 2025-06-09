@@ -42,6 +42,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogoClick }) => {
           >
             Chat
           </li>
+               <li
+            className={location.pathname === "/leaderboard" ? "active" : ""}
+            onClick={() => nav("/leaderboard")}
+          >
+            Leaderboard
+          </li>
           <li
             className={location.pathname === "/account" ? "active" : ""}
             onClick={() => nav("/account")}
