@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/Chat/ChatListScreen.kt
+/* ─── File: app/src/main/java/com/example/teamup/ui/screens/Chat/ChatListScreen.kt ── */
 package com.example.teamup.ui.screens.Chat
 
 import androidx.compose.foundation.layout.*
@@ -16,13 +16,16 @@ import androidx.navigation.NavController
 import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.ui.components.ChatCard
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @Composable
 fun ChatListScreen(
     navController: NavController,
-    token: String
+    token: String,
+    myUserId: Int            // ← NEW: needs to be forwarded from RootScaffold
 ) {
-    // 1) VM with ActivityRepositoryImpl
+    /* ── 1) View-model ────────────────────────────────────────────────────── */
     val vm: ChatListScreenViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -33,13 +36,13 @@ fun ChatListScreen(
         }
     )
 
-    // 2) Load once
+    /* ── 2) Load once ─────────────────────────────────────────────────────── */
     LaunchedEffect(token) { vm.load(token) }
 
-    // 3) Observe
+    /* ── 3) Observe state ─────────────────────────────────────────────────── */
     val ui by vm.state.collectAsState()
 
-    // 4) Tabs
+    /* ── 4) Tabs (“Chats” / “Archive”) ────────────────────────────────────── */
     var tab by remember { mutableStateOf(0) }
     val titles = listOf("Chats", "Archive")
 
@@ -62,37 +65,53 @@ fun ChatListScreen(
                 Text("Error: ${ui.error}")
             }
             else -> {
-                // Pick the right “visible” slice and “hasMore” flag
                 val visibleList = if (tab == 0) ui.visibleActive else ui.visibleArchive
-                val hasMore     = if (tab == 0) ui.hasMoreActive else ui.hasMoreArchive
+                val hasMore     = if (tab == 0) ui.hasMoreActive  else ui.hasMoreArchive
 
                 if (visibleList.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        Text("No chats.")
-                    }
+                    Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No chats.") }
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding      = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(visibleList, key = { it.id }) { chat ->
                             ChatCard(
                                 chat = chat,
                                 onClick = {
-                                    val safe = java.net.URLEncoder.encode(chat.title, "UTF-8")
-                                    navController.navigate("chatDetail/$safe")
+                                    // Build route: chatDetail/{chatTitle}/{eventId}/{token}/{myUserId}
+                                    val route = buildString {
+                                        append("chatDetail/")
+                                        append(
+                                            URLEncoder.encode(
+                                                chat.title,
+                                                StandardCharsets.UTF_8.toString()
+                                            )
+                                        )
+                                        append("/")
+                                        append(chat.id)          // <-- eventId
+                                        append("/")
+                                        append(
+                                            URLEncoder.encode(
+                                                token,
+                                                StandardCharsets.UTF_8.toString()
+                                            )
+                                        )
+                                        append("/")
+                                        append(myUserId)
+                                    }
+                                    navController.navigate(route)
                                 }
                             )
                         }
 
-                        // 5) “Load more” button at the bottom
                         if (hasMore) {
                             item {
                                 Box(
-                                    modifier = Modifier
+                                    Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
+                                    Alignment.Center
                                 ) {
                                     Button(
                                         onClick = {
@@ -102,9 +121,7 @@ fun ChatListScreen(
                                         modifier = Modifier
                                             .fillMaxWidth(0.5f)
                                             .padding(8.dp)
-                                    ) {
-                                        Text("Load more")
-                                    }
+                                    ) { Text("Load more") }
                                 }
                             }
                         }

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import android.util.Base64
+import org.json.JSONObject
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -72,6 +74,17 @@ fun RootScaffold(
     // 3) Observe current route for bottom‐nav highlighting
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+
+    /* ── Parse myUserId from the JWT once ─────────────────────── */
+    val myUserId: Int = remember(token) {
+        fun extractId(jwt: String): Int? = runCatching {
+            val payload = jwt.split(".")[1]
+            val json    = String(Base64.decode(payload, Base64.URL_SAFE or Base64.NO_WRAP))
+            JSONObject(json).getString("sub").toInt()
+        }.getOrNull()
+
+        extractId(token) ?: -1   // fallback if parsing fails
+    }
 
     Scaffold(
         topBar = {
@@ -412,7 +425,8 @@ fun RootScaffold(
             composable("chats") {
                 ChatListScreen(
                     navController = appNav,
-                    token         = token      //  ←  pass token
+                    token         = token,      //  ←  pass token
+                    myUserId      = myUserId
                 )
             }
         }
