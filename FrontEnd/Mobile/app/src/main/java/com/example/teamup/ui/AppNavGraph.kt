@@ -1,27 +1,23 @@
+/* ─── app/src/main/java/com/example/teamup/ui/AppNavGraph.kt ──────────────── */
 package com.example.teamup.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
-import androidx.navigation.compose.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.teamup.data.remote.Repository.AuthRepositoryImpl
 import com.example.teamup.data.domain.usecase.LoginUseCase
 import com.example.teamup.data.remote.api.AuthApi
+import com.example.teamup.ui.components.RootScaffold
 import com.example.teamup.ui.screens.*
 import com.example.teamup.ui.screens.Activity.EditActivityScreen
-import com.example.teamup.ui.screens.Chat.ChatDetailScreen
-import com.example.teamup.ui.screens.main.UserManager.LoginViewModel
-import com.example.teamup.ui.screens.main.UserManager.LoginViewModelFactory
-import com.example.teamup.ui.components.RootScaffold
+import com.example.teamup.ui.screens.ChatDetailScreen         // ← FIXED import
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
-import com.example.teamup.ui.screens.main.UserManager.ForgotPasswordScreen
-import com.example.teamup.ui.screens.main.UserManager.ForgotPasswordViewModel
-import com.example.teamup.ui.screens.main.UserManager.LoginScreen
-import com.example.teamup.ui.screens.main.UserManager.RegisterScreen
-import com.example.teamup.ui.screens.main.UserManager.RegisterViewModel
-import com.example.teamup.ui.screens.main.UserManager.RegisterViewModelFactory
+import com.example.teamup.ui.screens.main.UserManager.*
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -34,28 +30,20 @@ fun AppNavGraph() {
 
         /* ─── 1) LOGIN ─────────────────────────────────────────── */
         composable("login") {
-            // Create / remember a LoginViewModel via factory
             val loginVM: LoginViewModel = viewModel(
                 factory = remember {
-                    val repo = AuthRepositoryImpl(AuthApi.create())
-                    val useCase = LoginUseCase(repo)
+                    val repo     = AuthRepositoryImpl(AuthApi.create())
+                    val useCase  = LoginUseCase(repo)
                     LoginViewModelFactory(useCase)
                 }
             )
 
             LoginScreen(
                 loginViewModel = loginVM,
-                onForgotPasswordClick = {
-                    // Navigate to the “forgot password” screen
-                    nav.navigate("forgot_password")
-                },
-                onRegisterClick = {
-                    // Navigate to the “register” screen
-                    nav.navigate("register")
-                },
+                onForgotPasswordClick = { nav.navigate("forgot_password") },
+                onRegisterClick       = { nav.navigate("register") },
                 onLoginSuccess = { token ->
-                    // After login success, go to Splash (or main) – encode token in route
-                    val encoded = java.net.URLEncoder.encode(token, "UTF-8")
+                    val encoded = URLEncoder.encode(token, "UTF-8")
                     nav.navigate("splash/$encoded") {
                         popUpTo("login") { inclusive = true }
                     }
@@ -63,22 +51,17 @@ fun AppNavGraph() {
             )
         }
 
-        /* ─── 2) FORGOT PASSWORD ───────────────────────────────── */
+        /* ─── 2) FORGOT PASSWORD ──────────────────────────────── */
         composable("forgot_password") {
             val forgotVM: ForgotPasswordViewModel = viewModel()
             ForgotPasswordScreen(
                 forgotPasswordViewModel = forgotVM,
-                onBack = {
-                    // Go back to the login screen
-                    nav.popBackStack("login", inclusive = false)
-                },
-                onResetLinkSent = {
-                    // After success, pop back to login
-                    nav.popBackStack("login", inclusive = false)
-                }
+                onBack          = { nav.popBackStack("login", inclusive = false) },
+                onResetLinkSent = { nav.popBackStack("login", inclusive = false) }
             )
         }
-        /* ─── Register ─────────────────────────────────────────────────────── */
+
+        /* ─── 3) REGISTER ─────────────────────────────────────── */
         composable("register") {
             val registerVM: RegisterViewModel = viewModel(
                 factory = remember { RegisterViewModelFactory() }
@@ -86,14 +69,12 @@ fun AppNavGraph() {
 
             RegisterScreen(
                 registerViewModel = registerVM,
-                onBackToLogin = { nav.popBackStack("login", inclusive = false) },
-                onRegistrationDone = { nav.popBackStack("login", inclusive = false) }
-
-
+                onBackToLogin        = { nav.popBackStack("login", inclusive = false) },
+                onRegistrationDone   = { nav.popBackStack("login", inclusive = false) }
             )
         }
 
-        /* ─── Splash ──────────────────────────────────────────── */
+        /* ─── 4) SPLASH ───────────────────────────────────────── */
         composable(
             route = "splash/{token}",
             arguments = listOf(navArgument("token") { type = NavType.StringType })
@@ -111,7 +92,7 @@ fun AppNavGraph() {
             )
         }
 
-        /* ─── Main scaffold ───────────────────────────────────── */
+        /* ─── 5) MAIN SCAFFOLD ───────────────────────────────── */
         composable(
             route = "main/{token}",
             arguments = listOf(navArgument("token") { type = NavType.StringType })
@@ -120,28 +101,39 @@ fun AppNavGraph() {
                 back.arguments!!.getString("token")!!,
                 StandardCharsets.UTF_8.toString()
             )
-
             RootScaffold(appNav = nav, token = token)
         }
 
-        /* ─── Chats detail (global) ───────────────────────────── */
+        /* ─── 6) CHAT DETAIL (real-time) ─────────────────────── */
         composable(
-            route = "chatDetail/{chatTitle}",
-            arguments = listOf(navArgument("chatTitle") { type = NavType.StringType })
+            route = "chatDetail/{chatTitle}/{eventId}/{token}/{myUserId}",
+            arguments = listOf(
+                navArgument("chatTitle") { type = NavType.StringType },
+                navArgument("eventId")   { type = NavType.IntType    },
+                navArgument("token")     { type = NavType.StringType },
+                navArgument("myUserId")  { type = NavType.IntType    }
+            )
         ) { back ->
-            val title = back.arguments!!.getString("chatTitle")!!
+            val title     = back.arguments!!.getString("chatTitle")!!
+            val eventId   = back.arguments!!.getInt("eventId")
+            val tokenEnc  = back.arguments!!.getString("token")!!
+            val token     = URLDecoder.decode(tokenEnc, StandardCharsets.UTF_8.toString())
+            val myUserId  = back.arguments!!.getInt("myUserId")
+
             ChatDetailScreen(
                 chatTitle = title,
+                eventId   = eventId,
+                token     = token,
+                myUserId  = myUserId,
                 onBack    = { nav.popBackStack() }
             )
         }
 
-
-        /* ─── Edit activity (deep-link) ──────────────────────── */
+        /* ─── 7) EDIT ACTIVITY (deep link) ───────────────────── */
         composable(
             route = "edit_activity/{eventId}/{token}",
             arguments = listOf(
-                navArgument("eventId") { type = NavType.IntType },
+                navArgument("eventId") { type = NavType.IntType    },
                 navArgument("token")   { type = NavType.StringType }
             )
         ) { back ->
@@ -152,14 +144,12 @@ fun AppNavGraph() {
             )
 
             EditActivityScreen(
-                eventId = id,
-                token   = token,
-                onBack   = { nav.popBackStack() },
-                onSave   = { nav.popBackStack() },
-                onDelete = { nav.popBackStack() }
+                eventId   = id,
+                token     = token,
+                onBack    = { nav.popBackStack() },
+                onSave    = { nav.popBackStack() },
+                onDelete  = { nav.popBackStack() }
             )
         }
-
-
     }
 }

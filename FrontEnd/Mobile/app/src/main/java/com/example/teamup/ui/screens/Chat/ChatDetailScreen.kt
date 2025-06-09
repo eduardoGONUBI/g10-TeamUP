@@ -1,4 +1,4 @@
-package com.example.teamup.ui.screens.Chat
+package com.example.teamup.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,99 +14,128 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import com.example.teamup.model.Message
+import com.example.teamup.network.ChatApi
+import com.example.teamup.network.ChatWebSocket
 
-// Representa uma mensagem na conversa
-data class Message(
-    val fromMe: Boolean,  // Se a mensagem foi enviada por mim
-    val author: String,   // Nome do autor da mensagem
-    val text: String,     // Conteúdo da mensagem
-    val time: String      // Hora a que foi enviada
-)
-
-// Lista fixa de mensagens para demonstração
-private val dummy = listOf(
-    Message(false, "Jav",    "Hi team 👋",                        "11:31 AM"),
-    Message(false, "Jav",    "Anyone on for lunch?",              "11:31 AM"),
-    Message(true,  "Me",     "I’m down! Any ideas??",             "11:35 AM"),
-    Message(false, "Aubrey", "I was thinking the café downtown",  "11:45 AM"),
-    Message(false, "Aubrey", "But limited vegan options Janet!", "11:46 AM"),
-    Message(true,  "Me",     "Agreed",                            "11:52 PM")
-)
-
-/**
- * Ecrã de detalhe de chat que ajusta espaço para teclado e barra de navegação
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDetailScreen(
-    chatTitle: String,   // Título do chat a exibir no topo
-    onBack: () -> Unit   // Callback para ação de voltar atrás
+    chatTitle: String,
+    eventId:   Int,
+    token:     String,
+    myUserId:  Int,
+    onBack:    () -> Unit
 ) {
-    val messages = remember { dummy }                     // Mensagens a mostrar
-    var input    by remember { mutableStateOf("") }       // Texto atual do campo de input
-    val scope    = rememberCoroutineScope()               // Coroutine scope para ações assíncronas
+    /* ── State ──────────────────────────────────────────────────────────── */
+    val messages       = remember { mutableStateListOf<Message>() }
+    var input          by remember { mutableStateOf("") }
+    var loadingHistory by remember { mutableStateOf(true) }
+    val scope          = rememberCoroutineScope()
 
+    /* ── WebSocket connection ───────────────────────────────────────────── */
+    DisposableEffect(Unit) {
+        val ws = ChatWebSocket(token, eventId, myUserId).also { it.connect() }
+
+        // Collect incoming WS messages
+        val job = scope.launch {
+            ws.incoming.collectLatest { msg ->
+                messages.add(0, msg)               // top because reverseLayout = true
+            }
+        }
+
+        onDispose {
+            job.cancel()
+            ws.disconnect()
+        }
+    }
+
+    /* ── Load history once ──────────────────────────────────────────────── */
+    LaunchedEffect(Unit) {
+        runCatching { ChatApi.fetchHistory(token, eventId) }
+            .onSuccess { history ->
+                val initial = history
+                    .map { it.copy(fromMe = it.userId == myUserId) }
+                    .asReversed()                  // newest last → addAll keeps order
+                messages.addAll(initial)
+            }
+            .onFailure { it.printStackTrace() }
+        loadingHistory = false
+    }
+
+    /* ── UI ──────────────────────────────────────────────────────────────── */
     Column(
         modifier = Modifier
-            .fillMaxSize()  // Ocupa todo o ecrã
-            // Aplica padding para não sobrepor teclado (IME) nem barra de navegação
+            .fillMaxSize()
             .windowInsetsPadding(
                 WindowInsets.navigationBars.union(WindowInsets.ime)
             )
     ) {
-        // Barra de topo com título e botão de voltar
         TopAppBar(
-            title = { Text(chatTitle) },   // Exibe o nome do chat
+            title = { Text(chatTitle) },
             navigationIcon = {
-                IconButton(onClick = onBack) {  // Volta ao ecrã anterior
+                IconButton(onClick = onBack) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
                 }
             }
         )
 
-        // Lista rolável de bolhas de mensagem
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)              // Ocupa todo o espaço restante
-                .fillMaxWidth()          // Largura total
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            reverseLayout = true          // Inverte a ordem: mensagens recentes em baixo
-        ) {
-            items(messages.reversed()) { msg ->
-                MessageBubble(msg)       // Componente que desenha cada bolha
+        when {
+            loadingHistory -> {
+                Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            messages.isEmpty() -> {
+                Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
+                    Text("No messages yet.")
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    reverseLayout = true
+                ) {
+                    items(messages) { msg ->        // already newest at top
+                        MessageBubble(msg)
+                    }
+                }
             }
         }
 
-        // Linha de input para enviar nova mensagem
         Row(
             modifier = Modifier
-                .fillMaxWidth()          // Largura total
-                .padding(8.dp),          // Espaço à volta
+                .fillMaxWidth()
+                .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Campo de texto para escrever a mensagem
             OutlinedTextField(
-                value = input,                       // Texto atual
-                onValueChange = { input = it },      // Atualiza o estado quando muda
-                modifier    = Modifier.weight(1f),   // Ocupa espaço disponível
-                placeholder = { Text("Message") },   // Texto sugerido
-                singleLine  = true,                  // Apenas uma linha
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(
-                    onSend = {                      // Ação ao pressionar “Enviar” no teclado
-                        scope.launch { input = "" } // Limpa o campo
+                value = input,
+                onValueChange = { input = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Message") },
+                singleLine = true,
+                keyboardOptions  = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions  = KeyboardActions(
+                    onSend = {
+                        scope.launch {
+                            trySendMessage(token, eventId, input) { input = "" }
+                        }
                     }
                 )
             )
-            // Botão de enviar mensagem
             IconButton(
-                onClick = { scope.launch { input = "" } },  // Limpa o campo ao enviar
-                enabled = input.isNotBlank()                // Só ativo se houver texto
+                enabled = input.isNotBlank(),
+                onClick = {
+                    scope.launch {
+                        trySendMessage(token, eventId, input) { input = "" }
+                    }
+                }
             ) {
                 Icon(Icons.Default.Send, contentDescription = "Enviar")
             }
@@ -114,48 +143,51 @@ fun ChatDetailScreen(
     }
 }
 
-/**
- * Bolha de mensagem individual
- */
+/* ── Send message helper ───────────────────────────────────────────────── */
+private suspend fun trySendMessage(
+    token:     String,
+    eventId:   Int,
+    text:      String,
+    onSuccess: () -> Unit
+) = runCatching {
+    ChatApi.sendMessage(token, eventId, text)
+}.onSuccess { onSuccess() }
+    .onFailure { it.printStackTrace() }
+
+/* ── Message bubble ────────────────────────────────────────────────────── */
 @Composable
 private fun MessageBubble(msg: Message) {
-    // Define cor de fundo consoante quem enviou
     val bubbleColor = if (msg.fromMe)
         MaterialTheme.colorScheme.primary
     else
         MaterialTheme.colorScheme.surfaceVariant
 
-    // Alinhamento da bolha (à direita se for minha, à esquerda caso contrário)
     val alignment = if (msg.fromMe) Alignment.End else Alignment.Start
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()         // Largura total
+            .fillMaxWidth()
             .padding(vertical = 2.dp),
-        horizontalAlignment = alignment  // Alinha horizontalmente
+        horizontalAlignment = alignment
     ) {
-        // Superfície que envolve o conteúdo da mensagem (bolha)
         Surface(
-            color          = bubbleColor,                 // Cor de fundo
-            shape          = MaterialTheme.shapes.medium, // Bordas arredondadas
-            tonalElevation = 2.dp                         // Elevation para sombra
+            color          = bubbleColor,
+            shape          = MaterialTheme.shapes.medium,
+            tonalElevation = 2.dp
         ) {
             Column(Modifier.padding(8.dp)) {
                 if (!msg.fromMe) {
-                    // Exibe nome do autor acima da mensagem se não for auto
                     Text(
                         text  = msg.author,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // Texto da mensagem
                 Text(text = msg.text)
             }
         }
-        // Hora da mensagem abaixo da bolha
         Text(
-            text     = msg.time,
+            text     = msg.timestamp,
             style    = MaterialTheme.typography.labelSmall,
             color    = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp)
