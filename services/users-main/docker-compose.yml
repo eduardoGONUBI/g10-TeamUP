@@ -35,9 +35,9 @@ services:
     working_dir: /var/www
     volumes:
       - .:/var/www
-      - ./storage:/var/www/storage
     env_file:
       - .env
+    entrypoint: ["sh", "/var/www/entrypoint.sh"]
     depends_on:
       - db
     networks:
@@ -56,6 +56,6 @@ services:
 
 networks:
   laravel:
-    driver: bridge 
+    driver: bridge
   shared:
     external: true
