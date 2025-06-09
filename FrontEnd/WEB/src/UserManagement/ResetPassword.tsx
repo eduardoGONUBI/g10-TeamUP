@@ -1,7 +1,7 @@
 // src/ResetPassword.tsx
 import React, { useState, type FormEvent, type ChangeEvent, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import logo from "../assets/logo.png"
+import logo from "../assets/logo.png";
 import "../UserManagement/Login";
 
 const ResetPassword = () => {
@@ -19,6 +19,13 @@ const ResetPassword = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Validation state
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isPasswordValid, setIsPasswordValid] = useState(false);
+
+  // Password strength regex: at least 8 chars, 1 uppercase, 1 number
+  const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+
   // if someone lands here without token/email, bounce them back
   useEffect(() => {
     if (!token || !email) {
@@ -26,10 +33,34 @@ const ResetPassword = () => {
     }
   }, [token, email, navigate]);
 
+  // Validate password as user types
+  useEffect(() => {
+    if (!password) {
+      setPasswordError(null);
+      setIsPasswordValid(false);
+      return;
+    }
+
+    if (!passwordRegex.test(password)) {
+      setPasswordError(
+        "Password must be at least 8 characters long, contain one uppercase letter and one number."
+      );
+      setIsPasswordValid(false);
+    } else {
+      setPasswordError(null);
+      setIsPasswordValid(true);
+    }
+  }, [password]);
+
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (!isPasswordValid) {
+      setError("Please choose a stronger password.");
+      return;
+    }
 
     if (password !== passwordConfirmation) {
       setError("Passwords do not match");
@@ -44,7 +75,7 @@ const ResetPassword = () => {
           token,
           email,
           password,
-          password_confirmation: passwordConfirmation
+          password_confirmation: passwordConfirmation,
         }),
       });
 
@@ -89,6 +120,11 @@ const ResetPassword = () => {
               required
             />
           </label>
+          {passwordError && (
+            <div style={{ color: "orange", marginBottom: "1rem" }}>
+              {passwordError}
+            </div>
+          )}
 
           <label>
             Confirm Password
@@ -102,7 +138,9 @@ const ResetPassword = () => {
             />
           </label>
 
-          <button type="submit">Reset Password</button>
+          <button type="submit" disabled={!isPasswordValid || !passwordConfirmation}>
+            Reset Password
+          </button>
         </form>
       </div>
 

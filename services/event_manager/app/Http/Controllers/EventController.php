@@ -97,116 +97,127 @@ class EventController extends Controller
     /**
      * Store a new event.
      */
-public function store(Request $request)
-{
-    try {
-        $token = $this->validateToken($request);
+    public function store(Request $request)
+    {
+        try {
+            $token = $this->validateToken($request);
 
-        $payload  = JWTAuth::setToken($token)->getPayload();
-        $userId   = $payload->get('sub');
-        $userName = $payload->get('name');
+            $payload = JWTAuth::setToken($token)->getPayload();
+            $userId = $payload->get('sub');
+            $userName = $payload->get('name');
 
-        // Only validate the fields the user submits now. Note: we require "starts_at" here.
-        $validatedData = $request->validate([
-            'name'             => 'required|string',
-            'sport_id'         => 'required|exists:sports,id',
-            'starts_at'        => 'required|date_format:Y-m-d H:i:s',
-            'place'            => 'required|string',
-            'max_participants' => 'required|integer|min:2',
-        ]);
+            // Only validate the fields the user submits now. Note: we require "starts_at" here.
+            $validatedData = $request->validate([
+                'name' => 'required|string',
+                'sport_id' => 'required|exists:sports,id',
+                'starts_at' => 'required|date_format:Y-m-d H:i:s',
+                'place' => 'required|string',
+                'max_participants' => 'required|integer|min:2',
+            ]);
 
-        //
-        // ─── Geocode the place ───────────────────────────────────────────────
-        //
-        $geoKey = config('services.google_maps.key')
-            ?? env('GOOGLE_MAPS_GEOCODE_API_KEY');
-        if (! $geoKey) {
-            throw new \Exception('Missing Google Geocoding API key');
-        }
+            //
+            // ─── Geocode the place ───────────────────────────────────────────────
+            //
+            $geoKey = config('services.google_maps.key')
+                ?? env('GOOGLE_MAPS_GEOCODE_API_KEY');
+            if (!$geoKey) {
+                throw new \Exception('Missing Google Geocoding API key');
+            }
 
-        $geoRes = Http::get('https://maps.googleapis.com/maps/api/geocode/json', [
-            'address' => $validatedData['place'],
-            'key'     => $geoKey,
-        ])->json();
+            $geoRes = Http::get('https://maps.googleapis.com/maps/api/geocode/json', [
+                'address' => $validatedData['place'],
+                'key' => $geoKey,
+            ])->json();
 
-        if (($geoRes['status'] ?? '') === 'ZERO_RESULTS') {
-            // User typed something Google doesn't recognize
+            if (($geoRes['status'] ?? '') === 'ZERO_RESULTS') {
+                // User typed something Google doesn't recognize
+                return response()->json([
+                    'error' => 'Address not found. Please enter a valid location.'
+                ], 422);
+            }
+
+            if (
+                ($geoRes['status'] ?? '') !== 'OK' ||
+                empty($geoRes['results'][0]['geometry']['location'])
+            ) {
+                $status = $geoRes['status'] ?? 'UNKNOWN';
+                return response()->json([
+                    'error' => "Error while searching for the address: {$status}. Please try again."
+                ], 422);
+            }
+
+            $loc = $geoRes['results'][0]['geometry']['location'];
+            $lat = $loc['lat'];
+            $lng = $loc['lng'];
+
+            //
+            // ─── Fetch weather for that lat/lng + date ────────────────────────────
+            //
+            // Change: use 'starts_at' when parsing the date for weather lookup
+            $eventDate = Carbon::parse($validatedData['starts_at'])->format('Y-m-d');
+            try {
+                // This may throw or return null/empty if the provider has no data
+                $weatherData = $this->weatherService->getForecastForDate($lat, $lng, $eventDate);
+
+                // Normalise “no data” to null so we store a clean value
+                if (!$weatherData || empty($weatherData)) {
+                    $weatherData = null;
+                }
+            } catch (\Throwable $ex) {
+                // Silently continue – we only log a warning, we don’t block the event
+            
+                $weatherData = null;
+            }
+
+            //
+            // ─── Finally, create the event ───────────────────────────────────────
+            //
+            $event = Event::create([
+                'name' => $validatedData['name'],
+                'sport_id' => $validatedData['sport_id'],
+                // Change: write into "starts_at" (instead of "date")
+                'starts_at' => $validatedData['starts_at'],
+                'place' => $validatedData['place'],
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'status' => 'in progress',
+                'max_participants' => $validatedData['max_participants'],
+                'latitude' => $lat,
+                'longitude' => $lng,
+                'weather' => $weatherData ? json_encode($weatherData) : null,
+            ]);
+
+            // auto-join creator
+            Participant::create([
+                'event_id' => $event->id,
+                'user_id' => $userId,
+                'user_name' => $userName,
+            ]);
+
+            // push to RabbitMQ
+            $msg = [
+                'event_id' => $event->id,
+                'event_name' => $event->name,
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'message' => 'User joined the event',
+            ];
+            $this->publishToRabbitMQ('event_joined', json_encode($msg));
+            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($msg));
+            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($msg));
+            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($msg));
+            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($msg));
+
             return response()->json([
-                'error' => 'Address not found. Please enter a valid location.'
-            ], 422);
+                'message' => 'Evento criado com sucesso!',
+                'event' => $event,
+            ], 201);
+
+        } catch (\Exception $e) {
+            // If something goes wrong, return the exception message
+            return response()->json(['error' => $e->getMessage()], 400);
         }
-
-        if (
-            ($geoRes['status'] ?? '') !== 'OK' ||
-            empty($geoRes['results'][0]['geometry']['location'])
-        ) {
-            $status = $geoRes['status'] ?? 'UNKNOWN';
-            return response()->json([
-                'error' => "Error while searching for the address: {$status}. Please try again."
-            ], 422);
-        }
-
-        $loc = $geoRes['results'][0]['geometry']['location'];
-        $lat = $loc['lat'];
-        $lng = $loc['lng'];
-
-        //
-        // ─── Fetch weather for that lat/lng + date ────────────────────────────
-        //
-        // Change: use 'starts_at' when parsing the date for weather lookup
-        $eventDate   = Carbon::parse($validatedData['starts_at'])->format('Y-m-d');
-        $weatherData = $this->weatherService
-            ->getForecastForDate($lat, $lng, $eventDate);
-
-        //
-        // ─── Finally, create the event ───────────────────────────────────────
-        //
-        $event = Event::create([
-            'name'             => $validatedData['name'],
-            'sport_id'         => $validatedData['sport_id'],
-            // Change: write into "starts_at" (instead of "date")
-            'starts_at'        => $validatedData['starts_at'],
-            'place'            => $validatedData['place'],
-            'user_id'          => $userId,
-            'user_name'        => $userName,
-            'status'           => 'in progress',
-            'max_participants' => $validatedData['max_participants'],
-            'latitude'         => $lat,
-            'longitude'        => $lng,
-            'weather'          => json_encode($weatherData),
-        ]);
-
-        // auto-join creator
-        Participant::create([
-            'event_id'  => $event->id,
-            'user_id'   => $userId,
-            'user_name' => $userName,
-        ]);
-
-        // push to RabbitMQ
-        $msg = [
-            'event_id'   => $event->id,
-            'event_name' => $event->name,
-            'user_id'    => $userId,
-            'user_name'  => $userName,
-            'message'    => 'User joined the event',
-        ];
-        $this->publishToRabbitMQ('event_joined',         json_encode($msg));
-        $this->publishToRabbitMQ('chat_event_join-leave', json_encode($msg));
-        $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($msg));
-        $this->publishToRabbitMQ('ach_event_join-leave', json_encode($msg));
-        $this->publishToRabbitMQ('noti_event_join-leave', json_encode($msg));
-
-        return response()->json([
-            'message' => 'Evento criado com sucesso!',
-            'event'   => $event,
-        ], 201);
-
-    } catch (\Exception $e) {
-        // If something goes wrong, return the exception message
-        return response()->json(['error' => $e->getMessage()], 400);
     }
-}
 
 
 
@@ -226,130 +237,130 @@ public function store(Request $request)
         return [$loc['lat'], $loc['lng']];
     }
 
-  public function show(Request $request, $id)
-{
-    // 1) Authenticate & validate the token
-    $token = $this->validateToken($request);
-
-    // 2) Find the Event (or 404 if not found)
-    $event = Event::findOrFail($id);
-
-    // 3) Decode the stored weather JSON (same as before)
-    $raw = is_array($event->weather)
-         ? $event->weather
-         : json_decode($event->weather, true) ?? [];
-
-    $weather = [
-        'temp'        => $raw['temp']       ?? null,
-        'high_temp'   => $raw['high_temp']  ?? null,
-        'low_temp'    => $raw['low_temp']   ?? null,
-        'description' => $raw['weather']['description'] ?? null,
-    ];
-
-    // 4) Fetch participants from the pivot table (only non-deleted rows)
-    $participants = DB::table('event_user')
-        ->where('event_id', $event->id)
-        ->whereNull('deleted_at')
-        ->get(['user_id', 'user_name', 'rating'])
-        ->map(function ($p) {
-            return [
-                'id'     => $p->user_id,
-                'name'   => $p->user_name,
-                'rating' => $p->rating,
-                'avatar_url' => null, // or whatever default/avatar you want
-            ];
-        });
-
-    // 5) Return JSON with “event” fields plus the new “participants” array
-    return response()->json([
-        'id'               => $event->id,
-        'name'             => $event->name,
-        'sport'            => $event->sport->name ?? null,
-        'starts_at'        => $event->starts_at,
-        'place'            => $event->place,
-        'status'           => $event->status,
-        'max_participants' => $event->max_participants,
-        'latitude'         => $event->latitude,
-        'longitude'        => $event->longitude,
-        'user_id'          => $event->user_id,
-        'creator'          => [
-            'id'   => $event->user_id,
-            'name' => $event->user_name,
-        ],
-        'weather'          => $weather,
-        'participants'     => $participants,
-    ], 200);
-}
-
-/**
- * GET /api/events
- *
- * Retorna apenas os eventos criados pelo utilizador autenticado,
- * com dados de tempo, localização, participantes e pontuações.
- */
-public function index(Request $request)
-{
-    try {
+    public function show(Request $request, $id)
+    {
+        // 1) Authenticate & validate the token
         $token = $this->validateToken($request);
-        $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-        // Buscar apenas eventos criados por este utilizador
-        $events = Event::with('sport')
-            ->where('user_id', $userId)
-            ->get();
+        // 2) Find the Event (or 404 if not found)
+        $event = Event::findOrFail($id);
 
-        $response = $events->map(function ($event) {
-            // Decodificar weather (JSON ou array)
-            $rawWeather = is_array($event->weather)
-                ? $event->weather
-                : json_decode($event->weather, true) ?? [];
+        // 3) Decode the stored weather JSON (same as before)
+        $raw = is_array($event->weather)
+            ? $event->weather
+            : json_decode($event->weather, true) ?? [];
 
-            $weather = [
-                'app_max_temp' => $rawWeather['app_max_temp'] ?? 'N/A',
-                'app_min_temp' => $rawWeather['app_min_temp'] ?? 'N/A',
-                'temp'         => $rawWeather['temp']      ?? 'N/A',
-                'high_temp'    => $rawWeather['high_temp'] ?? 'N/A',
-                'low_temp'     => $rawWeather['low_temp']  ?? 'N/A',
-                'description'  => $rawWeather['weather']['description'] ?? 'N/A',
-            ];
+        $weather = [
+            'temp' => $raw['temp'] ?? null,
+            'high_temp' => $raw['high_temp'] ?? null,
+            'low_temp' => $raw['low_temp'] ?? null,
+            'description' => $raw['weather']['description'] ?? null,
+        ];
 
-            // Obter participantes (excluindo soft-deleted)
-            $participants = DB::table('event_user')
-                ->where('event_id', $event->id)
-                ->whereNull('deleted_at')
-                ->get(['user_id', 'user_name', 'rating'])
-                ->map(function ($p) {
-                    return [
-                        'id'     => $p->user_id,
-                        'name'   => $p->user_name,
-                        'rating' => $p->rating,
-                    ];
-                });
+        // 4) Fetch participants from the pivot table (only non-deleted rows)
+        $participants = DB::table('event_user')
+            ->where('event_id', $event->id)
+            ->whereNull('deleted_at')
+            ->get(['user_id', 'user_name', 'rating'])
+            ->map(function ($p) {
+                return [
+                    'id' => $p->user_id,
+                    'name' => $p->user_name,
+                    'rating' => $p->rating,
+                    'avatar_url' => null, // or whatever default/avatar you want
+                ];
+            });
 
-            return [
-                'id'               => $event->id,
-                'name'             => $event->name,
-                'sport'            => $event->sport->name ?? null,
-                'starts_at'        => $event->starts_at,
-                'place'            => $event->place,
-                'status'           => $event->status,
-                'max_participants' => $event->max_participants,
-                'latitude'         => $event->latitude,
-                'longitude'        => $event->longitude,
-                'creator'          => [
-                    'id'   => $event->user_id,
-                    'name' => $event->user_name,
-                ],
-                'weather'          => $weather,
-                'participants'     => $participants,
-            ];
-        });
-
-        return response()->json($response, 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 401);
+        // 5) Return JSON with “event” fields plus the new “participants” array
+        return response()->json([
+            'id' => $event->id,
+            'name' => $event->name,
+            'sport' => $event->sport->name ?? null,
+            'starts_at' => $event->starts_at,
+            'place' => $event->place,
+            'status' => $event->status,
+            'max_participants' => $event->max_participants,
+            'latitude' => $event->latitude,
+            'longitude' => $event->longitude,
+            'user_id' => $event->user_id,
+            'creator' => [
+                'id' => $event->user_id,
+                'name' => $event->user_name,
+            ],
+            'weather' => $weather,
+            'participants' => $participants,
+        ], 200);
     }
-}
+
+    /**
+     * GET /api/events
+     *
+     * Retorna apenas os eventos criados pelo utilizador autenticado,
+     * com dados de tempo, localização, participantes e pontuações.
+     */
+    public function index(Request $request)
+    {
+        try {
+            $token = $this->validateToken($request);
+            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
+
+            // Buscar apenas eventos criados por este utilizador
+            $events = Event::with('sport')
+                ->where('user_id', $userId)
+                ->get();
+
+            $response = $events->map(function ($event) {
+                // Decodificar weather (JSON ou array)
+                $rawWeather = is_array($event->weather)
+                    ? $event->weather
+                    : json_decode($event->weather, true) ?? [];
+
+                $weather = [
+                    'app_max_temp' => $rawWeather['app_max_temp'] ?? 'N/A',
+                    'app_min_temp' => $rawWeather['app_min_temp'] ?? 'N/A',
+                    'temp' => $rawWeather['temp'] ?? 'N/A',
+                    'high_temp' => $rawWeather['high_temp'] ?? 'N/A',
+                    'low_temp' => $rawWeather['low_temp'] ?? 'N/A',
+                    'description' => $rawWeather['weather']['description'] ?? 'N/A',
+                ];
+
+                // Obter participantes (excluindo soft-deleted)
+                $participants = DB::table('event_user')
+                    ->where('event_id', $event->id)
+                    ->whereNull('deleted_at')
+                    ->get(['user_id', 'user_name', 'rating'])
+                    ->map(function ($p) {
+                        return [
+                            'id' => $p->user_id,
+                            'name' => $p->user_name,
+                            'rating' => $p->rating,
+                        ];
+                    });
+
+                return [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'sport' => $event->sport->name ?? null,
+                    'starts_at' => $event->starts_at,
+                    'place' => $event->place,
+                    'status' => $event->status,
+                    'max_participants' => $event->max_participants,
+                    'latitude' => $event->latitude,
+                    'longitude' => $event->longitude,
+                    'creator' => [
+                        'id' => $event->user_id,
+                        'name' => $event->user_name,
+                    ],
+                    'weather' => $weather,
+                    'participants' => $participants,
+                ];
+            });
+
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
+    }
 
 
     /**
@@ -615,163 +626,163 @@ public function index(Request $request)
      * Fetch user events.
      */
     public function userEvents(Request $request)
-{
-    try {
-        $token = $this->validateToken($request);
-        $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
+    {
+        try {
+            $token = $this->validateToken($request);
+            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-        $events = Event::with('sport')
-            ->where('user_id', $userId)
-            ->orWhereHas('participants', function ($query) use ($userId) {
-                $query->where('user_id', $userId);
-            })
-            ->get();
+            $events = Event::with('sport')
+                ->where('user_id', $userId)
+                ->orWhereHas('participants', function ($query) use ($userId) {
+                    $query->where('user_id', $userId);
+                })
+                ->get();
 
-        $response = $events->map(function ($event) {
-            // Decode weather if it's a string
-            $weatherData = is_array($event->weather)
-                ? $event->weather
-                : json_decode($event->weather, true) ?? [];
+            $response = $events->map(function ($event) {
+                // Decode weather if it's a string
+                $weatherData = is_array($event->weather)
+                    ? $event->weather
+                    : json_decode($event->weather, true) ?? [];
 
-            // Fetch participants
-            $participants = DB::table('event_user')
-                ->where('event_id', $event->id)
-                ->whereNull('deleted_at')
-                ->get(['user_id', 'user_name', 'rating']);
+                // Fetch participants
+                $participants = DB::table('event_user')
+                    ->where('event_id', $event->id)
+                    ->whereNull('deleted_at')
+                    ->get(['user_id', 'user_name', 'rating']);
 
-            return [
-                'id' => $event->id,
-                'name' => $event->name,
-                'sport' => $event->sport->name ?? null,
-                'starts_at' => $event->starts_at,
-                'place' => $event->place,
-                'status' => $event->status,
-                'max_participants' => $event->max_participants,
-                'latitude' => $event->latitude,
-                'longitude' => $event->longitude,
-                'creator' => [
-                    'id' => $event->user_id,
-                    'name' => $event->user_name,
-                ],
-                'weather' => [
-                    'app_max_temp' => $weatherData['app_max_temp'] ?? 'N/A',
-                    'app_min_temp' => $weatherData['app_min_temp'] ?? 'N/A',
-                    'temp' => $weatherData['temp'] ?? 'N/A',
-                    'high_temp' => $weatherData['high_temp'] ?? 'N/A',
-                    'low_temp' => $weatherData['low_temp'] ?? 'N/A',
-                    'description' => $weatherData['weather']['description'] ?? 'N/A',
-                ],
-                'participants' => $participants->map(function ($participant) {
-                    return [
-                        'id' => $participant->user_id,
-                        'name' => $participant->user_name,
-                        'rating' => $participant->rating,
-                    ];
-                }),
-            ];
-        });
+                return [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'sport' => $event->sport->name ?? null,
+                    'starts_at' => $event->starts_at,
+                    'place' => $event->place,
+                    'status' => $event->status,
+                    'max_participants' => $event->max_participants,
+                    'latitude' => $event->latitude,
+                    'longitude' => $event->longitude,
+                    'creator' => [
+                        'id' => $event->user_id,
+                        'name' => $event->user_name,
+                    ],
+                    'weather' => [
+                        'app_max_temp' => $weatherData['app_max_temp'] ?? 'N/A',
+                        'app_min_temp' => $weatherData['app_min_temp'] ?? 'N/A',
+                        'temp' => $weatherData['temp'] ?? 'N/A',
+                        'high_temp' => $weatherData['high_temp'] ?? 'N/A',
+                        'low_temp' => $weatherData['low_temp'] ?? 'N/A',
+                        'description' => $weatherData['weather']['description'] ?? 'N/A',
+                    ],
+                    'participants' => $participants->map(function ($participant) {
+                        return [
+                            'id' => $participant->user_id,
+                            'name' => $participant->user_name,
+                            'rating' => $participant->rating,
+                        ];
+                    }),
+                ];
+            });
 
-        return response()->json($response, 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 401);
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
     }
-}
 
 
     /**
      * Search for events.
      */
-   /**
- * Search for events (returns the same structure as "userEvents" for each match).
- * GET /api/events/search?name=X&place=Y&date=Z
- */
-/**
- * Search for events (returns the same structure as index/userEvents for each match).
- * GET /api/events/search?name=X&place=Y&date=Z
- */
-public function search(Request $request)
-{
-    try {
-        // 1) Validate/authenticate token
-        $token = $this->validateToken($request);
+    /**
+     * Search for events (returns the same structure as "userEvents" for each match).
+     * GET /api/events/search?name=X&place=Y&date=Z
+     */
+    /**
+     * Search for events (returns the same structure as index/userEvents for each match).
+     * GET /api/events/search?name=X&place=Y&date=Z
+     */
+    public function search(Request $request)
+    {
+        try {
+            // 1) Validate/authenticate token
+            $token = $this->validateToken($request);
 
-        // 2) Build base query, eager‐loading the “sport” relationship and participants
-        $query = Event::with('sport');
+            // 2) Build base query, eager‐loading the “sport” relationship and participants
+            $query = Event::with('sport');
 
-        if ($request->has('id')) {
-            $query->where('id', $request->input('id'));
+            if ($request->has('id')) {
+                $query->where('id', $request->input('id'));
+            }
+            if ($request->has('name')) {
+                $query->where('name', 'like', '%' . $request->input('name') . '%');
+            }
+            if ($request->has('date')) {
+                $query->where('date', $request->input('date'));
+            }
+            if ($request->has('place')) {
+                $query->where('place', 'like', '%' . $request->input('place') . '%');
+            }
+
+            $events = $query->get();
+
+            // If no matches, return an empty array
+            if ($events->isEmpty()) {
+                return response()->json([], 200);
+            }
+
+            // 3) Map each Event model into the same structure as index() uses
+            $response = $events->map(function ($event) {
+                // 3a) Decode the “weather” column (JSON stored as a string)
+                $rawWeather = is_array($event->weather)
+                    ? $event->weather
+                    : json_decode($event->weather, true) ?? [];
+
+                // 3b) Build a simplified weather object
+                $weather = [
+                    'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
+                    'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
+                    'temp' => $rawWeather['temp'] ?? null,
+                    'high_temp' => $rawWeather['high_temp'] ?? null,
+                    'low_temp' => $rawWeather['low_temp'] ?? null,
+                    'description' => $rawWeather['weather']['description'] ?? null,
+                ];
+
+                // 3c) Build the participants list from the pivot table (only non‐deleted)
+                $participants = DB::table('event_user')
+                    ->where('event_id', $event->id)
+                    ->whereNull('deleted_at')
+                    ->get(['user_id', 'user_name', 'rating'])
+                    ->map(function ($p) {
+                        return [
+                            'id' => $p->user_id,
+                            'name' => $p->user_name,
+                            'rating' => $p->rating,
+                        ];
+                    });
+
+                return [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'sport' => $event->sport->name ?? null,
+                    'starts_at' => $event->starts_at,
+                    'place' => $event->place,
+                    'status' => $event->status,
+                    'max_participants' => $event->max_participants,
+                    'latitude' => $event->latitude,
+                    'longitude' => $event->longitude,
+                    'creator' => [
+                        'id' => $event->user_id,
+                        'name' => $event->user_name,
+                    ],
+                    'weather' => $weather,
+                    'participants' => $participants,
+                ];
+            });
+
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
         }
-        if ($request->has('name')) {
-            $query->where('name', 'like', '%' . $request->input('name') . '%');
-        }
-        if ($request->has('date')) {
-            $query->where('date', $request->input('date'));
-        }
-        if ($request->has('place')) {
-            $query->where('place', 'like', '%' . $request->input('place') . '%');
-        }
-
-        $events = $query->get();
-
-        // If no matches, return an empty array
-        if ($events->isEmpty()) {
-            return response()->json([], 200);
-        }
-
-        // 3) Map each Event model into the same structure as index() uses
-        $response = $events->map(function ($event) {
-            // 3a) Decode the “weather” column (JSON stored as a string)
-            $rawWeather = is_array($event->weather)
-                ? $event->weather
-                : json_decode($event->weather, true) ?? [];
-
-            // 3b) Build a simplified weather object
-            $weather = [
-                'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
-                'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
-                'temp'         => $rawWeather['temp']      ?? null,
-                'high_temp'    => $rawWeather['high_temp'] ?? null,
-                'low_temp'     => $rawWeather['low_temp']  ?? null,
-                'description'  => $rawWeather['weather']['description'] ?? null,
-            ];
-
-            // 3c) Build the participants list from the pivot table (only non‐deleted)
-            $participants = DB::table('event_user')
-                ->where('event_id', $event->id)
-                ->whereNull('deleted_at')
-                ->get(['user_id', 'user_name', 'rating'])
-                ->map(function ($p) {
-                    return [
-                        'id'     => $p->user_id,
-                        'name'   => $p->user_name,
-                        'rating' => $p->rating,
-                    ];
-                });
-
-            return [
-                'id'               => $event->id,
-                'name'             => $event->name,
-                'sport'            => $event->sport->name ?? null,
-                'starts_at'        => $event->starts_at,
-                'place'            => $event->place,
-                'status'           => $event->status,
-                'max_participants' => $event->max_participants,
-                'latitude'         => $event->latitude,
-                'longitude'        => $event->longitude,
-                'creator'          => [
-                    'id'   => $event->user_id,
-                    'name' => $event->user_name,
-                ],
-                'weather'          => $weather,
-                'participants'     => $participants,
-            ];
-        });
-
-        return response()->json($response, 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 401);
     }
-}
 
 
 
@@ -903,71 +914,71 @@ public function search(Request $request)
      *
      * PUT /events/{id}/conclude        (see routes file below)
      */
- public function concludeByCreator(Request $request, $id)
-{
-    try {
-        // ─── Autenticação & validação de propriedade ─────────────────────────────
-        $token   = $this->validateToken($request);
-        $payload = JWTAuth::setToken($token)->getPayload();
-        $userId  = $payload->get('sub');
-        $userName= $payload->get('name');
+    public function concludeByCreator(Request $request, $id)
+    {
+        try {
+            // ─── Autenticação & validação de propriedade ─────────────────────────────
+            $token = $this->validateToken($request);
+            $payload = JWTAuth::setToken($token)->getPayload();
+            $userId = $payload->get('sub');
+            $userName = $payload->get('name');
 
-        $event = Event::find($id);
-        if (!$event) {
-            return response()->json(['error' => 'Event not found'], 404);
-        }
-        if ((int) $event->user_id !== (int) $userId) {
-            return response()->json(['error' => 'Unauthorized: only the creator can end the event'], 403);
-        }
-        if ($event->status === 'concluded') {
-            return response()->json(['message' => 'Event is already concluded'], 200);
-        }
+            $event = Event::find($id);
+            if (!$event) {
+                return response()->json(['error' => 'Event not found'], 404);
+            }
+            if ((int) $event->user_id !== (int) $userId) {
+                return response()->json(['error' => 'Unauthorized: only the creator can end the event'], 403);
+            }
+            if ($event->status === 'concluded') {
+                return response()->json(['message' => 'Event is already concluded'], 200);
+            }
 
-        // ─── Guardar estado antigo & persistir novo estado ────────────────────────
-        $wasConcluded = $event->status === 'concluded';
-        $event->status = 'concluded';
-        $event->save();
+            // ─── Guardar estado antigo & persistir novo estado ────────────────────────
+            $wasConcluded = $event->status === 'concluded';
+            $event->status = 'concluded';
+            $event->save();
 
-        // ─── Se efetivamente mudou para "concluded", publica o evento ─────────────
-        if (!$wasConcluded && $event->status === 'concluded') {
-            $lifecycleMessage = [
-                'event_id'   => $event->id,
+            // ─── Se efetivamente mudou para "concluded", publica o evento ─────────────
+            if (!$wasConcluded && $event->status === 'concluded') {
+                $lifecycleMessage = [
+                    'event_id' => $event->id,
+                    'event_name' => $event->name,
+                    'user_id' => $userId,
+                    'user_name' => $userName,
+                    'message' => 'Event concluded by creator',
+                ];
+                // Para o micro-serviço de achievements e rating
+                $this->publishToRabbitMQ('event_concluded', json_encode($lifecycleMessage));
+                $this->publishToRabbitMQ('rating_event_concluded', json_encode($lifecycleMessage));
+            }
+
+            // ─── Notificação tipo chat/fan-out ────────────────────────────────────────
+            $participants = Participant::where('event_id', $id)
+                ->get(['user_id', 'user_name'])
+                ->toArray();
+
+            $notification = [
+                'type' => 'new_message',
+                'event_id' => $event->id,
                 'event_name' => $event->name,
-                'user_id'    => $userId,
-                'user_name'  => $userName,
-                'message'    => 'Event concluded by creator',
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'message' => 'The event has ended',
+                'timestamp' => now()->toISOString(),
+                'participants' => $participants,
             ];
-            // Para o micro-serviço de achievements e rating
-            $this->publishToRabbitMQ('event_concluded', json_encode($lifecycleMessage));
-            $this->publishToRabbitMQ('rating_event_concluded', json_encode($lifecycleMessage));
+            $this->publishToRabbitMQ('notification', json_encode($notification));
+
+            return response()->json([
+                'message' => 'Event concluded successfully',
+                'event' => $event,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
         }
-
-        // ─── Notificação tipo chat/fan-out ────────────────────────────────────────
-        $participants = Participant::where('event_id', $id)
-            ->get(['user_id', 'user_name'])
-            ->toArray();
-
-        $notification = [
-            'type'       => 'new_message',
-            'event_id'   => $event->id,
-            'event_name' => $event->name,
-            'user_id'    => $userId,
-            'user_name'  => $userName,
-            'message'    => 'The event has ended',
-            'timestamp'  => now()->toISOString(),
-            'participants'=> $participants,
-        ];
-        $this->publishToRabbitMQ('notification', json_encode($notification));
-
-        return response()->json([
-            'message' => 'Event concluded successfully',
-            'event'   => $event,
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 401);
     }
-}
 
 
     /**
@@ -1261,71 +1272,71 @@ public function search(Request $request)
 
 
     /**
- * GET /api/users/{id}/events
- * Returns all events created by user {id}, including weather/participants, etc.
- */
-public function eventsByUser(Request $request, $id)
-{
-    try {
-        // 1) Validate incoming token (doesn’t need to match $id; just any valid JWT)
-        $this->validateToken($request);
+     * GET /api/users/{id}/events
+     * Returns all events created by user {id}, including weather/participants, etc.
+     */
+    public function eventsByUser(Request $request, $id)
+    {
+        try {
+            // 1) Validate incoming token (doesn’t need to match $id; just any valid JWT)
+            $this->validateToken($request);
 
-        // 2) Fetch all events whose creator is exactly $id
-        $events = Event::with('sport')
-            ->where('user_id', $id)
-            ->get();
+            // 2) Fetch all events whose creator is exactly $id
+            $events = Event::with('sport')
+                ->where('user_id', $id)
+                ->get();
 
-        // 3) Map each Event model to the same JSON structure your index() uses:
-        $response = $events->map(function ($event) {
-            $rawWeather = is_array($event->weather)
-                ? $event->weather
-                : json_decode($event->weather, true) ?? [];
+            // 3) Map each Event model to the same JSON structure your index() uses:
+            $response = $events->map(function ($event) {
+                $rawWeather = is_array($event->weather)
+                    ? $event->weather
+                    : json_decode($event->weather, true) ?? [];
 
-            $weather = [
-                'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
-                'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
-                'temp'         => $rawWeather['temp']      ?? null,
-                'high_temp'    => $rawWeather['high_temp'] ?? null,
-                'low_temp'     => $rawWeather['low_temp']  ?? null,
-                'description'  => $rawWeather['weather']['description'] ?? null,
-            ];
+                $weather = [
+                    'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
+                    'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
+                    'temp' => $rawWeather['temp'] ?? null,
+                    'high_temp' => $rawWeather['high_temp'] ?? null,
+                    'low_temp' => $rawWeather['low_temp'] ?? null,
+                    'description' => $rawWeather['weather']['description'] ?? null,
+                ];
 
-            $participants = DB::table('event_user')
-                ->where('event_id', $event->id)
-                ->whereNull('deleted_at')
-                ->get(['user_id', 'user_name', 'rating'])
-                ->map(function ($p) {
-                    return [
-                        'id'   => $p->user_id,
-                        'name' => $p->user_name,
-                        'rating' => $p->rating,
-                    ];
-                });
+                $participants = DB::table('event_user')
+                    ->where('event_id', $event->id)
+                    ->whereNull('deleted_at')
+                    ->get(['user_id', 'user_name', 'rating'])
+                    ->map(function ($p) {
+                        return [
+                            'id' => $p->user_id,
+                            'name' => $p->user_name,
+                            'rating' => $p->rating,
+                        ];
+                    });
 
-            return [
-                'id'               => $event->id,
-                'name'             => $event->name,
-                'sport'            => $event->sport->name ?? null,
-                'starts_at'        => $event->starts_at,
-                'place'            => $event->place,
-                'status'           => $event->status,
-                'max_participants' => $event->max_participants,
-                'latitude'         => $event->latitude,
-                'longitude'        => $event->longitude,
-                'creator'          => [
-                    'id'   => $event->user_id,
-                    'name' => $event->user_name,
-                ],
-                'weather'          => $weather,
-                'participants'     => $participants,
-            ];
-        });
+                return [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'sport' => $event->sport->name ?? null,
+                    'starts_at' => $event->starts_at,
+                    'place' => $event->place,
+                    'status' => $event->status,
+                    'max_participants' => $event->max_participants,
+                    'latitude' => $event->latitude,
+                    'longitude' => $event->longitude,
+                    'creator' => [
+                        'id' => $event->user_id,
+                        'name' => $event->user_name,
+                    ],
+                    'weather' => $weather,
+                    'participants' => $participants,
+                ];
+            });
 
-        return response()->json($response, 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 401);
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
     }
-}
 
 
 }

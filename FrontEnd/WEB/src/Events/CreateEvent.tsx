@@ -3,6 +3,7 @@ import React, {
   useState,
   useRef,
   useEffect,
+  useMemo,
   type ChangeEvent,
   type FormEvent,
 } from "react"
@@ -61,11 +62,28 @@ const CreateEvent: React.FC = () => {
       })
   }, [])
 
+  // compute min value for datetime-local (blocks past picks)
+  const minDateTime = useMemo(() => {
+    const now = new Date()
+    const pad = (n: number) => n.toString().padStart(2, "0")
+    const year = now.getFullYear()
+    const month = pad(now.getMonth() + 1)
+    const day = pad(now.getDate())
+    const hours = pad(now.getHours())
+    const minutes = pad(now.getMinutes())
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  }, [])
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
+      // check for past date/time
+      if (!form.starts_at || new Date(form.starts_at) <= new Date()) {
+        throw new Error("Please choose a future date and time.")
+      }
+
       // datetime-local gives “YYYY-MM-DDTHH:mm”, backend wants “YYYY-MM-DD HH:mm:00”
       const startsAt = form.starts_at.replace("T", " ") + ":00"
 
@@ -155,6 +173,7 @@ const CreateEvent: React.FC = () => {
               <input
                 type="datetime-local"
                 value={form.starts_at}
+                min={minDateTime}
                 onChange={handleChange("starts_at")}
                 required
               />
@@ -204,4 +223,4 @@ const CreateEvent: React.FC = () => {
   )
 }
 
-export default CreateEvent;
+export default CreateEvent
