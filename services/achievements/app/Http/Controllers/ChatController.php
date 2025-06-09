@@ -220,6 +220,40 @@ public function getProfile($id)
         }
     }
 
+    public function leaderboard(Request $req)
+{
+    // how many per page?
+    $perPage = $req->query('per_page', 15);
+
+    // base query on the exact same model as getProfile
+    $qb = UserStat::query()
+        ->orderByDesc('level')
+        ->orderByDesc('xp');
+
+    // Laravel will auto‐read ?page= from the query string
+    $pageData = $qb->paginate($perPage);
+
+    // compute a 1‐based overall rank for each row in this page
+    $startRank = ($pageData->currentPage() - 1) * $pageData->perPage();
+    $rows = $pageData->getCollection()->map(function($stat, $idx) use ($startRank) {
+        return [
+            'rank'    => $startRank + $idx + 1,
+            'user_id' => $stat->user_id,
+            'level'   => (int)$stat->level,
+            'xp'      => (int)$stat->xp,
+        ];
+    });
+
+    return response()->json([
+        'data' => $rows,
+        'meta' => [
+            'current_page' => $pageData->currentPage(),
+            'last_page'    => $pageData->lastPage(),
+            'per_page'     => $pageData->perPage(),
+            'total'        => $pageData->total(),
+        ],
+    ], 200);
+}
     /* ---------------------------------------------------------------------
      |  XP / Levels – constants  (ACHIEVEMENT_XP updated)
      * ------------------------------------------------------------------ */
