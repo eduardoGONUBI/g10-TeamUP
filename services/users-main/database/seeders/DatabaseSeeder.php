@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AdminsTableSeeder::class, // Corrected class name
             SportsTableSeeder::class,
+            VerifiedUsersSeeder::class, 
             // Other seeders...
         ]);
     }
