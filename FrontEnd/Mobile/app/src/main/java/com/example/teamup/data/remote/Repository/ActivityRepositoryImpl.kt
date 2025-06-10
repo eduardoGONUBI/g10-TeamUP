@@ -57,35 +57,47 @@ class ActivityRepositoryImpl(
     private val api: ActivityApi
 ) : ActivityRepository {
 
+    override var hasMore: Boolean = true
     /* ------------ small helper --------------- */
     private fun auth(token: String): String =
         if (token.trim().startsWith("Bearer ")) token.trim()
         else "Bearer ${token.trim()}"
 
     /** /api/events/mine – returns ActivityDto for each event I created or joined */
-    override suspend fun getMyActivities(token: String): List<ActivityItem> {
-        val currentUserId = extractUserId(token)
-        return api.getMyActivities("Bearer $token")
-            .map { it.toActivityItem(currentUserId) }
+    override suspend fun getMyActivities(
+        token: String,
+        page:  Int
+    ): List<ActivityItem> {
+        val uid   = extractUserId(token)
+        val resp = api.getMyActivities(auth(token), page = page)
+        hasMore   = resp.meta.currentPage < resp.meta.lastPage  // ← flag opcional
+        return resp.data.map { it.toActivityItem(uid) }
     }
 
     /** /api/events/search – returns ActivityDto matching filters */
     override suspend fun searchActivities(
-        token: String,
-        name:  String?,
-        sport: String?,
-        place: String?,
-        date:  String?
+        token:    String,
+        page:     Int,
+        perPage:  Int,
+        name:     String?,
+        sport:    String?,
+        place:    String?,
+        date:     String?
     ): List<ActivityItem> {
-        val currentUserId = extractUserId(token)
-        return api.searchEvents(
-            token = "Bearer $token",
-            name  = name,
-            sport = sport,
-            place = place,
-            date  = date
-        ).map { it.toActivityItem(currentUserId) }
+        val uid  = extractUserId(token)
+        val resp = api.searchEvents(
+            auth(token),
+            page     = page,
+            per       = perPage,
+            name      = name,
+            sport     = sport,
+            place     = place,
+            date      = date
+        )
+        hasMore = resp.meta.currentPage < resp.meta.lastPage
+        return resp.data.map { it.toActivityItem(uid) }
     }
+
 
     /** POST /api/events – create a new event, then map CreateEventRawDto → ActivityItem */
     override suspend fun createActivity(
@@ -125,8 +137,15 @@ class ActivityRepositoryImpl(
      */
     override suspend fun myChats(token: String): List<ChatItem> {
         val currentUserId = extractUserId(token)
-        return api.getMyActivities("Bearer $token")
-            .map { it.toChatItem(currentUserId) }
+
+        // Chama o endpoint paginado (aqui usa o default page=1)
+        val resp = api.getMyActivities(auth(token))
+
+        // Se quiseres manter a lógica de hasMore:
+        hasMore = resp.meta.currentPage < resp.meta.lastPage
+
+        // Mapeia a lista real de ActivityDto para ChatItem
+        return resp.data.map { it.toChatItem(currentUserId) }
     }
     /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -160,21 +179,25 @@ class ActivityRepositoryImpl(
     }
 
     /** /api/events –HOMEPAGE -  returns every event visible to the auth user excep the concluded*/
-    override suspend fun getAllEvents(token: String): List<ActivityItem> {
-        val uid = extractUserId(token)
-
-        // 1. pedir todos os eventos (sem filtros)
-        val dtoList = api.searchEvents(
-            token = auth(token),
-            name  = null,
-            sport = null,
-            place = null,
-            date  = null
+    override suspend fun getAllEvents(
+        token:   String,
+        page:    Int,
+        perPage: Int
+    ): List<ActivityItem> {
+        // Extrai o userId do JWT
+        val uid  = extractUserId(token)
+        // Chama o endpoint paginado (usando o mesmo searchEvents ou um método dedicado)
+        val resp = api.searchEvents(
+            auth(token),
+            page    = page,
+            per     = perPage
         )
+        // Atualiza a flag de “há mais”
+        hasMore = resp.meta.currentPage < resp.meta.lastPage
 
-        // 2. mapear ➜ ActivityItem e descartar logo os “concluded”
-        return dtoList
+        // Mapeia para ActivityItem e filtra os “concluded” se quiser
+        return resp.data
             .map { it.toActivityItem(uid) }
-            .filter { !it.status.equals("concluded", ignoreCase = true) }
+            .filter { it.status != "concluded" }
     }
 }
