@@ -14,7 +14,7 @@ Route::group(['prefix' => 'auth'], function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
 
- 
+
     
     Route::middleware('auth:api',)->group(function () {
         Route::post('logout',   [AuthController::class, 'logout']);
@@ -25,7 +25,9 @@ Route::group(['prefix' => 'auth'], function () {
         Route::post('change-email',    [AuthController::class, 'changeEmail']);
         Route::post('avatar',  [AuthController::class, 'updateAvatar']);
     });
+
        Route::get('avatar/{id}', [AuthController::class, 'getAvatar']);
+
 });
 
 Route::middleware(['auth:api', 'admin'])->get('/users', [AdminController::class, 'getAllUsers']);
