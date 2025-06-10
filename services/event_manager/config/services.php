@@ -34,8 +34,4 @@ return [
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_GEOCODE_API_KEY'),
     ],
-    
-    'users' => [
-    'base_uri' => env('USERS_SERVICE_URL', 'http://localhost'),
-],
 ];

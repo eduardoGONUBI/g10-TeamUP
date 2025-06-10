@@ -18,10 +18,6 @@ class DatabaseSeeder extends Seeder
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',
         // ]);
-          $this->call([
-        SportsTableSeeder::class,
-        EventWithParticipantsSeeder::class,   
-    ]);
-        
+        $this->call(SportsTableSeeder::class);
     }
 }
