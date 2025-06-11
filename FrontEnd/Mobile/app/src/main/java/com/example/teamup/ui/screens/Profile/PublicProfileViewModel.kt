@@ -154,7 +154,7 @@ class PublicProfileViewModel(
             }
 
             // ordenar (mais recentes primeiro)
-            val sorted = mapped.reversed()
+            val sorted = mapped
             _fullEvents.value = sorted
 
             // slice inicial

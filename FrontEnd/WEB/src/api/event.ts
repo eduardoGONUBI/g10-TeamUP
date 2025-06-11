@@ -61,10 +61,29 @@ async function authFetch(input: RequestInfo, init: RequestInit = {}) {
   return json
 }
 
- export async function fetchMyEvents(): Promise<Event[]> {
-   // returns only the events YOU created 
-   return authFetch("/api/events") as Promise<Event[]>;
- }
+export async function fetchAllMyEvents(
+  perPage = 100   // podes subir para 200/500 se o backend permitir
+): Promise<Event[]> {
+  // 1ª página
+  const first = await authFetch(`/api/events?per_page=${perPage}&page=1`);
+  if (!Array.isArray(first.data)) {
+    throw new Error("Resposta inesperada: falta 'data'");
+  }
+  let events: Event[] = first.data;
+
+  // se houver mais páginas, vai buscá-las em paralelo
+  const { last_page } = first.meta ?? { last_page: 1 };
+  if (last_page > 1) {
+    const rest = await Promise.all(
+      Array.from({ length: last_page - 1 }, (_, i) =>
+        authFetch(`/api/events?per_page=${perPage}&page=${i + 2}`)
+      )
+    );
+    rest.forEach(page => (events = events.concat(page.data)));
+  }
+
+  return events;
+}
 
 export async function createEvent(data: NewEventData): Promise<Event> {
   const json = await authFetch("/api/events", {

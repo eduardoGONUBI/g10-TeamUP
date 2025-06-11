@@ -48,7 +48,7 @@ class ChatListScreenViewModel(
         _state.update { it.copy(loading = true, error = null) }
         try {
             val page1 = repo.myChats(token, page = 1)
-            val active = page1.filter { it.status == "in progress" }
+            val active = page1.filter  { it.status == "in progress" }
             val archive = page1.filter { it.status != "in progress" }
 
             _state.update {

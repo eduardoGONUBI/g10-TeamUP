@@ -99,7 +99,7 @@ fun ProfileScreen(
                         .padding(top = 24.dp)
                 ) {
                     Image(
-                        painter = painterResource(R.drawable.avatar_default),
+                        painter = painterResource(R.drawable.fotografia),
                         contentDescription = "Default Avatar",
                         modifier = Modifier
                             .size(96.dp)

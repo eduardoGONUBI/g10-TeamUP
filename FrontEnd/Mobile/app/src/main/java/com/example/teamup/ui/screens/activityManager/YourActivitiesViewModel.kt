@@ -46,8 +46,8 @@ class YourActivitiesViewModel(
             // O requisito actual: só a 1ª página, restantes via "Load more"
 
             val currentUserId = parseUserIdFromJwt(token)
-            val annotated = aggregated.map { it.copy(isCreator = (it.creatorId == currentUserId)) }
-            val sorted = annotated.reversed()
+
+            val sorted = aggregated.map { it.copy(isCreator = (it.creatorId == currentUserId)) }
 
             _state.value = _state.value.copy(
                 fullActivities    = sorted,
