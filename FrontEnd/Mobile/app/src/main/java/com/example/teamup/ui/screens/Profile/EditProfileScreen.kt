@@ -146,7 +146,8 @@ fun EditProfileScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
 
             Spacer(Modifier.height(24.dp))
