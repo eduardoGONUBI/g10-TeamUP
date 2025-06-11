@@ -475,7 +475,6 @@ fun TopBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(4.dp)
                 .background(
                     Brush.verticalGradient(
                         listOf(Color.Black.copy(alpha = 0.1f), Color.Transparent)

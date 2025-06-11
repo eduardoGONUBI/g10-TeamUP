@@ -2,6 +2,7 @@
 package com.example.teamup.ui.screens.Activity
 
 import android.util.Base64
+import android.util.LayoutDirection
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +41,7 @@ import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import retrofit2.Response
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -200,15 +203,26 @@ fun ActivityScreen(
                             }
                         }
                     }
-                }
+                } ,
+                        windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
     ) { paddingValues ->
         // ─── 8) Shared body: Info card, Map, Weather, Participant list + Feedback ─────────
+        val layoutDir = LocalLayoutDirection.current
+        // keep the insets, but lift the whole list 8 dp upward
+        val effectiveTop = (paddingValues.calculateTopPadding() - 8.dp)
+            .coerceAtLeast(0.dp)
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                // only apply the bottom (and horizontal, if any) paddings:
+                .padding(
+                    top    = effectiveTop,
+                    start  = paddingValues.calculateStartPadding(layoutDir),
+                    end    = paddingValues.calculateEndPadding(layoutDir),
+                    bottom = paddingValues.calculateBottomPadding()
+                )
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
@@ -217,6 +231,8 @@ fun ActivityScreen(
                 ActivityInfoCard(
                     activity = e,
                     modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    containerColor = Color(0xFFE3F2FD)
                 )
             }
 
