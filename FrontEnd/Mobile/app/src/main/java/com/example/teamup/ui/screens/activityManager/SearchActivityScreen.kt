@@ -82,7 +82,7 @@ fun SearchActivityScreen(
     var showDatePicker by remember { mutableStateOf(false) }
 
     // 7) Collapsible Filters state
-    var filtersExpanded by remember { mutableStateOf(true) }
+    var filtersExpanded by remember { mutableStateOf(false) }
 
     // 8) Load sports from backend once
     LaunchedEffect(Unit) {

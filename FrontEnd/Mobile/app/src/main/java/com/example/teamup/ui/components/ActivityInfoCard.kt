@@ -20,6 +20,7 @@ import com.example.teamup.data.remote.model.ActivityDto
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.graphics.Color
 
 /**
  * A compact, icon-driven card showing:
@@ -32,7 +33,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ActivityInfoCard(
     activity: ActivityDto,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier ,
+    containerColor: Color = MaterialTheme.colorScheme.surface
 ) {
     // Safely parse startsAt into ZonedDateTime (ISO-8601) or fallback to splitting
     val raw = activity.startsAt ?: ""
@@ -63,6 +65,7 @@ fun ActivityInfoCard(
         modifier = modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {

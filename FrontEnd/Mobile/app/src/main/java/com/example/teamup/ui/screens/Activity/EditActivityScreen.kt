@@ -135,7 +135,8 @@ fun EditActivityScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.Place, contentDescription = "Back")
                     }
-                }
+                },
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
