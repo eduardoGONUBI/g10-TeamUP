@@ -40,7 +40,8 @@ private fun ActivityDto.toChatItem(currentUserId: Int): ChatItem {
         sport         = sport,
         status        = status,
         isCreator     = (creator.id == currentUserId),
-        isParticipant = participantIds.contains(currentUserId)
+        isParticipant = participantIds.contains(currentUserId),
+        startsAt      = startsAt ?: date ?: "",
     )
 }
 

@@ -1,7 +1,7 @@
 // src/Events/ActivitiesList.tsx
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchMyEvents, type Event } from "../api/event";
+import { fetchAllMyEvents, type Event } from "../api/event";
 import "./ActivitiesList.css";
 
 /* sport icons ---------------------------------------------------------------- */
@@ -58,10 +58,10 @@ const MyActivities: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchMyEvents()
+    fetchAllMyEvents()
       .then(raw => {
         // reverse so the newest activities come first
-        setEvents([...raw].reverse());
+         setEvents(raw);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

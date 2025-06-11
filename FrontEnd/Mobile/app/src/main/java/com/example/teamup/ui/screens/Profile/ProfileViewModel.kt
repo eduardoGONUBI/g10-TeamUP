@@ -156,13 +156,12 @@ class ProfileViewModel(
             val firstPage = repo.getMyActivities(token, page = currentRemotePage)
                 .filter { it.creatorId == userId }
                 .map    { it.copy(isCreator = true) }
-                .reversed()
             remoteHasMore = repo.hasMore
 
             val reversedFirst = firstPage.reversed()
             _createdUi.value = CreatedUi(
-                full             = reversedFirst,
-                visible          = reversedFirst.take(pageSizeLocal),
+                full             = firstPage,
+                visible          = firstPage.take(pageSizeLocal),
                 currentPageLocal = 1,
                 hasMore          = firstPage.size > pageSizeLocal || remoteHasMore
             )
@@ -198,12 +197,13 @@ class ProfileViewModel(
             remoteHasMore = repo.hasMore
 
             // Apenas concatena: ui.full já está em ordem desc; pageItems também
-            val newFull = (ui.full + pageItems).reversed()
+            val newFull = ui.full + pageItems
 
             val newLocalEnd = (ui.currentPageLocal + 1) * pageSizeLocal
             _createdUi.value = ui.copy(
                 full             = newFull,
                 visible          = newFull.take(newLocalEnd),
+                currentPageLocal   = ui.currentPageLocal + 1,
                 hasMore          = newFull.size > newLocalEnd || remoteHasMore
             )
         } catch (e: Exception) {

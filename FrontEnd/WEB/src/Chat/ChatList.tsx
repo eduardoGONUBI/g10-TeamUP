@@ -1,7 +1,7 @@
 // src/ChatList.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchMyEvents, type Event } from "../api/event";
+import { fetchAllMyEvents, type Event } from "../api/event";
 import "./ChatList.css";
 
 const PER_PAGE = 5;
@@ -17,14 +17,13 @@ const ChatList: React.FC = () => {
 
   useEffect(() => {
     setLoading(true);
-   fetchMyEvents()
+   fetchAllMyEvents()
   .then((events) => {
     const act = events
       .filter((e) => e.status === "in progress")
-      .reverse();    // newest first
     const arch = events
       .filter((e) => e.status === "concluded")
-      .reverse();    // newest first
+
 
     setActive(act);
     setArchived(arch);

@@ -7,5 +7,6 @@ data class ChatItem(
     val sport:     String,
     val status:    String ,     // "in progress", "concluded", etc.
     val isCreator: Boolean = false,
-    val isParticipant: Boolean = false
+    val isParticipant: Boolean = false,
+    val startsAt: String,
 )
