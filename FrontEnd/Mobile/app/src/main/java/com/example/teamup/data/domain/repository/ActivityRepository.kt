@@ -10,14 +10,14 @@ interface ActivityRepository {
     /** /events/mine – páginas do histórico do usuário */
     suspend fun getMyActivities(
         token: String,
-        page: Int = 1
+        page:  Int = 1
     ): List<ActivityItem>
 
     /** /events/search – busca filtrada com paginação */
     suspend fun searchActivities(
         token:   String,
         page:    Int    = 1,
-        perPage: Int    = 15,     // ⬅️ adiciona aqui
+        perPage: Int    = 15,
         name:    String? = null,
         sport:   String? = null,
         place:   String? = null,
@@ -28,7 +28,7 @@ interface ActivityRepository {
     suspend fun getAllEvents(
         token:   String,
         page:    Int = 1,
-        perPage: Int = 15          // ⬅️ e aqui
+        perPage: Int = 15
     ): List<ActivityItem>
 
     /** cria um evento */
@@ -40,8 +40,11 @@ interface ActivityRepository {
     /** lista de esportes */
     suspend fun getSports(token: String): List<SportDto>
 
-    /** myChats reusa /events/mine para chat */
-    suspend fun myChats(token: String): List<ChatItem>
+    /** myChats reusa /events/mine para chat, paginado */
+    suspend fun myChats(
+        token: String,
+        page:  Int = 1
+    ): List<ChatItem>
 
     /** indica se ainda há próxima página após a última chamada */
     val hasMore: Boolean

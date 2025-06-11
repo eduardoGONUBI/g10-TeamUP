@@ -10,26 +10,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * UI state for the chat‐list screen with paging support.
+ */
 data class ChatListState(
-    // full lists (newest‐first)
-    val fullActive:  List<ChatItem> = emptyList(),
+    val fullActive: List<ChatItem> = emptyList(),
     val fullArchive: List<ChatItem> = emptyList(),
 
-    // visible slices (current page)
-    val visibleActive:  List<ChatItem> = emptyList(),
+    val visibleActive: List<ChatItem> = emptyList(),
     val visibleArchive: List<ChatItem> = emptyList(),
 
-    // page indices and pageSize
-    val activePage:  Int = 1,
-    val archivePage: Int = 1,
-    val pageSize:    Int = 10,
+    val activeRemotePage: Int = 1,
+    val archiveRemotePage: Int = 1,
 
-    // flags for “Load more”
-    val hasMoreActive:  Boolean = false,
+    val hasMoreActive: Boolean = false,
     val hasMoreArchive: Boolean = false,
 
     val loading: Boolean = false,
-    val error:   String? = null
+    val error: String? = null
 )
 
 class ChatListScreenViewModel(
@@ -39,79 +37,91 @@ class ChatListScreenViewModel(
     private val _state = MutableStateFlow(ChatListState())
     val state: StateFlow<ChatListState> = _state
 
-    /** 1) Load all chats, reverse so newest appear first, then paginate. */
-    fun load(token: String) = viewModelScope.launch {
+    private var savedToken: String = ""
+
+    /**
+     * Load the first page of chats (page = 1).
+     * Splits results into active vs archived.
+     */
+    fun loadFirstPage(token: String) = viewModelScope.launch {
+        savedToken = token
         _state.update { it.copy(loading = true, error = null) }
         try {
-            val allChats: List<ChatItem> = repo.myChats(token)
-
-            // Reverse each list so newest come first
-            val activeChats   = allChats.filter { it.status == "in progress" }.reversed()
-            val archivedChats = (allChats.filter { it.status != "in progress" }).reversed()
-
-            val pageSize = _state.value.pageSize
-
-            // Take the first page from each reversed list
-            val firstActiveSlice   = activeChats.take(pageSize)
-            val firstArchiveSlice  = archivedChats.take(pageSize)
+            val page1 = repo.myChats(token, page = 1)
+            val active = page1.filter { it.status == "in progress" }
+            val archive = page1.filter { it.status != "in progress" }
 
             _state.update {
                 it.copy(
-                    fullActive       = activeChats,
-                    fullArchive      = archivedChats,
-                    visibleActive    = firstActiveSlice,
-                    visibleArchive   = firstArchiveSlice,
-                    activePage       = 1,
-                    archivePage      = 1,
-                    hasMoreActive    = activeChats.size > pageSize,
-                    hasMoreArchive   = archivedChats.size > pageSize,
-                    loading          = false,
-                    error            = null
+                    fullActive        = active,
+                    fullArchive       = archive,
+                    visibleActive     = active,
+                    visibleArchive    = archive,
+                    activeRemotePage  = 1,
+                    archiveRemotePage = 1,
+                    hasMoreActive     = repo.hasMore,
+                    hasMoreArchive    = repo.hasMore,
+                    loading           = false,
+                    error             = null
                 )
             }
         } catch (e: Exception) {
             _state.update {
                 it.copy(
                     loading = false,
-                    error = e.message ?: "Unknown error"
+                    error   = e.localizedMessage ?: "Unknown error"
                 )
             }
         }
     }
 
-    /** 2) “Load more” for active (newest‐first) */
-    fun loadMoreActive() {
+    /**
+     * Load next remote page in the "Chats" tab.
+     */
+    fun loadMoreActive() = viewModelScope.launch {
         val ui = _state.value
-        if (!ui.hasMoreActive) return
+        if (!ui.hasMoreActive) return@launch
 
-        val nextPage   = ui.activePage + 1
-        val toIndex    = (nextPage * ui.pageSize).coerceAtMost(ui.fullActive.size)
-        val newSlice   = ui.fullActive.take(toIndex)
+        val nextPage = ui.activeRemotePage + 1
+        try {
+            val pageItems = repo.myChats(savedToken, page = nextPage)
+            val newActive = ui.fullActive + pageItems.filter { it.status == "in progress" }
 
-        _state.update {
-            it.copy(
-                visibleActive  = newSlice,
-                activePage     = nextPage,
-                hasMoreActive  = ui.fullActive.size > toIndex
-            )
+            _state.update {
+                it.copy(
+                    fullActive       = newActive,
+                    visibleActive    = newActive,
+                    activeRemotePage = nextPage,
+                    hasMoreActive    = repo.hasMore
+                )
+            }
+        } catch (e: Exception) {
+            _state.update { it.copy(error = e.localizedMessage ?: "Failed to load more") }
         }
     }
 
-    /** 3) “Load more” for archive (newest‐first) */
-    fun loadMoreArchive() {
+    /**
+     * Load next remote page in the "Archive" tab.
+     */
+    fun loadMoreArchive() = viewModelScope.launch {
         val ui = _state.value
-        if (!ui.hasMoreArchive) return
+        if (!ui.hasMoreArchive) return@launch
 
-        val nextPage     = ui.archivePage + 1
-        val toIndex      = (nextPage * ui.pageSize).coerceAtMost(ui.fullArchive.size)
-        val newSlice     = ui.fullArchive.take(toIndex)
+        val nextPage = ui.archiveRemotePage + 1
+        try {
+            val pageItems = repo.myChats(savedToken, page = nextPage)
+            val newArchive = ui.fullArchive + pageItems.filter { it.status != "in progress" }
 
-        _state.update {
-            it.copy(
-                visibleArchive  = newSlice,
-                archivePage     = nextPage,
-                hasMoreArchive  = ui.fullArchive.size > toIndex
-            )
+            _state.update {
+                it.copy(
+                    fullArchive       = newArchive,
+                    visibleArchive    = newArchive,
+                    archiveRemotePage = nextPage,
+                    hasMoreArchive    = repo.hasMore
+                )
+            }
+        } catch (e: Exception) {
+            _state.update { it.copy(error = e.localizedMessage ?: "Failed to load more") }
         }
     }
 }

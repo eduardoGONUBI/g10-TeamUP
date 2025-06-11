@@ -19,11 +19,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.presentation.profile.PublicProfileViewModel
+import com.example.teamup.R
 import com.example.teamup.ui.components.ActivityCard
 import com.example.teamup.ui.components.AchievementsRow
-import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.ui.popups.LogoutDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,10 +42,21 @@ fun PublicProfileScreen(
     onBack: () -> Unit,
     onEventClick: (ActivityItem) -> Unit
 ) {
-    // 1) Instantiate the ViewModel (immediately starts loading)
-    val viewModel = remember { PublicProfileViewModel(userId = userId, bearer = "Bearer $token") }
+    // 1) Corona o ViewModel via factory (injetando o repo e o bearer)
+    val viewModel: PublicProfileViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val repo: ActivityRepository = ActivityRepositoryImpl(ActivityApi.create())
+                return PublicProfileViewModel(
+                    userId = userId,
+                    bearer = "Bearer $token"
+                ) as T
+            }
+        }
+    )
 
-    // 2) Collect all the StateFlow values
+    // 2) Collect all StateFlows
     val name         by viewModel.name.collectAsState()
     val avatarUrl    by viewModel.avatarUrl.collectAsState()
     val location     by viewModel.location.collectAsState()
@@ -47,7 +67,7 @@ fun PublicProfileScreen(
     val achievements by viewModel.achievements.collectAsState()
     val errorMsg     by viewModel.error.collectAsState()
 
-    // ─── NEW: collect paginated events + error ───────────────────────────────
+    // ─── Paginated events ─────────────────────────────────────────────
     val visibleEvents by viewModel.visibleEvents.collectAsState()
     val hasMoreEvents by viewModel.hasMoreEvents.collectAsState()
     val eventsError   by viewModel.eventsError.collectAsState()
@@ -55,10 +75,10 @@ fun PublicProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { /* no title, just back arrow */ },
+                title = { /* no title */ },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -73,14 +93,15 @@ fun PublicProfileScreen(
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // ── Spacer overhead ────────────────────────────────────────────────
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            // Spacer top
+            item { Spacer(Modifier.height(16.dp)) }
 
-            // ── Avatar ──────────────────────────────────────────────────────────
+            // Avatar
             item {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
                     if (avatarUrl != null) {
                         AsyncImage(
                             model = avatarUrl,
@@ -92,7 +113,7 @@ fun PublicProfileScreen(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Default.Person,
+                            Icons.Default.Person,
                             contentDescription = null,
                             modifier = Modifier
                                 .size(96.dp)
@@ -104,11 +125,11 @@ fun PublicProfileScreen(
                 }
             }
 
-            // ── Name under avatar ────────────────────────────────────────────────
+            // Name
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    text = if (name.isNotBlank()) name else "–",
+                    text = name.ifBlank { "–" },
                     fontSize = 20.sp,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
@@ -118,30 +139,28 @@ fun PublicProfileScreen(
                 )
             }
 
-            // ── Location & Favourite Sports ─────────────────────────────────────
+            // Location & Sports
             item {
-                Text(
-                    text = "Location: ${location ?: "–"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Favourite Sports: ${if (sports.isNotEmpty()) sports.joinToString(", ") else "–"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                )
+                Column(Modifier.padding(horizontal = 24.dp)) {
+                    Text(
+                        text = "Location: ${location ?: "–"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Favourite Sports: ${
+                            if (sports.isNotEmpty()) sports.joinToString(", ") else "–"
+                        }",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 14.sp
+                    )
+                }
             }
 
-            // ── Stats Card (Level • Behaviour • Reputation) ─────────────────────
+            // Stats Card
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -149,33 +168,31 @@ fun PublicProfileScreen(
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Row(
-                        modifier = Modifier
+                        Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         ProfileStat("Level", level.toString())
                         ProfileStat("Behaviour", behaviour?.toString() ?: "–")
-                        ProfileStat("Reputation", if (repLabel.isNotBlank()) repLabel else "–")
+                        ProfileStat("Reputation", repLabel.ifBlank { "–" })
                     }
                 }
             }
 
-            // ── Achievements Header ──────────────────────────────────────────────
+            // Achievements
             item {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(Modifier.height(24.dp))
                 Text(
                     text = "Unlocked Achievements",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
                 )
             }
-
-            // ── Achievements Row or “No achievements” ──────────────────────────
             item {
                 if (achievements.isEmpty()) {
                     Text(
-                        text = "No achievements unlocked",
+                        "No achievements unlocked",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
                     )
@@ -189,12 +206,10 @@ fun PublicProfileScreen(
                 }
             }
 
-            // ── Spacer before Events ─────────────────────────────────────────────
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+            // Spacer
+            item { Spacer(Modifier.height(24.dp)) }
 
-            // ── Events Header ───────────────────────────────────────────────────
+            // Events Header
             item {
                 Text(
                     text = "Events Created",
@@ -203,11 +218,11 @@ fun PublicProfileScreen(
                 )
             }
 
-            // ── Show eventsError if non‐null ────────────────────────────────────
+            // Events Error
             if (eventsError != null) {
                 item {
                     Text(
-                        text = "Failed to load events: $eventsError",
+                        "Failed to load events: $eventsError",
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -216,11 +231,11 @@ fun PublicProfileScreen(
                 }
             }
 
-            // ── If no visibleEvents AND no error, show “No events created” ─────
+            // No events placeholder
             if (visibleEvents.isEmpty() && eventsError == null) {
                 item {
                     Text(
-                        text = "No events created",
+                        "No events created",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -229,7 +244,7 @@ fun PublicProfileScreen(
                 }
             }
 
-            // ── Otherwise, list each event as an ActivityCard ───────────────────
+            // Event items
             if (visibleEvents.isNotEmpty()) {
                 items(visibleEvents, key = { it.id }) { act ->
                     ActivityCard(
@@ -237,15 +252,15 @@ fun PublicProfileScreen(
                         bgColor = Color(0xFFF5F5F5),
                         onClick = { onEventClick(act) }
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
             }
 
-            // ── “Load more” button if there are additional events ────────────────
+            // Load more
             if (hasMoreEvents) {
                 item {
                     Box(
-                        modifier = Modifier
+                        Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
@@ -262,28 +277,29 @@ fun PublicProfileScreen(
                 }
             }
 
-            // ── Final bottom padding ────────────────────────────────────────────
-            item {
-                Spacer(modifier = Modifier.height(32.dp))
-            }
+            // Bottom padding
+            item { Spacer(Modifier.height(32.dp)) }
         }
 
-        // ─── Global error banner for profile‐related errors ───────────────────
+        // Global error banner
         if (errorMsg != null) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
                 Snackbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(16.dp)
                 ) {
-                    Text("Error: $errorMsg", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                    Text(
+                        "Error: $errorMsg",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
     }
 }
 
-/** Reused from ProfileScreen: small stat cell */
 @Composable
 private fun ProfileStat(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {

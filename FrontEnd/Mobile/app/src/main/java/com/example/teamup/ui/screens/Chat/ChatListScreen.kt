@@ -1,21 +1,32 @@
-/* ─── File: app/src/main/java/com/example/teamup/ui/screens/Chat/ChatListScreen.kt ── */
+// File: app/src/main/java/com/example/teamup/ui/screens/Chat/ChatListScreen.kt
 package com.example.teamup.ui.screens.Chat
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.teamup.data.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.domain.model.ChatItem
 import com.example.teamup.ui.components.ChatCard
+import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -23,108 +34,137 @@ import java.nio.charset.StandardCharsets
 fun ChatListScreen(
     navController: NavController,
     token: String,
-    myUserId: Int            // ← NEW: needs to be forwarded from RootScaffold
+    myUserId: Int
 ) {
-    /* ── 1) View-model ────────────────────────────────────────────────────── */
+    // 1) ViewModel setup
     val vm: ChatListScreenViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(c: Class<T>): T {
-                val repo = ActivityRepositoryImpl(ActivityApi.create())
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val repo: ActivityRepository = ActivityRepositoryImpl(ActivityApi.create())
                 return ChatListScreenViewModel(repo) as T
             }
         }
     )
 
-    /* ── 2) Load once ─────────────────────────────────────────────────────── */
-    LaunchedEffect(token) { vm.load(token) }
+    // 2) Initial load
+    LaunchedEffect(token) {
+        vm.loadFirstPage(token)
+    }
 
-    /* ── 3) Observe state ─────────────────────────────────────────────────── */
+    // 3) Observe UI state
     val ui by vm.state.collectAsState()
 
-    /* ── 4) Tabs (“Chats” / “Archive”) ────────────────────────────────────── */
-    var tab by remember { mutableStateOf(0) }
+    // 4) Pager & Tabs setup
+    val pagerState: PagerState = rememberPagerState(pageCount = { 2 })
+    val coroutineScope = rememberCoroutineScope()
     val titles = listOf("Chats", "Archive")
 
     Column(Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab) {
-            titles.forEachIndexed { i, t ->
+        TabRow(selectedTabIndex = pagerState.currentPage) {
+            titles.forEachIndexed { index, title ->
                 Tab(
-                    selected = tab == i,
-                    onClick  = { tab = i },
-                    text     = { Text(t) }
+                    selected = pagerState.currentPage == index,
+                    onClick  = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
+                    text     = { Text(title) }
                 )
             }
         }
 
-        when {
-            ui.loading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            ui.error != null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Text("Error: ${ui.error}")
-            }
-            else -> {
-                val visibleList = if (tab == 0) ui.visibleActive else ui.visibleArchive
-                val hasMore     = if (tab == 0) ui.hasMoreActive  else ui.hasMoreArchive
+        HorizontalPager(
+            state    = pagerState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) { pageIdx ->
+            // Determine active vs archive
+            val visibleList = if (pageIdx == 0) ui.visibleActive else ui.visibleArchive
+            val hasMore     = if (pageIdx == 0) ui.hasMoreActive  else ui.hasMoreArchive
 
-                if (visibleList.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No chats.") }
-                } else {
-                    LazyColumn(
-                        contentPadding      = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(visibleList, key = { it.id }) { chat ->
-                            ChatCard(
-                                chat = chat,
-                                onClick = {
-                                    // Build route: chatDetail/{chatTitle}/{eventId}/{token}/{myUserId}
-                                    val route = buildString {
-                                        append("chatDetail/")
-                                        append(
-                                            URLEncoder.encode(
-                                                chat.title,
-                                                StandardCharsets.UTF_8.toString()
-                                            )
-                                        )
-                                        append("/")
-                                        append(chat.id)          // <-- eventId
-                                        append("/")
-                                        append(
-                                            URLEncoder.encode(
-                                                token,
-                                                StandardCharsets.UTF_8.toString()
-                                            )
-                                        )
-                                        append("/")
-                                        append(myUserId)
-                                    }
-                                    navController.navigate(route)
-                                }
-                            )
-                        }
-
-                        if (hasMore) {
-                            item {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                                    Alignment.Center
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            if (tab == 0) vm.loadMoreActive()
-                                            else           vm.loadMoreArchive()
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.5f)
-                                            .padding(8.dp)
-                                    ) { Text("Load more") }
-                                }
+            when {
+                // Loading state
+                ui.loading && visibleList.isEmpty() -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+                // Error state
+                ui.error != null && visibleList.isEmpty() -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Error: ${ui.error}")
+                    }
+                }
+                // Empty list state
+                visibleList.isEmpty() -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No chats.")
+                    }
+                }
+                // Content
+                else -> {
+                    ChatListColumn(
+                        chats      = visibleList,
+                        hasMore    = hasMore,
+                        onLoadMore = {
+                            if (pageIdx == 0) vm.loadMoreActive() else vm.loadMoreArchive()
+                        },
+                        onClick    = { chat ->
+                            val route = buildString {
+                                append("chatDetail/")
+                                append(
+                                    URLEncoder.encode(
+                                        chat.title,
+                                        StandardCharsets.UTF_8.toString()
+                                    )
+                                )
+                                append("/")
+                                append(chat.id)
+                                append("/")
+                                append(
+                                    URLEncoder.encode(
+                                        token,
+                                        StandardCharsets.UTF_8.toString()
+                                    )
+                                )
+                                append("/")
+                                append(myUserId)
                             }
+                            navController.navigate(route)
                         }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatListColumn(
+    chats: List<ChatItem>,
+    hasMore: Boolean,
+    onLoadMore: () -> Unit,
+    onClick: (ChatItem) -> Unit
+) {
+    LazyColumn(
+        modifier            = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(chats, key = { it.id }) { chat ->
+            ChatCard(
+                chat    = chat,
+                onClick = { onClick(chat) }
+            )
+        }
+        if (hasMore) {
+            item {
+                Box(
+                    modifier         = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Button(onClick = onLoadMore) {
+                        Text("Load more")
                     }
                 }
             }

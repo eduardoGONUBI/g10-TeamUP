@@ -18,127 +18,123 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
- * ViewModel for loading *another* user's public profile (read‐only),
- * plus paginated “events created by” that user.
+ * ViewModel para ecrã de perfil público de outro utilizador,
+ * incluindo paginação local de “events created by” esse utilizador.
  */
 class PublicProfileViewModel(
     private val userId: Int,
-    private val bearer: String    // must be "Bearer <token>"
+    private val bearer: String        // deve ser "Bearer <token>"
 ) : ViewModel() {
 
-    private val authApi = AuthApi.create()
-    private val achApi  = AchievementsApi.create()
+    private val authApi     = AuthApi.create()
+    private val achApi      = AchievementsApi.create()
     private val activityApi = ActivityApi.create()
 
-    // ─── PUBLIC PROFILE STATE ────────────────────────────────────────────────
-    private val _name       = MutableStateFlow("Loading…")
-    val name: StateFlow<String>          = _name
+    /* ─── Perfil público ──────────────────────────────────────────────── */
+    private val _name      = MutableStateFlow("Loading…")
+    val name: StateFlow<String>           = _name
 
-    private val _avatarUrl  = MutableStateFlow<String?>(null)
-    val avatarUrl: StateFlow<String?>    = _avatarUrl
+    private val _avatarUrl = MutableStateFlow<String?>(null)
+    val avatarUrl: StateFlow<String?>     = _avatarUrl
 
-    private val _location   = MutableStateFlow<String?>(null)
-    val location: StateFlow<String?>     = _location
+    private val _location  = MutableStateFlow<String?>(null)
+    val location: StateFlow<String?>      = _location
 
-    private val _sports     = MutableStateFlow<List<String>>(emptyList())
-    val sports: StateFlow<List<String>>  = _sports
+    private val _sports    = MutableStateFlow<List<String>>(emptyList())
+    val sports: StateFlow<List<String>>   = _sports
 
-    private val _level      = MutableStateFlow(0)
+    /* ─── Métricas ───────────────────────────────────────────────────── */
+    private val _level     = MutableStateFlow(0)
     val level: StateFlow<Int>            = _level
 
-    private val _behaviour  = MutableStateFlow<Int?>(null)
+    private val _behaviour = MutableStateFlow<Int?>(null)
     val behaviour: StateFlow<Int?>       = _behaviour
 
-    private val _repLabel   = MutableStateFlow("—")
+    private val _repLabel  = MutableStateFlow("—")
     val repLabel: StateFlow<String>      = _repLabel
 
     private val _achievements = MutableStateFlow<List<AchievementDto>>(emptyList())
     val achievements: StateFlow<List<AchievementDto>> = _achievements
 
-    private val _error      = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?>        = _error
+    private val _error     = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?>         = _error
 
-    // ─── NEW: Pagination for “events created by” ───────────────────────────
-    private val _fullEvents       = MutableStateFlow<List<ActivityItem>>(emptyList())
-    private val _visibleEvents    = MutableStateFlow<List<ActivityItem>>(emptyList())
-    private val _currentPage      = MutableStateFlow(1)
-    private val _hasMoreEvents    = MutableStateFlow(false)
+    /* ─── Eventos criados (paginação local) ───────────────────────────── */
+    private val _fullEvents    = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _visibleEvents = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _currentPage   = MutableStateFlow(1)
+    private val _hasMoreEvents = MutableStateFlow(false)
+    private val _eventsError   = MutableStateFlow<String?>(null)
 
-    /** Expose only the currently visible “slice” */
+    /** Exposto à UI: fatia corrente de eventos */
     val visibleEvents: StateFlow<List<ActivityItem>> = _visibleEvents
 
-    /** Indicates if there are more events beyond the current page */
+    /** Exposto à UI: se há mais páginas locais restantes */
     val hasMoreEvents: StateFlow<Boolean> = _hasMoreEvents
 
-    /** Holds any error that occurs while fetching events */
-    private val _eventsError  = MutableStateFlow<String?>(null)
+    /** Error ao carregar eventos */
     val eventsError: StateFlow<String?> = _eventsError
 
-    /** How many events per “page” */
+    /** Quantos eventos por “página” local */
     private val pageSize = 10
 
     init {
         loadPublicProfile()
-        loadUserEvents()  // ← Kick off initial fetch + pagination
+        loadUserEvents()
     }
 
     /**
-     * 1) GET /api/users/{id}        → name, avatar_url, location, sports
-     * 2) GET /api/profile/{id}      → xp + level
-     * 3) GET /api/rating/{id}       → rep counts + score
-     * 4) GET /api/achievements/{id} → unlocked achievements
+     * 1) GET /api/users/{id}
+     * 2) GET /api/profile/{id}
+     * 3) GET /api/rating/{id}
+     * 4) GET /api/achievements/{id}
      */
     private fun loadPublicProfile() = viewModelScope.launch {
         try {
-            // ─── 1) Fetch /api/users/{id} ───────────────────────────────
-            val publicUser: PublicUserDto = authApi.getUser(userId, bearer)
-            _name.value      = publicUser.name
-            _avatarUrl.value = publicUser.avatar_url
-            _location.value  = publicUser.location
-            _sports.value    = publicUser.sports?.map { it.name } ?: emptyList()
+            // 1) dados básicos do user
+            val pu: PublicUserDto = authApi.getUser(userId, bearer)
+            _name.value      = pu.name
+            _avatarUrl.value = pu.avatar_url
+            _location.value  = pu.location
+            _sports.value    = pu.sports?.map { it.name } ?: emptyList()
 
-            // ─── 2) Fetch /api/profile/{id} → xp + level ──────────────
-            val profile: ProfileResponse = achApi.getProfile(userId, bearer)
-            _level.value = profile.level
+            // 2) xp + level
+            val pr: ProfileResponse = achApi.getProfile(userId, bearer)
+            _level.value = pr.level
 
-            // ─── 3) Fetch /api/rating/{id} → score + count details ────
-            val rep: ReputationResponse = achApi.getReputation(userId, bearer)
-            _behaviour.value = rep.score
-
-            // Compute the “top feedback” label:
+            // 3) reputação
+            val rr: ReputationResponse = achApi.getReputation(userId, bearer)
+            _behaviour.value = rr.score
             val counts = listOf(
-                "Good teammate"   to (rep.good_teammate_count ?: 0),
-                "Friendly player" to (rep.friendly_count    ?: 0),
-                "Team player"     to (rep.team_player_count ?: 0),
-                "Watchlisted"     to (rep.toxic_count       ?: 0),
-                "Bad sport"       to (rep.bad_sport_count   ?: 0),
-                "Frequent AFK"    to (rep.afk_count         ?: 0)
+                "Good teammate"   to (rr.good_teammate_count ?: 0),
+                "Friendly player" to (rr.friendly_count    ?: 0),
+                "Team player"     to (rr.team_player_count ?: 0),
+                "Watchlisted"     to (rr.toxic_count       ?: 0),
+                "Bad sport"       to (rr.bad_sport_count   ?: 0),
+                "Frequent AFK"    to (rr.afk_count         ?: 0)
             )
-            val top = counts.maxByOrNull { it.second }
-            _repLabel.value = if (top != null && top.second > 0) {
-                "${top.first} (${top.second})"
-            } else {
-                "—"
-            }
+            _repLabel.value = counts.maxByOrNull { it.second }
+                ?.takeIf { it.second > 0 }
+                ?.let { "${it.first} (${it.second})" }
+                ?: "—"
 
-            // ─── 4) Fetch unlocked achievements ────────────────────────
-            val achList = achApi.listAchievements(userId, bearer)
-            _achievements.value = achList.achievements
+            // 4) achievements
+            _achievements.value = achApi.listAchievements(userId, bearer).achievements
 
         } catch (e: Exception) {
-            _error.value = e.message
+            _error.value = e.localizedMessage
         }
     }
 
-    /** NEW: Load *all* events created by this user, then initialize pagination */
+    /** Carrega todos os eventos criados por este user e inicializa paginação local */
     private fun loadUserEvents() = viewModelScope.launch {
         _eventsError.value = null
         try {
-            // 1) Call the new endpoint: GET /api/users/{id}/events
-            val dtos = activityApi.getEventsByUser(userId, bearer)
+            // fetch raw list (assume endpoint retornar todos de uma vez)
+            val dtoList = activityApi.getEventsByUser(userId, bearer)
 
-            // 2) Map each ActivityDto → ActivityItem (treating userId as “current”)
-            val mapped = dtos.map { dto ->
+            // mapear DTO → ActivityItem
+            val mapped = dtoList.map { dto ->
                 val participantIds = dto.participants?.map { it.id }?.toSet() ?: emptySet()
                 ActivityItem(
                     id              = dto.id.toString(),
@@ -157,34 +153,30 @@ class PublicProfileViewModel(
                 )
             }
 
-            // 3) Sort so newest appear first (optional)
+            // ordenar (mais recentes primeiro)
             val sorted = mapped.reversed()
             _fullEvents.value = sorted
 
-            // 4) Initialize pagination: first `pageSize` items
-            val firstPage = sorted.take(pageSize)
-            _visibleEvents.value = firstPage
-            _currentPage.value = 1
+            // slice inicial
+            _visibleEvents.value = sorted.take(pageSize)
+            _currentPage.value   = 1
             _hasMoreEvents.value = sorted.size > pageSize
 
         } catch (e: Exception) {
-            _eventsError.value = e.message
+            _eventsError.value = e.localizedMessage
         }
     }
 
-    /** Called when “Load more” is tapped in the UI */
+    /** Chamado pelo botão “Load more” para expandir a lista local */
     fun loadMoreEvents() {
-        val all = _fullEvents.value
+        val all     = _fullEvents.value
         val current = _currentPage.value
-        if (!_hasMoreEvents.value) return  // nothing more to load
+        if (!_hasMoreEvents.value) return
 
         val nextPage = current + 1
-        val toIndex = (nextPage * pageSize).coerceAtMost(all.size)
-
-        // Take the slice [0..toIndex)
-        val newSlice = all.take(toIndex)
-        _visibleEvents.value = newSlice
-        _currentPage.value = nextPage
+        val toIndex  = (nextPage * pageSize).coerceAtMost(all.size)
+        _visibleEvents.value = all.take(toIndex)
+        _currentPage.value   = nextPage
         _hasMoreEvents.value = all.size > toIndex
     }
 }
