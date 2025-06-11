@@ -7,22 +7,45 @@ import com.example.teamup.data.remote.model.SportDto
 
 interface ActivityRepository {
 
-    /**  /events/mine  – user’s own + joined events  */
-    suspend fun getMyActivities(token: String): List<ActivityItem>
-
-    /**  /events/search  – filtered search  */
-    suspend fun searchActivities(
+    /** /events/mine – páginas do histórico do usuário */
+    suspend fun getMyActivities(
         token: String,
-        name:  String? = null,
-        sport: String? = null,
-        place: String? = null,
-        date:  String? = null
+        page:  Int = 1
     ): List<ActivityItem>
 
-    suspend fun createActivity(token: String, body: CreateEventRequest): ActivityItem
+    /** /events/search – busca filtrada com paginação */
+    suspend fun searchActivities(
+        token:   String,
+        page:    Int    = 1,
+        perPage: Int    = 15,
+        name:    String? = null,
+        sport:   String? = null,
+        place:   String? = null,
+        date:    String? = null
+    ): List<ActivityItem>
+
+    /** /events – lista geral (paginada) */
+    suspend fun getAllEvents(
+        token:   String,
+        page:    Int = 1,
+        perPage: Int = 15
+    ): List<ActivityItem>
+
+    /** cria um evento */
+    suspend fun createActivity(
+        token: String,
+        body:  CreateEventRequest
+    ): ActivityItem
+
+    /** lista de esportes */
     suspend fun getSports(token: String): List<SportDto>
 
-    suspend fun myChats(token: String): List<ChatItem>
+    /** myChats reusa /events/mine para chat, paginado */
+    suspend fun myChats(
+        token: String,
+        page:  Int = 1
+    ): List<ChatItem>
 
-    suspend fun getAllEvents(token: String): List<ActivityItem>
+    /** indica se ainda há próxima página após a última chamada */
+    val hasMore: Boolean
 }

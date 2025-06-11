@@ -598,7 +598,7 @@ public function userEvents(Request $request)
         $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
         // 2) Parâmetro de paginação (per_page entre 1 e 100)
-        $perPage = min(max((int) $request->query('per_page', 15), 1), 100);
+        $perPage = min(max((int) $request->query('per_page', 30), 1), 100);
 
         // 3) Query com paginação
         $paginator = Event::with('sport')

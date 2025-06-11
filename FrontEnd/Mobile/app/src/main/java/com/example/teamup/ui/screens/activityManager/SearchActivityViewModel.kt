@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/activityManager/SearchActivityViewModel.kt
 package com.example.teamup.ui.screens.activityManager
 
 import androidx.lifecycle.ViewModel
@@ -8,137 +7,149 @@ import com.example.teamup.data.domain.repository.ActivityRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-/**
- * We keep each piece of UI state as its own StateFlow, instead of smashing them all into one big combine.
- */
 class SearchActivityViewModel(
     private val repo: ActivityRepository
 ) : ViewModel() {
 
-    // 1) Four filter fields:
+    /* ── filtros ───────────────────────────── */
     private val _name  = MutableStateFlow("")
     private val _sport = MutableStateFlow("")
     private val _place = MutableStateFlow("")
     private val _date  = MutableStateFlow("")
 
-    // 2) “all events” loaded once from the repo:
-    private val _allEvents = MutableStateFlow<List<ActivityItem>>(emptyList())
+    /* ── dados remotos ──────────────────────── */
+    private val _allEvents   = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _loading     = MutableStateFlow(false)
+    private val _error       = MutableStateFlow<String?>(null)
 
-    // 3) loading / error for the initial load:
-    private val _loading = MutableStateFlow(false)
-    private val _error   = MutableStateFlow<String?>(null)
+    /* ── paginação REMOTA ───────────────────── */
+    private var backendPage        = 1
+    private var lastBackendPage    = false
+    private var savedToken: String = ""
 
-    // 4) pagination internals:
-    private val _currentPage    = MutableStateFlow(1)
-    private val _visibleResults = MutableStateFlow<List<ActivityItem>>(emptyList())
-    private val _hasMore        = MutableStateFlow(false)
+    /* ── paginação LOCAL ────────────────────── */
+    private val pageSizeLocal       = 10
+    private val _currentPageLocal   = MutableStateFlow(1)
+    private val _visibleResults     = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _hasMoreLocal       = MutableStateFlow(false)
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // 5) Combine just the five flows (_name, _sport, _place, _date, _allEvents) into “_filtered”
-    //    Whenever any of those change, re‐compute the filtered list.
-    // ─────────────────────────────────────────────────────────────────────────────
+    /* ── combine → lista filtrada ───────────── */
     private val _filtered: StateFlow<List<ActivityItem>> = combine(
-        _name,
-        _sport,
-        _place,
-        _date,
-        _allEvents
-    ) { name: String,
-        sport: String,
-        place: String,
-        date: String,
-        allEvents: List<ActivityItem> ->
-
-        allEvents.filter { item ->
-            val matchesName  = name.isBlank()  || item.title.contains(name, ignoreCase = true)
-            val matchesSport = sport.isBlank() || item.title.substringAfter(":", "").contains(sport, ignoreCase = true)
+        _name, _sport, _place, _date, _allEvents
+    ) { name, sport, place, date, all ->
+        all.filter { item ->
+            val matchesName  = name.isBlank() || item.title.contains(name, ignoreCase = true)
+            val matchesSport = sport.isBlank() || item.title.substringAfter(":").contains(sport, ignoreCase = true)
             val matchesPlace = place.isBlank() || item.location.contains(place, ignoreCase = true)
-            val matchesDate  = date.isBlank()  || item.startsAt.startsWith(date)
+            val matchesDate  = date.isBlank() || item.startsAt.startsWith(date)
             val notInvolved  = !item.isCreator && !item.isParticipant
-
             matchesName && matchesSport && matchesPlace && matchesDate && notInvolved
         }
-    }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            emptyList()
-        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // 6) Whenever “_filtered” emits a new list, reset pagination to page 1.
-    // ─────────────────────────────────────────────────────────────────────────────
+    /* ── actualizar UI quando a lista filtrada muda ── */
     init {
         viewModelScope.launch {
-            _filtered.collect { newFiltered ->
-                _currentPage.value = 1
-                val pageSize = 10
-                _visibleResults.value = newFiltered.take(pageSize)
-                _hasMore.value = newFiltered.size > pageSize
+            _filtered.collect { list ->
+                resetLocalPaging(list)
             }
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // 7) Expose each flow separately so the Composable can call collectAsState() on each.
-    // ─────────────────────────────────────────────────────────────────────────────
-    val name: StateFlow<String>                   = _name
-    val sport: StateFlow<String>                  = _sport
-    val place: StateFlow<String>                  = _place
-    val date: StateFlow<String>                   = _date
-    val loading: StateFlow<Boolean>               = _loading
-    val error: StateFlow<String?>                 = _error
-    val allEvents: StateFlow<List<ActivityItem>>  = _allEvents
-    val filtered: StateFlow<List<ActivityItem>>   = _filtered
+    /* ─── Fluxos públicos ─────────────────────────────────── */
+    val name: StateFlow<String>                    = _name
+    val sport: StateFlow<String>                   = _sport
+    val place: StateFlow<String>                   = _place
+    val date: StateFlow<String>                    = _date
+    val loading: StateFlow<Boolean>                = _loading
+    val error: StateFlow<String?>                  = _error
+    val filtered: StateFlow<List<ActivityItem>>    = _filtered
     val visibleResults: StateFlow<List<ActivityItem>> = _visibleResults
-    val currentPage: StateFlow<Int>               = _currentPage
-    val hasMore: StateFlow<Boolean>               = _hasMore
+    val hasMore: StateFlow<Boolean>                = _hasMoreLocal
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // 8) Called once (or whenever you want to “refresh”) to fetch all events from backend.
-    // ─────────────────────────────────────────────────────────────────────────────
-    fun loadAllEvents(token: String) {
-        viewModelScope.launch {
-            _loading.value = true
-            _error.value = null
-            try {
-                val events = repo.getAllEvents(token)
-                // (If you need to set item.isCreator/isParticipant, do it here)
-                _allEvents.value = events
-                _loading.value = false
-            } catch (e: Exception) {
-                _loading.value = false
-                _error.value = e.localizedMessage ?: "Unknown error"
-            }
+    /** 1) Primeira chamada: carrega todas as páginas remotas */
+    fun loadAllEvents(rawToken: String) = viewModelScope.launch {
+        _loading.value = true
+        _error.value   = null
+        savedToken     = rawToken
+        backendPage    = 1
+        lastBackendPage = false
+        try {
+            val all = mutableListOf<ActivityItem>()
+            do {
+                val pageItems = repo.getAllEvents(
+                    bearer(rawToken),
+                    page    = backendPage,
+                    perPage = 50
+                )
+                all += pageItems
+                backendPage++
+            } while (repo.hasMore)
+            _allEvents.value = all
+            _loading.value   = false
+        } catch (e: Exception) {
+            _loading.value = false
+            _error.value   = e.localizedMessage ?: "Unknown error"
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // 9) Called from the Composable whenever any filter field changes.
-    //    Because of our “combine” above, changing _name/_sport/_place/_date
-    //    automatically re‐computes “_filtered” and resets pagination (via init { … }).
-    // ─────────────────────────────────────────────────────────────────────────────
+    /** 2) Atualiza filtros */
     fun updateFilter(field: String, value: String) {
         when (field) {
-            "name"  -> _name.value = value
+            "name"  -> _name.value  = value
             "sport" -> _sport.value = value
             "place" -> _place.value = value
-            "date"  -> _date.value = value
+            "date"  -> _date.value  = value
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // 10) Called when the user taps “Load more.” We bump currentPage and take the next slice.
-    // ─────────────────────────────────────────────────────────────────────────────
-    fun loadMore() {
+    /** 3) Carrega mais: local primeiro, depois remoto se necessário */
+    fun loadMore() = viewModelScope.launch {
         val filteredList = _filtered.value
-        val nextPage = _currentPage.value + 1
-        val pageSize = 10
-        val toIndex = (nextPage * pageSize).coerceAtMost(filteredList.size)
-        val newSlice = filteredList.take(toIndex)
+        val nextLocalIdx = (_currentPageLocal.value + 1) * pageSizeLocal
 
-        _currentPage.value = nextPage
-        _visibleResults.value = newSlice
-        _hasMore.value = filteredList.size > toIndex
+        // a) se ainda há itens locais, só avança local
+        if (nextLocalIdx <= filteredList.size) {
+            advanceLocalPage(filteredList)
+            return@launch
+        }
+
+        // b) senão, busca próxima página remota
+        if (!lastBackendPage) {
+            try {
+                val pageItems = repo.getAllEvents(
+                    bearer(savedToken),
+                    page    = backendPage,
+                    perPage = 50
+                )
+                // acumula e atualiza flag remota
+                _allEvents.value   = _allEvents.value + pageItems
+                lastBackendPage    = !repo.hasMore
+                backendPage++
+                // então avança local
+                advanceLocalPage(_filtered.value)
+            } catch (e: Exception) {
+                _error.value = e.localizedMessage ?: "Failed to load more"
+            }
+        }
     }
+
+    /* ─── Helpers ─────────────────────────────────────────────────── */
+    private fun resetLocalPaging(fullList: List<ActivityItem>) {
+        _currentPageLocal.value = 1
+        _visibleResults.value   = fullList.take(pageSizeLocal)
+        _hasMoreLocal.value     = fullList.size > pageSizeLocal || !lastBackendPage
+    }
+
+    private fun advanceLocalPage(fullList: List<ActivityItem>) {
+        val nextPage = _currentPageLocal.value + 1
+        val toIdx    = (nextPage * pageSizeLocal).coerceAtMost(fullList.size)
+        _currentPageLocal.value = nextPage
+        _visibleResults.value   = fullList.take(toIdx)
+        _hasMoreLocal.value     = fullList.size > toIdx || !lastBackendPage
+    }
+
+    private fun bearer(tok: String): String =
+        if (tok.trim().startsWith("Bearer ")) tok.trim()
+        else "Bearer ${tok.trim()}"
 }

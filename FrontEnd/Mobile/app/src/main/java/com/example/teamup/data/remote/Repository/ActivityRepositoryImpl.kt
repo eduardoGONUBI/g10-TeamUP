@@ -14,9 +14,7 @@ import org.json.JSONObject
 /* ─── DTO → Domain mapper ───────────────────────────────────────────────── */
 
 internal fun ActivityDto.toActivityItem(currentUserId: Int): ActivityItem {
-    // Collect all participant IDs so we can tell if “currentUserId” is a participant
     val participantIds = participants?.map { it.id }?.toSet() ?: emptySet()
-
     return ActivityItem(
         id              = id.toString(),
         title           = "$name : $sport",
@@ -35,18 +33,13 @@ internal fun ActivityDto.toActivityItem(currentUserId: Int): ActivityItem {
 }
 
 private fun ActivityDto.toChatItem(currentUserId: Int): ChatItem {
-    // Determine if the current user is the creator:
-    val creatorId = creator.id
-
-    // Determine if the current user appears in the participant list:
     val participantIds = participants?.map { it.id }?.toSet() ?: emptySet()
-
     return ChatItem(
         id            = id,
         title         = name,
         sport         = sport,
         status        = status,
-        isCreator     = (creatorId == currentUserId),
+        isCreator     = (creator.id == currentUserId),
         isParticipant = participantIds.contains(currentUserId)
     )
 }
@@ -57,53 +50,58 @@ class ActivityRepositoryImpl(
     private val api: ActivityApi
 ) : ActivityRepository {
 
-    /* ------------ small helper --------------- */
+    override var hasMore: Boolean = true
+
     private fun auth(token: String): String =
         if (token.trim().startsWith("Bearer ")) token.trim()
         else "Bearer ${token.trim()}"
 
-    /** /api/events/mine – returns ActivityDto for each event I created or joined */
-    override suspend fun getMyActivities(token: String): List<ActivityItem> {
-        val currentUserId = extractUserId(token)
-        return api.getMyActivities("Bearer $token")
-            .map { it.toActivityItem(currentUserId) }
-    }
-
-    /** /api/events/search – returns ActivityDto matching filters */
-    override suspend fun searchActivities(
+    override suspend fun getMyActivities(
         token: String,
-        name:  String?,
-        sport: String?,
-        place: String?,
-        date:  String?
+        page:  Int
     ): List<ActivityItem> {
-        val currentUserId = extractUserId(token)
-        return api.searchEvents(
-            token = "Bearer $token",
-            name  = name,
-            sport = sport,
-            place = place,
-            date  = date
-        ).map { it.toActivityItem(currentUserId) }
+        val uid   = extractUserId(token)
+        val resp  = api.getMyActivities(auth(token), page = page)
+        hasMore   = resp.meta.currentPage < resp.meta.lastPage
+        return resp.data.map { it.toActivityItem(uid) }
     }
 
-    /** POST /api/events – create a new event, then map CreateEventRawDto → ActivityItem */
+    override suspend fun searchActivities(
+        token:    String,
+        page:     Int,
+        perPage:  Int,
+        name:     String?,
+        sport:    String?,
+        place:    String?,
+        date:     String?
+    ): List<ActivityItem> {
+        val uid  = extractUserId(token)
+        val resp = api.searchEvents(
+            auth(token),
+            page    = page,
+            per     = perPage,
+            name    = name,
+            sport   = sport,
+            place   = place,
+            date    = date
+        )
+        hasMore = resp.meta.currentPage < resp.meta.lastPage
+        return resp.data.map { it.toActivityItem(uid) }
+    }
+
     override suspend fun createActivity(
         token: String,
         body: CreateEventRequest
     ): ActivityItem {
-        // 1) call backend
         val raw = api.createEvent("Bearer $token", body)
-        val e: CreateEventRawDto = raw.event
-
-        // 2) build ActivityItem directly, since CreateEventRawDto is not an ActivityDto
+        val e   = raw.event
         val currentUserId = extractUserId(token)
         return ActivityItem(
             id              = e.id.toString(),
             title           = "${e.name} : ${e.sportId}",
             location        = e.place,
             startsAt        = e.startsAt ?: body.startsAt,
-            participants    = 1,               // creator auto‐joined
+            participants    = 1,
             maxParticipants = e.maxParticipants,
             organizer       = e.userName,
             creatorId       = e.userId,
@@ -115,66 +113,46 @@ class ActivityRepositoryImpl(
         )
     }
 
-    /** GET /api/sports – returns list of SportDto */
     override suspend fun getSports(token: String): List<SportDto> =
         api.getSports("Bearer $token")
 
-    /**
-     *  myChats: reuses GET /api/events/mine
-     *  → maps each ActivityDto to ChatItem
-     */
-    override suspend fun myChats(token: String): List<ChatItem> {
-        val currentUserId = extractUserId(token)
-        return api.getMyActivities("Bearer $token")
-            .map { it.toChatItem(currentUserId) }
+    override suspend fun getAllEvents(
+        token:   String,
+        page:    Int,
+        perPage: Int
+    ): List<ActivityItem> {
+        val uid  = extractUserId(token)
+        val resp = api.searchEvents(auth(token), page = page, per = perPage)
+        hasMore = resp.meta.currentPage < resp.meta.lastPage
+        return resp.data
+            .map { it.toActivityItem(uid) }
+            .filter { it.status != "concluded" }
     }
-    /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
-    /**
-     * Offline‐only JWT parser that extracts the “sub” claim (user ID) from a Bearer token.
-     * Does NOT verify the signature.
-     * Returns 0 on any failure.
-     */
+    override suspend fun myChats(
+        token: String,
+        page:  Int
+    ): List<ChatItem> {
+        val uid  = extractUserId(token)
+        val resp = api.getMyActivities(auth(token), page = page)
+        hasMore = resp.meta.currentPage < resp.meta.lastPage
+        return resp.data.map { it.toChatItem(uid) }
+    }
+
     private fun extractUserId(token: String): Int {
         return try {
-            // Remove "Bearer " prefix if present
             val raw = token.removePrefix("Bearer ").trim()
-
-            // JWT = header.payload.signature
             val parts = raw.split(".")
             if (parts.size < 2) return 0
-
-            // Base64‐decode the payload (second part)
-            val payloadPart = parts[1]
-            val padded = payloadPart
+            val payload = parts[1]
                 .replace('-', '+')
                 .replace('_', '/')
                 .let { s -> s + "=".repeat((4 - s.length % 4) % 4) }
-            val decoded = Base64.decode(padded, Base64.DEFAULT)
-            val json = JSONObject(String(decoded))
-
+            val decoded = Base64.decode(payload, Base64.DEFAULT)
+            val json    = JSONObject(String(decoded))
             json.optInt("sub", 0)
         } catch (_: Exception) {
             0
         }
-    }
-
-    /** /api/events –HOMEPAGE -  returns every event visible to the auth user excep the concluded*/
-    override suspend fun getAllEvents(token: String): List<ActivityItem> {
-        val uid = extractUserId(token)
-
-        // 1. pedir todos os eventos (sem filtros)
-        val dtoList = api.searchEvents(
-            token = auth(token),
-            name  = null,
-            sport = null,
-            place = null,
-            date  = null
-        )
-
-        // 2. mapear ➜ ActivityItem e descartar logo os “concluded”
-        return dtoList
-            .map { it.toActivityItem(uid) }
-            .filter { !it.status.equals("concluded", ignoreCase = true) }
     }
 }

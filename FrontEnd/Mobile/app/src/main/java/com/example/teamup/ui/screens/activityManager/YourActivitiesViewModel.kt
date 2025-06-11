@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/activityManager/YourActivitiesViewModel.kt
 package com.example.teamup.ui.screens.activityManager
 
 import android.util.Base64
@@ -11,95 +10,93 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
+// UI state permanece praticamente igual, mas "pageSize" já não é usado para slices locais
+// porque cada página remota será appendada por inteiro.
 data class YourActivitiesUiState(
-    val fullActivities: List<ActivityItem> = emptyList(),   // all items fetched from repo
-    val visibleActivities: List<ActivityItem> = emptyList(),// items to show in UI right now
+    val fullActivities: List<ActivityItem> = emptyList(),
+    val visibleActivities: List<ActivityItem> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,
-    val currentPage: Int = 1,                                // 1-based page index
-    val pageSize: Int = 10,                                   // how many per “page”
-    val hasMore: Boolean = false                              // whether fullActivities.size > currentPage*pageSize
+    val currentRemotePage: Int = 1,
+    val hasMore: Boolean = false                // vem do repo.hasMore
 )
 
 class YourActivitiesViewModel(
     private val repo: ActivityRepository
 ) : ViewModel() {
+
     private val _state = MutableStateFlow(YourActivitiesUiState())
     val state: StateFlow<YourActivitiesUiState> = _state
 
-    /** Load “/events/mine” and then annotate and show only the first page. */
-    fun loadMyEvents(token: String) {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(loading = true, error = null)
-            try {
-                // 1) Fetch raw items
-                val rawList = repo.getMyActivities(token)
+    private var savedToken: String = ""
 
-                // 2) Decode JWT payload (“sub” claim) → currentUserId
-                val currentUserId = parseUserIdFromJwt(token)
+    /** Primeiro carregamento / refresh total */
+    fun loadMyEvents(token: String) = viewModelScope.launch {
+        savedToken = token
+        _state.value = _state.value.copy(loading = true, error = null)
+        try {
+            // reset paginação remota
+            var page = 1
+            val aggregated = mutableListOf<ActivityItem>()
+            do {
+                val pageItems = repo.getMyActivities(token, page)
+                aggregated += pageItems
+                page++
+            } while (repo.hasMore.not() && false) // nao buscar todas as páginas de uma vez
+            // O requisito actual: só a 1ª página, restantes via "Load more"
 
-                // 3) Mark isCreator on each
-                val annotated = rawList.map { item ->
-                    item.copy(isCreator = (item.creatorId == currentUserId))
-                }
+            val currentUserId = parseUserIdFromJwt(token)
+            val annotated = aggregated.map { it.copy(isCreator = (it.creatorId == currentUserId)) }
+            val sorted = annotated.reversed()
 
-                /// Reverse so that newest appear first
-                val sorted = annotated.reversed()
-
-                // 4) Compute initial “visible” slice (first page)
-                val firstPage = sorted.take(_state.value.pageSize)
-                val moreExists = sorted.size > _state.value.pageSize
-
-                _state.value = _state.value.copy(
-                    fullActivities = annotated,
-                    visibleActivities = firstPage,
-                    loading = false,
-                    currentPage = 1,
-                    hasMore = moreExists
-                )
-            } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    loading = false,
-                    error = e.localizedMessage ?: "Unknown error"
-                )
-            }
+            _state.value = _state.value.copy(
+                fullActivities    = sorted,
+                visibleActivities = sorted,           // mostra tudo o que veio (1ª página)
+                loading           = false,
+                currentRemotePage = 1,
+                hasMore           = repo.hasMore
+            )
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(
+                loading = false,
+                error   = e.localizedMessage ?: "Unknown error"
+            )
         }
     }
 
-    /** When “Load more” is pressed, bump page and append the next slice. */
-    fun loadMore() {
+    /** Load more: busca próxima página remota se existir e faz append */
+    fun loadMore() = viewModelScope.launch {
         val ui = _state.value
-        if (!ui.hasMore) return
-
-        val nextPage = ui.currentPage + 1
-        val fromIndex = 0
-        val toIndex = (nextPage * ui.pageSize).coerceAtMost(ui.fullActivities.size)
-        val newSlice = ui.fullActivities.take(toIndex)
-
-        _state.value = ui.copy(
-            visibleActivities = newSlice,
-            currentPage = nextPage,
-            hasMore = ui.fullActivities.size > toIndex
-        )
+        if (!ui.hasMore) return@launch
+        val nextRemotePage = ui.currentRemotePage + 1
+        try {
+            val newPageItems = repo.getMyActivities(savedToken, nextRemotePage)
+            val currentUserId = parseUserIdFromJwt(savedToken)
+            val annotated = newPageItems.map { it.copy(isCreator = (it.creatorId == currentUserId)) }
+            val combined = ui.fullActivities + annotated
+            _state.value = ui.copy(
+                fullActivities    = combined,
+                visibleActivities = combined,   // mostra tudo acumulado
+                currentRemotePage = nextRemotePage,
+                hasMore           = repo.hasMore
+            )
+        } catch (e: Exception) {
+            _state.value = ui.copy(error = e.localizedMessage ?: "Failed to load more")
+        }
     }
 
-    /** Simple helper: decode JWT’s payload and extract “sub” as Int. */
+    /* helper para extrair sub claim */
     private fun parseUserIdFromJwt(jwtToken: String): Int {
         return try {
-            // JWT = header.payload.signature
-            val parts = jwtToken.split(".")
+            val parts = jwtToken.removePrefix("Bearer ").split(".")
             if (parts.size < 2) return -1
             val payloadBase64 = parts[1]
                 .replace('-', '+')
                 .replace('_', '/')
-                // pad to multiple of 4
                 .let { s -> s + "=".repeat((4 - s.length % 4) % 4) }
-
             val decoded = Base64.decode(payloadBase64, Base64.DEFAULT)
             val json = JSONObject(String(decoded))
             json.optInt("sub", -1)
-        } catch (_: Exception) {
-            -1
-        }
+        } catch (_: Exception) { -1 }
     }
 }

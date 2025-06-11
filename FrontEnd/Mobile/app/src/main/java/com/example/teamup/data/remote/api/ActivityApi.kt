@@ -5,6 +5,7 @@ import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.model.ActivityDto
 import com.example.teamup.data.remote.model.CreateEventRawResponse
 import com.example.teamup.data.remote.model.EventUpdateRequest
+import com.example.teamup.data.remote.model.PaginatedResponse
 import com.example.teamup.data.remote.model.SportDto
 import com.example.teamup.data.remote.model.StatusUpdateRequest
 import retrofit2.Response
@@ -23,8 +24,10 @@ interface ActivityApi {
 
     @GET("/api/events/mine")
     suspend fun getMyActivities(
-        @Header("Authorization") token: String
-    ): List<ActivityDto>
+        @Header("Authorization") token: String,
+        @Query("page")           page:  Int = 1,
+        @Query("per_page")       per:   Int = 7
+    ): PaginatedResponse<ActivityDto>
 
     @GET("/api/events/{id}")
     suspend fun getEventDetail(
@@ -69,11 +72,13 @@ interface ActivityApi {
     @GET("/api/events/search")
     suspend fun searchEvents(
         @Header("Authorization") token: String,
+        @Query("page")           page:  Int = 1,
+        @Query("per_page")       per:   Int = 15,
         @Query("name")  name:  String? = null,
         @Query("sport") sport: String? = null,
         @Query("place") place: String? = null,
         @Query("date")  date:  String? = null
-    ): List<ActivityDto>
+    ): PaginatedResponse<ActivityDto>
 
     @GET("/api/sports")
     suspend fun getSports(

@@ -11,20 +11,33 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.teamup.R
 import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.components.ActivityCard
 import com.example.teamup.ui.components.AchievementsRow
@@ -35,10 +48,20 @@ fun ProfileScreen(
     token: String,
     onEditProfile: () -> Unit,
     onLogout: () -> Unit,
-    onActivityClick: (ActivityItem) -> Unit,
-    viewModel: ProfileViewModel
+    onActivityClick: (ActivityItem) -> Unit
 ) {
-    // ─── Collect all state from ViewModel ──────────────────────────────
+    // Hoist ViewModel with injected repository
+    val viewModel: ProfileViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val repo: ActivityRepository = ActivityRepositoryImpl(ActivityApi.create())
+                return ProfileViewModel(repo) as T
+            }
+        }
+    )
+
+    // Collect state
     val username        by viewModel.username.collectAsState()
     val location        by viewModel.location.collectAsState()
     val sports          by viewModel.sports.collectAsState()
@@ -51,28 +74,23 @@ fun ProfileScreen(
     val error           by viewModel.error.collectAsState()
     val activitiesError by viewModel.activitiesError.collectAsState()
 
-    // ─── Local state for Logout confirmation dialog ───────────────────
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    // ─── Trigger loads whenever token changes ───────────────────────────
+    // Trigger loads
     LaunchedEffect(token) {
         viewModel.loadUser(token)
         viewModel.loadCreatedActivities(token)
         viewModel.loadStats(token)
     }
 
-    // ─── Base layout ───────────────────────────────────────────────────
     Box(modifier = Modifier.fillMaxSize()) {
-        // ────────────────────────────
-        // 1) Main scrolling content
-        // ────────────────────────────
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // ── Avatar ───────────────────────────────────────────────────
+            // Avatar
             item {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -91,13 +109,13 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Username ─────────────────────────────────
+            // Username
             item {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 4.dp)
+                        .padding(vertical = 8.dp)
                 ) {
                     Text(
                         text = username,
@@ -107,7 +125,7 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Location & Favourite Sports ───────────────────────────
+            // Location & Favourite Sports
             item {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -131,14 +149,14 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Stats Card (pale blue background) ──────────────────────
+            // Stats Card
             item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-                    elevation = CardDefaults.cardElevation(4.dp)
+                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
+                    elevation = androidx.compose.material3.CardDefaults.cardElevation(4.dp)
                 ) {
                     Row(
                         Modifier
@@ -153,7 +171,7 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Achievements Header ───────────────────────────────────
+            // Achievements Header
             item {
                 Text(
                     text = "Unlocked Achievements",
@@ -162,18 +180,18 @@ fun ProfileScreen(
                 )
             }
 
-            // ── Achievements Row ─────────────────────────────────────
+            // Achievements Row
             item {
                 AchievementsRow(achievements)
             }
 
-            // ── Edit & Logout Buttons ─────────────────────────────────
+            // Edit & Logout Buttons
             item {
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 24.dp, bottom = 8.dp)
+                        .padding(vertical = 16.dp)
                 ) {
                     Button(onClick = onEditProfile) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
@@ -188,7 +206,7 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Recent Activities Header ──────────────────────────────
+            // Recent Activities Header
             item {
                 Text(
                     text = "Recent Activities Created",
@@ -197,7 +215,7 @@ fun ProfileScreen(
                 )
             }
 
-            // ── Recent Activities List / Error / Load More ────────────
+            // Recent Activities List / Error / Load More
             when {
                 activitiesError != null -> item {
                     Text(
@@ -244,9 +262,7 @@ fun ProfileScreen(
             }
         }
 
-        // ────────────────────────────
-        // 2) Generic error banner
-        // ────────────────────────────
+        // Generic error banner
         if (error != null) {
             Snackbar(
                 modifier = Modifier
@@ -257,9 +273,7 @@ fun ProfileScreen(
             }
         }
 
-        // ────────────────────────────
-        // 3) Logout confirmation dialog
-        // ────────────────────────────
+        // Logout confirmation dialog
         if (showLogoutDialog) {
             Dialog(onDismissRequest = { showLogoutDialog = false }) {
                 LogoutDialog(
