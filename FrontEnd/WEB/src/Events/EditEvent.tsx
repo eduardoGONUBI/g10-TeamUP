@@ -7,25 +7,24 @@ import { useLoadScript, Autocomplete } from "@react-google-maps/api";
 import {
     type Event,
     updateEvent,
-    type NewEventData            // reuse the interface shape
+    type NewEventData           
 } from "../api/event";
 import { fetchSports, type Sport } from "../api/sports";
-import "./CreateEvent.css";        // ✔ reuse the same CSS (already scoped)
+import "./CreateEvent.css";       
 
-const LIBS: ("places")[] = ["places"];
+const LIBS: ("places")[] = ["places"];  // google maps api
 
 export default function EditEvent() {
-    /* -------------------------------------------------------------------- */
+    /* ---------------------------estados----------------------------------------- */
     const { id } = useParams<{ id: string }>();
     const nav = useNavigate();
 
-    /* -------------------------------------------------------------------- */
-    const [original, setOriginal] = useState<Event | null>(null);
+    const [original, setOriginal] = useState<Event | null>(null);  // dados originais do evento
     const [sports, setSports] = useState<Sport[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const [saving, setSaving] = useState(false);
+    const [saving, setSaving] = useState(false);  // Estado de carregamento durante a submissao do formulario
 
-    /* the form state extends NewEventData with coords */
+    /* estado formulario */
     const [form, setForm] = useState<NewEventData & {
         latitude: number | null;
         longitude: number | null;
@@ -35,19 +34,18 @@ export default function EditEvent() {
         latitude: null, longitude: null
     });
 
-    /* -------------------------------------------------------------------- */
+    /* -------------------------- google maps api------------------------------------------ */
     const { isLoaded } = useLoadScript({
         googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
         libraries: LIBS,
     });
     const acRef = useRef<google.maps.places.Autocomplete | null>(null);
 
-    /* -------------------------------------------------------------------- */
-    /* 1) fetch event + 2) sports list */
+    /* ------------------------carregar dados-------------------------------------------- */
     useEffect(() => {
         if (!id) return;
 
-        /* event details */
+        // detalhes do evento
         (async () => {
             try {
                 const res = await fetch(`/api/events/${id}`, {
@@ -59,10 +57,11 @@ export default function EditEvent() {
                 const ev: Event = await res.json();
                 if (!res.ok) throw new Error(ev as any);
 
-                setOriginal(ev);
+                // inicializa os campos do formulario
+                setOriginal(ev);    
                 setForm({
                     name: ev.name,
-                    sport_id: 0,                         // temp – fixed below
+                    sport_id: 0,                       
                     starts_at: ev.starts_at.replace(" ", "T").slice(0, 16),
                     place: ev.place,
                     max_participants: ev.max_participants,
@@ -74,37 +73,37 @@ export default function EditEvent() {
             }
         })();
 
-        /* sports list */
-        fetchSports()
+   
+        fetchSports() // carega a lista dos desportos
             .then(setSports)
             .catch(() => setSports([]));
     }, [id]);
 
-    /* once sports arrive, inject correct sport_id */
-    useEffect(() => {
+ 
+    useEffect(() => {     // Procura o desporto correspondente ao nome presente no evento original
         if (!original || !sports.length) return;
         const match = sports.find(s => s.name.toLowerCase() === (original.sport ?? "").toLowerCase());
-        if (match) setForm(f => ({ ...f, sport_id: match.id }));
+        if (match) setForm(f => ({ ...f, sport_id: match.id }));// Atualiza o formulario com o ID do desporto correto
     }, [original, sports]);
 
-    /* -------------------------------------------------------------------- */
+    /* ----------------------funçao handle generica para atualizar os campos do formulario---------------------------------------------- */
     const handle =
         <K extends keyof typeof form>(k: K) =>
             (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-                const v = e.target.type === "number"
+                const v = e.target.type === "number"   // Converte valor para numero se o campo for do tipo "number"
                     ? Number(e.target.value) : e.target.value;
-                setForm(f => ({ ...f, [k]: v } as typeof form));
-                if (k === "place") setForm(f => ({ ...f, latitude: null, longitude: null }));
+                setForm(f => ({ ...f, [k]: v } as typeof form)); // Atualiza o campo especifico no formulario
+                if (k === "place") setForm(f => ({ ...f, latitude: null, longitude: null }));  // Se o campo alterado for o "place" limpa as coordenadas 
             };
-
+    /* ---------------------Callback  quando o utilizador escolhe uma localização---------------------------------------------- */
     const onPlaceChanged = () => {
         const ac = acRef.current;
         if (!ac) return;
         const place = ac.getPlace();
         const loc = place.geometry?.location;
-        if (!loc) { setError("Please pick a valid suggestion."); return; }
+        if (!loc) { setError("Please pick a valid suggestion."); return; }  // valida localizaçao
 
-        setForm(f => ({
+        setForm(f => ({   // atualiza o formulario com a morada e coordenadas
             ...f,
             place: place.formatted_address ?? place.name ?? "",
             latitude: loc.lat(),
@@ -113,19 +112,19 @@ export default function EditEvent() {
         setError(null);
     };
 
-    /* -------------------------------------------------------------------- */
+    /* ---------------------- submisao do formulario---------------------------------------------- */
     const onSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError(null);
 
-        if (!form.sport_id)
+        if (!form.sport_id)   // valida desporto
             return setError("Sport is required.");
         if (form.latitude == null || form.longitude == null)
-            return setError("Pick a valid location from the dropdown.");
+            return setError("Pick a valid location from the dropdown.");  // valida localizaçao
 
         try {
-            setSaving(true);
-            await updateEvent(id!, {
+            setSaving(true);    // Desativa estado de carregamento
+            await updateEvent(id!, {    //chamada api para atualizar evento
                 name: form.name.trim(),
                 sport_id: form.sport_id,
                 starts_at: form.starts_at.replace("T", " ") + ":00",
@@ -134,7 +133,7 @@ export default function EditEvent() {
                 latitude: form.latitude!,
                 longitude: form.longitude!,
             });
-            nav(`/events/${id}`);   // back to the details page
+            nav(`/events/${id}`);   // volta para a pagina do evento
         } catch (e: any) {
             setError(e.message || "Failed to update event");
         } finally {
@@ -143,10 +142,10 @@ export default function EditEvent() {
     };
 
     /* -------------------------------------------------------------------- */
-    if (!original) return <p className="loading">Loading…</p>;
+    if (!original) return <p className="loading">Loading…</p>;   // loading
 
     return (
-        <section className="create-page">   {/* same wrapper as CreateEvent */}
+        <section className="create-page">
             <h2>Edit Event</h2>
 
             {error && <div className="err">{error}</div>}

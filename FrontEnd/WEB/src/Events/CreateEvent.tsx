@@ -1,4 +1,3 @@
-// src/Events/CreateEvent.tsx
 import React, {
   useState,
   useRef,
@@ -14,10 +13,11 @@ import { createEvent, type NewEventData } from "../api/event"
 import { fetchSports, type Sport } from "../api/sports"
 import "./CreateEvent.css"
 
-// load-script needs a mutable array reference
+// google maps api
 const LIBRARIES: LoadScriptProps["libraries"] = ["places"]
 
 const CreateEvent: React.FC = () => {
+   // Estado do formulario
   const [form, setForm] = useState<NewEventData>({
     name: "",
     sport_id: 0,
@@ -25,19 +25,21 @@ const CreateEvent: React.FC = () => {
     place: "",
     max_participants: 2,
   })
+
+  // -------------------- estados ----------------------------
   const [sports, setSports] = useState<Sport[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
-  // force valid place selection
+  //  valida coordenadas
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
 
-  // for the Google Autocomplete widget
+  // google maps api
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
 
-  // wider typing: handles both input and select
+//----------------- hangler generico -------------------------
   const handleChange =
     <K extends keyof NewEventData>(key: K) =>
     (
@@ -52,7 +54,7 @@ const CreateEvent: React.FC = () => {
       setForm(f => ({ ...f, [key]: val } as NewEventData))
     }
 
-  // load sports once
+ // carega os desportos
   useEffect(() => {
     fetchSports()
       .then(setSports)
@@ -62,7 +64,7 @@ const CreateEvent: React.FC = () => {
       })
   }, [])
 
-  // compute min value for datetime-local (blocks past picks)
+  // calcula a data minima para evitar marcaçoes no passado
   const minDateTime = useMemo(() => {
     const now = new Date()
     const pad = (n: number) => n.toString().padStart(2, "0")
@@ -74,12 +76,12 @@ const CreateEvent: React.FC = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`
   }, [])
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => { // envio do formulario
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      // check for past date/time
+      // valida a data passada
       if (!form.starts_at || new Date(form.starts_at) <= new Date()) {
         throw new Error("Please choose a future date and time.")
       }
@@ -87,17 +89,17 @@ const CreateEvent: React.FC = () => {
       // datetime-local gives “YYYY-MM-DDTHH:mm”, backend wants “YYYY-MM-DD HH:mm:00”
       const startsAt = form.starts_at.replace("T", " ") + ":00"
 
-      // ensure they actually picked a sport
+      // valida desporto
       if (!form.sport_id) {
         throw new Error("Please choose a sport")
       }
-      // ensure they selected a valid place
+      // valida local
       if (latitude == null || longitude == null) {
         throw new Error("Please select a valid place from the suggestions.")
       }
 
-      await createEvent({ ...form, starts_at: startsAt })
-      navigate("/my-activities")
+      await createEvent({ ...form, starts_at: startsAt })  // cria evento
+      navigate("/my-activities")  // redireciona para a lista de atividades
     } catch (err: any) {
       setError(err.message || "Failed to create event")
     } finally {
@@ -105,12 +107,12 @@ const CreateEvent: React.FC = () => {
     }
   }
 
-  // store the Autocomplete instance
   const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
     autocompleteRef.current = autocomplete
   }
 
-  // when user picks a place from the dropdown
+
+  // callback quando o user escolhe um local sugerido
   const onPlaceChanged = () => {
     const ac = autocompleteRef.current
     if (!ac) return

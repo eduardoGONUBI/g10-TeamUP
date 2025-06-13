@@ -1,4 +1,4 @@
-// File: src/pages/EventDetails.tsx
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./EventDetails.css";
@@ -11,7 +11,8 @@ import type { Event, Me, Participant } from "../api/event";
 
 import ConfirmModal from "../components/ConfirmModal";
 
-// ── weather icons ────────────────────────────────────────────────────────────
+
+// weather icons 
 import {
   WiDaySunny,
   WiNightClear,
@@ -24,7 +25,7 @@ import {
   WiNightAltCloudy,
 } from "react-icons/wi";
 
-// ── sport icons ──────────────────────────────────────────────────────────────
+// sport icons 
 import FootballIcon from "../assets/Sports_Icon/Football.png";
 import FutsalIcon from "../assets/Sports_Icon/futsal.jpg";
 import CyclingIcon from "../assets/Sports_Icon/ciclismo.jpg";
@@ -34,7 +35,7 @@ import BasketballIcon from "../assets/Sports_Icon/Basketball.png";
 import TennisIcon from "../assets/Sports_Icon/Tennis.png";
 import HandballIcon from "../assets/Sports_Icon/handball.jpg";
 
-const ATTRIBUTES = [
+const ATTRIBUTES = [  // opçoes do feedback
   { value: "", label: "Give feedback…" },
   { value: "good_teammate", label: "✅ Good teammate" },
   { value: "friendly", label: "😊 Friendly" },
@@ -44,21 +45,27 @@ const ATTRIBUTES = [
   { value: "afk", label: "🚶  No show" },
 ];
 
+
 const EventDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [levels, setLevels] = useState<Record<number, number>>({});
-  const [feedbackSent, setFeedbackSent] = useState<Record<number, boolean>>({});
-  const [avatars, setAvatars] = useState<Record<number, string>>({});
-  const [me, setMe] = useState<Me | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [openFeedback, setOpenFeedback] = useState<number | null>(null);
+
+
+  const { id } = useParams<{ id: string }>();    // id do evento
+  const [event, setEvent] = useState<Event | null>(null);   // dados do evento
+  const [participants, setParticipants] = useState<Participant[]>([]);  // participantes do evento
+  const [levels, setLevels] = useState<Record<number, number>>({});   // niveis dos participantes
+  const [feedbackSent, setFeedbackSent] = useState<Record<number, boolean>>({});      // indica se o participante ja recebeu feedback
+  const [avatars, setAvatars] = useState<Record<number, string>>({});      //  foto perfil dos participantes
+  const [me, setMe] = useState<Me | null>(null);         // informaçaoes sobre o utilizador autenticado
+  const [loading, setLoading] = useState(true);   // loading
+  const [openFeedback, setOpenFeedback] = useState<number | null>(null);  // indica qual participante tem o dropdown de feedback aberto
+
+
   const navigate = useNavigate();
-  const storageKey = (eventId: string, myId: number | null) =>
+
+  const storageKey = (eventId: string, myId: number | null) =>    //chave para guardar quem ja recebeu feedback
     `fb:${eventId}:${myId ?? 0}`;
 
-  const loadRatedIds = (eventId: string, myId: number | null): number[] => {
+  const loadRatedIds = (eventId: string, myId: number | null): number[] => {   // carrega do localstorage os participantes a quem ja foi dado feedback
     try {
       return JSON.parse(localStorage.getItem(storageKey(eventId, myId)) || "[]");
     } catch {
@@ -66,7 +73,7 @@ const EventDetails: React.FC = () => {
     }
   };
 
-  const saveRatedIds = (
+  const saveRatedIds = (   // guarda no local storage os participantes que receberam feedback
     eventId: string,
     myId: number | null,
     arr: number[]
@@ -74,27 +81,30 @@ const EventDetails: React.FC = () => {
     localStorage.setItem(storageKey(eventId, myId), JSON.stringify(arr));
   };
 
-  // modal state
+  // modal state para pop ups
   const [modal, setModal] = useState<{
     open: boolean;
     action: "cancel" | "conclude" | "reopen" | "kick";
     targetId?: number;
   }>({ open: false, action: "cancel", targetId: undefined });
 
-  const token =
+  const token =      // vai buscar o token
     localStorage.getItem("auth_token") ||
     sessionStorage.getItem("auth_token");
 
 
-  /* ───────────────────────── Helpers ───────────────────────── */
-  const fmt = (n?: number) => (n != null ? `${Math.round(n)}°C` : "—");
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-GB");
-  const formatTime = (iso: string) =>
+  /* --------------------Helpers ---------------------*/
+
+  const fmt = (n?: number) => (n != null ? `${Math.round(n)}°C` : "—");   // formata um numero para celsius
+
+  const formatDate = (iso: string) =>     // Converte data ISO para formato local DD/MM/YYYY
+    new Date(iso).toLocaleDateString("en-GB"); 
+
+  const formatTime = (iso: string) =>   // Converte data ISO para hora no formato HH:MM
     new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 
-
+// escolhe o icon para a metereologia
   function pickIcon(desc: string) {
     const d = desc.toLowerCase();
     if (d.includes("fog") || d.includes("mist")) return <WiFog size={32} />;
@@ -111,6 +121,7 @@ const EventDetails: React.FC = () => {
     return <WiDaySunny size={32} />;
   }
 
+  //funpçao para quando o user confirma uma açao
   function onModalConfirm() {
     setModal(m => ({ ...m, open: false }));
     switch (modal.action) {
@@ -129,13 +140,13 @@ const EventDetails: React.FC = () => {
     }
   }
 
-  function onModalCancel() {
+  function onModalCancel() {  // cancelar o modal
     setModal(m => ({ ...m, open: false }));
   }
 
 
 
-  // map lower-cased sport name → image
+  // liga o desporto ao seu icon
   const sportIcons: Record<string, string> = {
     football: FootballIcon,
     futsal: FutsalIcon,
@@ -147,6 +158,7 @@ const EventDetails: React.FC = () => {
     tennis: TennisIcon,
     handball: HandballIcon,
   };
+  // devolve o icon correspodente
   const renderSportIcon = (sportName: string | null) => {
     const key = sportName?.toLowerCase() ?? "";
     const src = sportIcons[key];
@@ -156,9 +168,9 @@ const EventDetails: React.FC = () => {
     return <span role="img" aria-label="sport">🏅</span>;
   };
 
-  /* ───────────────────────── API calls ───────────────────────── */
+  /*-------------------- API calls ---------------------------- */
 
-  // 1) load current user
+  // carrega o utilizador autenticado
   useEffect(() => {
     if (!token) return;
     fetch("/api/auth/me", {
@@ -169,7 +181,7 @@ const EventDetails: React.FC = () => {
       .catch(console.error);
   }, [token]);
 
-  // 2) load event details
+  // carrega os detalhes do evento
   useEffect(() => {
    if (!id || !token) return;  
     fetch(`/api/events/${id}`, {
@@ -180,46 +192,47 @@ const EventDetails: React.FC = () => {
       .catch(console.error);
   }, [id, token]);
 
-  // 3) load participants + levels + avatars
+  // carrega participantes niveis e fotos de perfil
   useEffect(() => {
     if (!id || !token || !me) return;  
     let mounted = true;
 
-    fetch(`/api/events/${id}/participants`, {
+    fetch(`/api/events/${id}/participants`, { // vai buscar participantes
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
       .then(async (data: { participants?: Participant[] }) => {
         if (!mounted) return;
-        const list: Participant[] = data.participants ?? [];
-        setParticipants(list);
+        const list: Participant[] = data.participants ?? [];   // garante que tem uma lista de participantes mesmo estando vazia
+        setParticipants(list);       //set participantes
 
-        // fetch levels
+        // fetch paralelo de levels 
         const lvlArray = await Promise.all(
           list.map((p) =>
             fetchXpLevel(p.id).then((pr) => ({ id: p.id, level: pr.level }))
           )
         );
         if (!mounted) return;
-        const lvlMap: Record<number, number> = {};
+        const lvlMap: Record<number, number> = {};  // faz a ligaçao de user e lvl
         lvlArray.forEach(({ id, level }) => {
           lvlMap[id] = level;
         });
-        setLevels(lvlMap);
+        setLevels(lvlMap);       // set level
 
+        // verifica se ja foi enviado o feedback para cada participante
         const alreadyRated = loadRatedIds(id!, me?.id ?? null);
         const flags: Record<number, boolean> = {};
         list.forEach((p) => {
           flags[p.id] = alreadyRated.includes(p.id);
         });
-        setFeedbackSent(flags);
+        setFeedbackSent(flags);    // set feedback
 
-        // fetch avatars
+        // fetch paralelo das fotos de perfil
         const avatarPairs = await Promise.all(
           list.map(async (p) => {
             try {
-              const url = await fetchAvatar(p.id);
-              return { id: p.id, url };
+              const url = await fetchAvatar(p.id);  // devolve o url da imagem
+              return { id: p.id, url };    
             } catch {
               return { id: p.id, url: "" };
             }
@@ -227,16 +240,16 @@ const EventDetails: React.FC = () => {
         );
         if (!mounted) return;
 
-        // revoke old URLs
+        // liberta memoria
         Object.values(avatars).forEach((u) => {
           if (u.startsWith("blob:")) URL.revokeObjectURL(u);
         });
 
-        const avMap: Record<number, string> = {};
+        const avMap: Record<number, string> = {};  // liga os avatares com os participantes
         avatarPairs.forEach(({ id, url }) => {
           if (url) avMap[id] = url;
         });
-        setAvatars(avMap);
+        setAvatars(avMap);    // set avatar
       })
       .catch(console.error)
       .finally(() => {
@@ -244,23 +257,23 @@ const EventDetails: React.FC = () => {
       });
 
     return () => {
-      mounted = false;
-      Object.values(avatars).forEach((u) => {
+      mounted = false;  // impede atualizaçoes
+      Object.values(avatars).forEach((u) => {   // liberta memoria
         if (u.startsWith("blob:")) URL.revokeObjectURL(u);
       });
     };
   }, [id, token, me]); 
 
-  /* ─────────────── Feedback helper ─────────────── */
+  /* --------------Feedback helper ----------------------*/
   async function giveFeedback(ratedId: number, attr: string) {
     if (!attr || !id || !token) return;
-      // guard: already rated → exit silently
-  if (feedbackSent[ratedId]) return;
+
+  if (feedbackSent[ratedId]) return;   // se ja tiver sido enviado o feedback
     const attribute = attr.trim();
     if (!attribute) return;
 
     try {
-      const res = await fetch(`/api/events/${id}/feedback`, {
+      const res = await fetch(`/api/events/${id}/feedback`, {  // envia o feedback para o backend
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -271,16 +284,16 @@ const EventDetails: React.FC = () => {
           attribute,
         }),
       });
-      const json = await res.json().catch(() => ({}));
+      const json = await res.json().catch(() => ({}));   // le a resposta
       if (!res.ok) {
         alert(json.error ?? res.statusText);
         return;
       }
 
-    // mark as sent (UI)
-    setFeedbackSent((prev) => ({ ...prev, [ratedId]: true }));
 
-    // persist so it sticks after refresh
+    setFeedbackSent((prev) => ({ ...prev, [ratedId]: true }));    // marca feedback como enviado
+
+    // guarda no localstorage para persistir
     const ratedArr = loadRatedIds(id!, me?.id ?? null);
     if (!ratedArr.includes(ratedId)) {
       saveRatedIds(id!, me?.id ?? null, [...ratedArr, ratedId]);
@@ -291,8 +304,8 @@ const EventDetails: React.FC = () => {
     }
   }
 
-  /* ───────────────────────── Misc actions ───────────────────────── */
-  async function cancelEvent() {
+  /* ----------------------funçoes------------------------- */
+  async function cancelEvent() {   // cancela evento
     if (!id || !token) return;
 
     const res = await fetch(`/api/events/${id}`, {
@@ -306,7 +319,7 @@ const EventDetails: React.FC = () => {
     }
   }
 
-  async function concludeEvent() {
+  async function concludeEvent() {   // conclui evento
     if (!id || !token) return;
     const res = await fetch(`/api/events/${id}/conclude`, {
       method: "PUT",
@@ -322,7 +335,7 @@ const EventDetails: React.FC = () => {
     }
   }
 
-  async function reopenEvent() {
+  async function reopenEvent() {   // reabre evento
     if (!id || !token) return;
     const res = await fetch(`/api/events/${id}`, {
       method: "PUT",
@@ -339,7 +352,7 @@ const EventDetails: React.FC = () => {
     }
   }
 
-  async function kickParticipant(userId: number) {
+  async function kickParticipant(userId: number) {    //expulsa participante
     const res = await fetch(`/api/events/${id}/participants/${userId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
@@ -352,11 +365,11 @@ const EventDetails: React.FC = () => {
     }
   }
 
-  /* ───────────────────────── Render ───────────────────────── */
-  if (loading || !me) return <p className="loading">Loading…</p>;
-  if (!event) return <p>Event not found.</p>;
+  /* -----------------------Render----------------------------- */
+  if (loading || !me) return <p className="loading">Loading…</p>;  // loading
+  if (!event) return <p>Event not found.</p>;  
 
-  const isDone = event.status === "concluded";
+  const isDone = event.status === "concluded";  // bool para ver se evento esta concluido
 
   return (
     <section className="event-page">
@@ -518,7 +531,7 @@ const EventDetails: React.FC = () => {
               )}
             </div>
 
-            {/* Feedback dropdown (only if concluded & not me) */}
+            {/* Feedback dropdown */}
             {isDone && p.id !== me.id && (
               <div
                 className={`feedback-dropdown ${feedbackSent[p.id] ? "sent" : ""
