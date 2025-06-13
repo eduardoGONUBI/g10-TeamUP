@@ -122,6 +122,7 @@ html, body, #root {
   align-items: center;
   justify-content: center;
 }
+
 .logo-panel .logo {
   max-width: 80%;
   height: auto;

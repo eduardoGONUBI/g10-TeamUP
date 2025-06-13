@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, {
   useState,
   type FormEvent,
@@ -17,6 +16,7 @@ const App: React.FC = () => {
     sessionStorage.removeItem("auth_token");
   }, []);
 
+  // -----------------------estados -----------------
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -24,12 +24,13 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-
+ // --------------------submit formulario -----------------
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
+    // -----------envia pedido a api -----------------------
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -40,10 +41,10 @@ const App: React.FC = () => {
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Login failed");
 
-      const storage = remember ? localStorage : sessionStorage;
+      const storage = remember ? localStorage : sessionStorage;    // guarda o token
       storage.setItem("auth_token", json.access_token);
 
-      // immediately navigate to dashboard
+      // ao fazer login vai para o dashboard
       navigate("/dashboard", { replace: true });
     } catch (err: any) {
       setError(err.message);
@@ -51,7 +52,7 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
-
+// ------------ forgot password -------------------
   const handleForgotPassword = async (
     e: React.MouseEvent<HTMLAnchorElement>
   ) => {
@@ -61,6 +62,7 @@ const App: React.FC = () => {
       return;
     }
 
+  //  -------------pedido da api para forgot password------------
     try {
       const res = await fetch("/api/password/email", {
         method: "POST",

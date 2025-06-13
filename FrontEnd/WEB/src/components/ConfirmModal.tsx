@@ -1,7 +1,7 @@
-// src/components/ConfirmModal.tsx
 import React from "react";
 import "./ConfirmModal.css";
 
+// pop ups de confirmar
 export interface ConfirmModalProps {
   isOpen: boolean;
   title?: string;

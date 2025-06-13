@@ -1,6 +1,5 @@
-/* ================
-   Global & Page
-   ================ */
+
+  /* Global & Page*/
 html,
 body,
 #root {
@@ -11,7 +10,7 @@ body,
   font-family: sans-serif;
 }
 
-/* ─── Fundo e texto da área de conteúdo ─────────────────────────────────── */
+/*  Fundo e texto da área de conteúdo */
 .page-body {
   background-color: #f5f6f8;
   color: #333;
@@ -26,9 +25,7 @@ body,
   color: #222;
 }
 
-/* ================
-   Dashboard Grid
-   ================ */
+/* Dashboard Grid*/
 .dashboard-container {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -45,9 +42,9 @@ body,
   max-height: 320px;
 }
 
-/* ================
+/* 
    Cards & Charts
-   ================ */
+*/
 .dashboard-container > .card,
 .dashboard-container > .chart-card {
   background: #fff;
@@ -77,9 +74,9 @@ body,
   margin: 0;
 }
 
-/* ================
+/*
    Chart wrapper
-   ================ */
+*/
 .chart-container {
   position: relative;
   width: 100%;
@@ -93,9 +90,9 @@ body,
   height: 100% !important;
 }
 
-/* ================
+/*
    Top Sports list
-   ================ */
+ */
 .list-card ul {
   list-style: none;
   padding: 0;
@@ -110,9 +107,9 @@ body,
   color: #555;
 }
 
-/* ================
+/* 
    Loading & error
-   ================ */
+*/
 .loading {
   font-size: 1.25rem;
   text-align: center;
@@ -120,9 +117,9 @@ body,
   grid-column: span 3;
 }
 
-/* ================
+/* 
    Event List
-   ================ */
+*/
 .events-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

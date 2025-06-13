@@ -1,6 +1,5 @@
-/* ─── src/Chat/ChatRoom.css ─────────────────────────────────────────────── */
 
-/* ───────────────── Container ───────────────── */
+/*Container*/
 .chat-room-container {
   display: flex;
   max-width: 960px;
@@ -10,7 +9,7 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* ───────────── Participants Sidebar ───────────── */
+/*Participants Sidebar*/
 .participants-list {
   width: 220px;
   background: rgba(255, 255, 255, 0.9);
@@ -47,7 +46,7 @@
   border-bottom: none;
 }
 
-/* ─────────────────── Chat Area ─────────────────── */
+/*Chat Area*/
 .chat-area {
   flex: 1;
   display: flex;
@@ -76,7 +75,7 @@
 
 
 
-/* ───────────────── Chat History ───────────────── */
+/* Chat History */
 .chat-history {
   flex: 1;
   padding: 1.25rem;
@@ -87,7 +86,7 @@
   gap: 0.85rem;
 }
 
-/* ─────────────── System / Join Message ────────────── */
+/*  System / Join Message  */
 .system-message {
   align-self: center;
   color: #666;
@@ -98,7 +97,7 @@
   border-radius: 6px;
 }
 
-/* ────────────────── Message Bubbles ────────────────── */
+/* Message Bubbles  */
 .chat-bubble {
   max-width: 75%;
   padding: 0.75rem 1rem;
@@ -138,7 +137,7 @@
   line-height: 1.45;
 }
 
-/* ─────────────────── Chat Input ─────────────────── */
+/*  Chat Inpu */
 .chat-input {
   display: flex;
   padding: 1rem;
@@ -176,7 +175,7 @@
   background: #125ea8;
 }
 
-/* ─────────────── Loading & Error States ─────────────── */
+/*Loading & Error States */
 .loading,
 .error {
   text-align: center;

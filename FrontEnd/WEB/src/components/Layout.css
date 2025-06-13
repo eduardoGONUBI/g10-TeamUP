@@ -1,4 +1,4 @@
-/* ───────────── Layout geral (sidebar + content) ───────────── */
+/* Layout geral (sidebar + content) */
 .layout {
   display: flex;          /* põe as colunas lado-a-lado            */
   height: 100vh;          /* ocupa todo o ecrã                     */
@@ -14,7 +14,7 @@
   min-width: 0;           /* permite encolher sem provocar scroll  */
 }
 
-/* A page-body já existe no teu Dashboard.css; só garante que continua: */
+
 .page-body {
   flex: 1;
   overflow-y: auto;

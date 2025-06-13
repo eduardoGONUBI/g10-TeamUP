@@ -1,4 +1,4 @@
-// src/Perfil/EditProfilePage.tsx
+
 import React, { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from "react"
 import { useNavigate } from "react-router-dom"
 import { fetchMe, updateMe } from "../api/user"
@@ -12,15 +12,19 @@ import type { Sport } from "../api/sports"
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
+
+  // ---------estados ----------------//
   const [name, setName] = useState("")
   const [location, setLocation] = useState("")
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
   const [sportsOptions, setSportsOptions] = useState<{ value: number; label: string }[]>([])
   const [selectedSports, setSelectedSports] = useState<{ value: number; label: string }[]>([])
+   // ---------mensagem de sucesso/erro ----------------//
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
+  // google maps autocomplete
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -31,15 +35,17 @@ export default function EditProfilePage() {
     let mounted = true
     ;(async () => {
       try {
-        const me: User = await fetchMe()
+        const me: User = await fetchMe()    // vai buscar os dados do utilizador
+
         if (!mounted) return
+        // preenche os campos com os dados do utilizador
         setName(me.name)
         setLocation(me.location || "")
         setLatitude(me.latitude ?? null)
         setLongitude(me.longitude ?? null)
         setSelectedSports(me.sports.map(s => ({ value: s.id, label: s.name })))
 
-        const allSports: Sport[] = await fetchSports()
+        const allSports: Sport[] = await fetchSports()   //vai buscar os desportos
         if (!mounted) return
         setSportsOptions(allSports.map(s => ({ value: s.id, label: s.name })))
       } catch (e) {
@@ -49,12 +55,15 @@ export default function EditProfilePage() {
     return () => { mounted = false }
   }, [])
 
+  // ----------handler google maps autocomplete---------------
   const handlePlaceChanged = () => {
     const place = autocompleteRef.current?.getPlace()
     if (!place) return
+    // tenta encontrar a localidade
     const locality = place.address_components?.find(c =>
       c.types.includes("locality") || c.types.includes("administrative_area_level_3")
     )
+    //Se encontrar uma localização valida com coordenadasguarda-a
     if (locality && place.geometry?.location) {
       const loc = place.geometry.location
       setLocation(place.formatted_address || locality.long_name)
@@ -65,12 +74,13 @@ export default function EditProfilePage() {
       setErr("Please select a valid city or village from the suggestions.")
     }
   }
-
+ // ----------handler formulario---------------
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setErr(null)
     setMsg(null)
 
+    // validaçoes
     if (!name.trim()) {
       setErr("Name cannot be empty.")
       return
@@ -80,7 +90,7 @@ export default function EditProfilePage() {
       return
     }
 
-    try {
+    try {   // cria o payload
       const payload: Partial<UpdateMePayload> = {
         name: name.trim(),
         location: location.trim(),
@@ -89,7 +99,7 @@ export default function EditProfilePage() {
         sports: selectedSports.map(s => s.value),
       }
 
-      const json = await updateMe(payload)
+      const json = await updateMe(payload)   // envia para a api
       setMsg(json.message)
     } catch (e: any) {
       setErr(e.message)

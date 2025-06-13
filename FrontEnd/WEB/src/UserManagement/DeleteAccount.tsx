@@ -1,7 +1,6 @@
-// src/UserManagement/DeleteAccount.tsx
 import React, { useState, type FormEvent, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import authFetch from "../api/event";  // ou "../api/user" se preferires chamar deleteMe
+import authFetch from "../api/event";  
 import logo from "../assets/logo.png";
 import "./Login.css";
 
@@ -10,10 +9,11 @@ export default function DeleteAccountPage() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
+  // formulario
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
-    try {
+    try {   // pedido api para apagar a conta
       await authFetch("/api/auth/delete", {
         method: "DELETE",
         body: JSON.stringify({ password }),

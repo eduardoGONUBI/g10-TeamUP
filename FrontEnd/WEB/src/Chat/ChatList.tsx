@@ -1,26 +1,28 @@
-// src/ChatList.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchAllMyEvents, type Event } from "../api/event";
 import "./ChatList.css";
 
-const PER_PAGE = 5;
+const PER_PAGE = 5;  // numero de chats por pagina
 
 const ChatList: React.FC = () => {
+
+  // -----------estados -------------------------
   const [active,    setActive]    = useState<Event[]>([]);
   const [archived,  setArchived]  = useState<Event[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
-  const [pageA,     setPageA]     = useState(1);
-  const [pageC,     setPageC]     = useState(1);
+  const [pageA,     setPageA]     = useState(1);   //pag atual ativos
+  const [pageC,     setPageC]     = useState(1);  // pag atual arquivados
+
   const nav = useNavigate();
 
   useEffect(() => {
     setLoading(true);
-   fetchAllMyEvents()
-  .then((events) => {
+   fetchAllMyEvents()   //vai buscar os eventos do user
+  .then((events) => {  // filtra os ativos ou arquivados
     const act = events
-      .filter((e) => e.status === "in progress")
+      .filter((e) => e.status === "in progress")  
     const arch = events
       .filter((e) => e.status === "concluded")
 
@@ -32,19 +34,20 @@ const ChatList: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const openChat = (id: number) => nav(`/chat/${id}`);
+  const openChat = (id: number) => nav(`/chat/${id}`);   // redireciona para o chat do evento
 
-  if (loading) return <p className="loading">A carregar…</p>;
+  if (loading) return <p className="loading">A carregar…</p>;  // loading
   if (error)   return <p className="error">{error}</p>;
 
-  // calculate slices
-  const totalA = active.length;
-  const totalC = archived.length;
-  const pagesA = Math.ceil(totalA / PER_PAGE);
-  const pagesC = Math.ceil(totalC / PER_PAGE);
-  const sliceA = active.slice((pageA - 1) * PER_PAGE, pageA * PER_PAGE);
-  const sliceC = archived.slice((pageC - 1) * PER_PAGE, pageC * PER_PAGE);
+  // calcula as fatias para a paginaçao
+  const totalA = active.length;   //total de eventos ativos
+  const totalC = archived.length;   //total  eventos arquivados
+  const pagesA = Math.ceil(totalA / PER_PAGE);  // numero total de paginas de ativos
+  const pagesC = Math.ceil(totalC / PER_PAGE);// numero total de paginas de arquivados
+  const sliceA = active.slice((pageA - 1) * PER_PAGE, pageA * PER_PAGE);    // extrai os eventos ativos da pagina atual
+  const sliceC = archived.slice((pageC - 1) * PER_PAGE, pageC * PER_PAGE);  // extrai os eventos arquivados da pagina atual
 
+  // ---------------componente reutilizavel de paginaçao--------
   const Pager = ({
     page,
     pages,
@@ -62,7 +65,7 @@ const ChatList: React.FC = () => {
       <button onClick={onNext} disabled={page >= pages}>Next ›</button>
     </div>
   );
-
+//-------------------------
   return (
     <section className="chat-list-page">
       <h2>Chat Management</h2>

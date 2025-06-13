@@ -5,18 +5,23 @@ import logo from "../assets/logo.png";
 import "../Perfil/perfil.css";
 
 export default function ChangeEmailPage() {
-  const navigate = useNavigate();
+  const navigate = useNavigate();   
+
+  //   -----------campos de input -----------
   const [email, setEmail]   = useState("");
   const [pwd, setPwd]       = useState("");
+
+  // ---- mensagens de feedback ----------
   const [msg, setMsg]       = useState<string | null>(null);
   const [err, setErr]       = useState<string | null>(null);
 
+  // --------------- envio de formulario ----------
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
     setMsg(null);
 
-    try {
+    try {         // chama a api
       const json = await changeEmail(email, pwd);
       setMsg(json.message);
       setEmail(""); setPwd("");

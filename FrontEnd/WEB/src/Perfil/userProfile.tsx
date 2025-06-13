@@ -13,6 +13,8 @@ import "./perfil.css"
 import avatarDefault from "../assets/avatar-default.jpg"
 
 export default function UserProfile() {
+
+  // estados
   const { id } = useParams<{ id: string }>()
   const [user, setUser] = useState<any>(null)
   const [achievements, setAchievements] = useState<Achievement[]>([])
@@ -22,9 +24,7 @@ export default function UserProfile() {
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null)
   const nav = useNavigate()
 
-  // ────────────────────────────────────────────────────────────────
-  // Fetch profile data + avatar
-  // ────────────────────────────────────────────────────────────────
+// buscar os dados
   useEffect(() => {
     if (!id) return
 
@@ -33,6 +33,7 @@ export default function UserProfile() {
 
     ;(async () => {
       try {
+        // vai buscar tudo ao mesmo tempo
         const [u, a, p, r] = await Promise.all([
           fetchUser(+id),
           fetchAchievements(+id),
@@ -41,13 +42,14 @@ export default function UserProfile() {
         ])
         if (!isMounted) return
 
+        // atualiza os estados com os dados recebidos
         setUser(u)
         setAchievements(a)
         setXp(p.xp)
         setLevel(p.level)
         setReputation(r)
 
-        // avatar as blob URL
+        //  tenta buscar o avatar
         try {
           objectUrl = await fetchAvatar(+id)
           if (isMounted) setAvatarSrc(objectUrl)
@@ -59,7 +61,7 @@ export default function UserProfile() {
       }
     })()
 
-    return () => {
+    return () => {    // limpa memoria
       isMounted = false
       if (objectUrl && objectUrl.startsWith("blob:")) {
         URL.revokeObjectURL(objectUrl)
@@ -67,10 +69,10 @@ export default function UserProfile() {
     }
   }, [id])
 
-  if (!user) return <p>Loading…</p>
+  if (!user) return <p>Loading…</p>   // loading
 
   const latest =
-    achievements.length > 0 ? achievements[achievements.length - 1] : null
+    achievements.length > 0 ? achievements[achievements.length - 1] : null    // ultimo achievement do utilizador
 
   return (
     <section className="account-page">

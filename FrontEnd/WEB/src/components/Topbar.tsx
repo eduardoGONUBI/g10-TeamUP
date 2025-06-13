@@ -1,4 +1,3 @@
-// ─── src/Topbar.tsx ────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useRef } from "react";
 import "./Topbar.css";
 import avatarDefault from "../assets/avatar-default.jpg";
@@ -13,31 +12,34 @@ import {
 interface NotificationItem {
   event_name: string;
   message: string;
-  created_at: string; // ISO or "YYYY-MM-DD hh:mm:ss"
+  created_at: string; 
 }
 
-interface TopbarProps {
+interface TopbarProps {           // interface que recebe do layout
   username?: string;
   avatarUrl?: string | null;
   bellGlow: boolean;
   notifOpen: boolean;
   onBellClick: () => void;
+  notifications: NotificationItem[];       
+  onClearNotifications: () => void;        
+  userId: number;
 }
 
 const BRAND = "#0d47ff";
 
-/** Return auth token no matter where the app stored it. */
-const getAuthToken = () =>
+
+const getAuthToken = () =>           //recupera token para o websocket
   localStorage.getItem("auth_token") ?? sessionStorage.getItem("auth_token");
 
-const Topbar: React.FC<TopbarProps> = ({
+const Topbar: React.FC<TopbarProps> = ({    // componente que recebe do layout
   username,
   avatarUrl,
   bellGlow,
   notifOpen,
   onBellClick,
 }) => {
-  // ─── Local state for user, avatar & notifications ─────────────────────────
+  // estado local 
   const [localName, setLocalName] = useState<string | null>(null);
   const [localAvatar, setLocalAvatar] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -45,6 +47,7 @@ const Topbar: React.FC<TopbarProps> = ({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
 
+  // referencias a  DOM
   const avatarRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<SVGSVGElement>(null);
@@ -52,18 +55,18 @@ const Topbar: React.FC<TopbarProps> = ({
 
   const navigate = useNavigate();
 
-  // ─── 1) Get user + avatar ONCE on mount ────────────────────────────────────
+  // -----------Obter nome e avatar do user------------------
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
-        const me = await fetchMe();
+        const me = await fetchMe();     // buscar dados do utilizador
         if (!mounted) return;
-        setLocalName(me.name);
+        setLocalName(me.name);         //guardar o nome
 
-        // grab avatar blob, turn into ObjectURL
-        try {
+     
+        try {     // buscar a imagem e converter em url
           const url = await fetchAvatar(me.id);
           if (mounted) setLocalAvatar(url);
         } catch (err) {
@@ -76,18 +79,18 @@ const Topbar: React.FC<TopbarProps> = ({
 
     return () => {
       mounted = false;
-      if (localAvatar?.startsWith("blob:")) {
+      if (localAvatar?.startsWith("blob:")) {      // libertar memoria
         URL.revokeObjectURL(localAvatar);
       }
     };
-  }, []); // run only once
+  }, []); 
 
-  // ─── 2) Open a WebSocket for realtime notifications ─────────────────────────
+  // ---------------Abre websocket para notificaçoes ------------------------
   useEffect(() => {
-    const token = getAuthToken();
+    const token = getAuthToken();        //obtem token
     if (!token) return;
 
-    const ws = new WebSocket(`ws://localhost:55333/?token=${token}`);
+    const ws = new WebSocket(`ws://localhost:55333/?token=${token}`);    // cria ligaçao ao websocket com o token
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -95,7 +98,7 @@ const Topbar: React.FC<TopbarProps> = ({
     };
 
     ws.onmessage = (evt) => {
-      try {
+      try {          //converte a mensagem recebida em json
         const incoming = JSON.parse(evt.data) as {
           type: string;
           event_id: number;
@@ -106,14 +109,15 @@ const Topbar: React.FC<TopbarProps> = ({
           timestamp: string;
         };
 
-        // Build a NotificationItem and prepend:
+        //cria uma notificaçao nova com a mensagem recebida
         const newNotif: NotificationItem = {
           event_name: incoming.event_name,
           message: incoming.message,
           created_at: incoming.timestamp,
         };
-        setNotifications((prev) => [newNotif, ...prev]);
-        setHasUnread(true);
+
+        setNotifications((prev) => [newNotif, ...prev]); //adiciona a notificaçao nova ao inicio da lista
+        setHasUnread(true);      //sino abana
       } catch (err) {
         console.error("[Topbar] Failed to parse WS message:", err);
       }
@@ -128,30 +132,30 @@ const Topbar: React.FC<TopbarProps> = ({
         `[Topbar] WS closed. code=${e.code} reason=${e.reason || "<none>"}`
       );
     };
-
+   //quando o componente desmontar, fecha o WebSocket
     return () => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
+        ws.close(); // se já estiver ligado fecha imediatamente
       } else if (ws.readyState === WebSocket.CONNECTING) {
-        ws.addEventListener("open", () => ws.close());
+        ws.addEventListener("open", () => ws.close());     // se ainda estiver a conectar, espera terminar e depois fecha
       }
     };
-  }, []); // run once
+  }, []); 
 
-  // ─── 3) When notifOpen toggles → mark as read on open, clear on close ──────
+  // ----------------- toggle das notificaçoes ---------------------------
   useEffect(() => {
     if (notifOpen) {
-      // If the bell just opened, mark those as “read” (remove glow)
+       // se abre as notificaçoes considera como lidas
       setHasUnread(false);
     } else {
-      // If the bell just closed, clear all fetched notifications
-      setNotifications([]);
+   
+      setNotifications([]);   // se fecha limpa notificaçoes
     }
   }, [notifOpen]);
 
-  // ─── 4) Outside-click / toggles / logout ───────────────────────────────────
+  // ------------ 4) Lida com cliques fora toggles de dropdowns e logout ---------------------------------------
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent) {     // Função que verifica se o clique foi fora dos elementos
       const target = e.target as Node;
 
       if (
@@ -159,9 +163,10 @@ const Topbar: React.FC<TopbarProps> = ({
         avatarRef.current &&
         !avatarRef.current.contains(target)
       ) {
-        setAvatarOpen(false);
+        setAvatarOpen(false);    // Fechar dropdown de perfil
       }
 
+      
       if (
         notifOpen &&
         notifRef.current &&
@@ -169,33 +174,36 @@ const Topbar: React.FC<TopbarProps> = ({
         bellRef.current &&
         !bellRef.current.contains(target)
       ) {
-        onBellClick();
+        onBellClick(); // fechar painel de notificaçoes se clicar fora
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
+
+    document.addEventListener("mousedown", handleClickOutside);     // listener para cliques
+   
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);         
     };
   }, [avatarOpen, notifOpen, onBellClick]);
 
-  const handleAvatarToggle = () => {
+
+  const handleAvatarToggle = () => {    //toggle do dropdown do perfil
     if (notifOpen) onBellClick();
     setAvatarOpen((o) => !o);
   };
-  const handleBellToggle = () => {
+  const handleBellToggle = () => {        // toggle painel de notificaçoes
     if (avatarOpen) setAvatarOpen(false);
     onBellClick();
   };
-  const handleLogout = async () => {
+  const handleLogout = async () => {         // faz logout
     try {
       await apiLogout();
-    } catch {}
+    } catch { }
     localStorage.removeItem("auth_token");
     sessionStorage.removeItem("auth_token");
     navigate("/", { replace: true });
   };
 
-  // ─── 5) Render ───────────────────────────────────────────────────────────────
+  //---------------------- Render ---------------------------------
   const finalAvatar = localAvatar ?? avatarUrl ?? avatarDefault;
   const finalName = username ?? localName ?? "…";
 
@@ -228,7 +236,7 @@ const Topbar: React.FC<TopbarProps> = ({
           </div>
         )}
 
-        {/* 🔔 bell & notifications */}
+        {/* sino e notificaçoes */}
         <svg
           ref={bellRef}
           onClick={handleBellToggle}
