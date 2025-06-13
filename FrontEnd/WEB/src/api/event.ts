@@ -1,5 +1,4 @@
-// src/api/event.ts
-
+// interface de um participante
 export interface Participant {
   id: number
   name: string
@@ -7,6 +6,7 @@ export interface Participant {
   avatar_url?: string | null;
 }
 
+//interface de uma atividade
 export interface Event {
   id: number
   name: string
@@ -23,7 +23,7 @@ export interface Event {
   weather?: Weather;
 }
 
-// shape of the form on the front-end
+// dados de criaçao de uma atividade
 export interface NewEventData {
   name: string
   sport_id: number
@@ -32,46 +32,49 @@ export interface NewEventData {
   max_participants: number
 
 }
-
+// interface da resposta do weather
 export interface Weather {
   temp: number;
   high_temp: number;
   low_temp: number;
   description: string;
 }
+//interface simples do utilizador
 export interface Me {
   id: number;
   name: string;
 }
 
-
+// funçao auxiliar para fazer fetch autenticado
 async function authFetch(input: RequestInfo, init: RequestInit = {}) {
-  const token =
-    localStorage.getItem("auth_token") ??
+  const token =   // vai buscar o token
+    localStorage.getItem("auth_token") ?? 
     sessionStorage.getItem("auth_token")
-  if (!token) throw new Error("Not authenticated")
-  init.headers = {
+
+
+  if (!token) throw new Error("Not authenticated")    //erro no token
+  init.headers = {  // Garante que os headers existem e adiciona o Authorization + JSON content-type
     ...(init.headers as object),
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   }
-  const res = await fetch(input, init)
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.error ?? json.message ?? res.statusText)
-  return json
+  const res = await fetch(input, init)  // Faz a chamada HTTP com os parametros preparados
+  const json = await res.json()   //converte a resposta para json
+  if (!res.ok) throw new Error(json.error ?? json.message ?? res.statusText) 
+  return json //se correr bem retorna o json
 }
 
-export async function fetchAllMyEvents(
-  perPage = 100   // podes subir para 200/500 se o backend permitir
+export async function fetchAllMyEvents(   // vai buscar todos as atividades
+  perPage = 100   // limite de atividades por pagina
 ): Promise<Event[]> {
-  // 1ª página
-  const first = await authFetch(`/api/events?per_page=${perPage}&page=1`);
+
+  const first = await authFetch(`/api/events?per_page=${perPage}&page=1`); // fetch a 1 pagina
   if (!Array.isArray(first.data)) {
     throw new Error("Resposta inesperada: falta 'data'");
   }
-  let events: Event[] = first.data;
+  let events: Event[] = first.data;   // eventos da primeira pagina
 
-  // se houver mais páginas, vai buscá-las em paralelo
+  // se houver mais páginas, vai buscá-las todas ao mesmo tempo
   const { last_page } = first.meta ?? { last_page: 1 };
   if (last_page > 1) {
     const rest = await Promise.all(
@@ -79,37 +82,37 @@ export async function fetchAllMyEvents(
         authFetch(`/api/events?per_page=${perPage}&page=${i + 2}`)
       )
     );
-    rest.forEach(page => (events = events.concat(page.data)));
+    rest.forEach(page => (events = events.concat(page.data)));  // junta todas as atividades
   }
 
-  return events;
+  return events;   //devolve todas as atividades
 }
 
-export async function createEvent(data: NewEventData): Promise<Event> {
-  const json = await authFetch("/api/events", {
+export async function createEvent(data: NewEventData): Promise<Event> {     // criar uma atividade
+  const json = await authFetch("/api/events", {   //chama api com a funçao auxiliar
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(data),    
   })
-  return json.event as Event
+  return json.event as Event    // devolve uma atividade criada
 }
 
-/** PUT /api/events/{id} — update */
-export async function updateEvent(
+
+export async function updateEvent(     //atualiza uma atividade
   id: string,
   data: {
     name: string;
     sport_id: number;
-    starts_at: string;          // “YYYY-MM-DD HH:mm:00”
+    starts_at: string;          // YYYY-MM-DD HH:mm:00
     place: string;
     max_participants: number;
     latitude: number;
     longitude: number;
   }
 ) {
-  return authFetch(`/api/events/${id}`, {
+  return authFetch(`/api/events/${id}`, {    //envia um PUT para o backend com os novos dados
     method: "PUT",
     body: JSON.stringify(data),
-  }) as Promise<{ message: string; event: Event }>;
+  }) as Promise<{ message: string; event: Event }>;   // espera a resposta como um objeto com messagem e o evento
 }
 
 
