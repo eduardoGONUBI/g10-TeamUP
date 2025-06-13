@@ -1,4 +1,3 @@
-/* ─────────── Topbar.css ─────────── */
 
 /* Container principal do Topbar */
 .topbar {
@@ -162,7 +161,7 @@
 }
 
 /* ── Responsividade ─────────────────────────── */
-@media (max-width: 37.5rem) { /* 600px */
+@media (max-width: 37.5rem) { 
   .topbar {
     flex-direction: column;
     align-items: flex-start;

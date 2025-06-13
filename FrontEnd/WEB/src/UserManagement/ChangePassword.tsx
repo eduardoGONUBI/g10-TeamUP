@@ -1,4 +1,3 @@
-// src/ChangePasswordPage.tsx
 import React, {
   useState,
   type FormEvent,
@@ -12,20 +11,24 @@ import "../Perfil/perfil.css";
 
 export default function ChangePasswordPage() {
   const navigate = useNavigate();
+
+  // -----campos de input ---------
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+
+    // ------- mensagens de feedback ----------------------
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // ─── Additional validation state ────────────────────────────────────────────
-  const [pwErr, setPwErr] = useState<string | null>(null);           // strength
-  const [mismatchErr, setMismatchErr] = useState<string | null>(null); // mismatch
+ // ------validaçoes -----------------
+  const [pwErr, setPwErr] = useState<string | null>(null);           
+  const [mismatchErr, setMismatchErr] = useState<string | null>(null); 
   const [isPwValid, setIsPwValid] = useState(false);
-  // ≥8 chars, 1 uppercase, 1 digit
+//regex da password
   const pwRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
 
-  // Validate strength whenever "next" changes
+  // valida a password em tempo real
   useEffect(() => {
     if (!next) {
       setPwErr(null);
@@ -44,7 +47,7 @@ export default function ChangePasswordPage() {
     }
   }, [next]);
 
-  // Validate confirmation match whenever either field changes
+  // Valida se a password ta igual
   useEffect(() => {
     if (!confirm) {
       setMismatchErr(null);
@@ -57,13 +60,13 @@ export default function ChangePasswordPage() {
       setMismatchErr(null);
     }
   }, [next, confirm]);
-
+// --------------- envio de formulario ----------
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
     setMsg(null);
 
-    // Front‑end guards (shouldn’t happen with disabled button, but double‑check)
+    // validaçao extra. nao deve chegar aqui
     if (!isPwValid) {
       setErr("Please choose a stronger password.");
       return;
@@ -74,14 +77,13 @@ export default function ChangePasswordPage() {
       return;
     }
 
-    try {
+    try {    // chama a api
       const json = await changePassword(current, next, confirm);
       setMsg(json.message);
       setCurrent("");
       setNext("");
       setConfirm("");
     } catch (e: any) {
-      // Server will return "Password actual incorreta" or similar
       setErr(e.message || "Unknown error");
     }
   };

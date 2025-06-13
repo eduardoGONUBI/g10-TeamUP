@@ -1,8 +1,9 @@
-// ─── src/Chat/ChatRoom.tsx ────────────────────────────────────────────────────
+
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./ChatRoom.css";
 
+ // interface da mensagem do chat
 interface ChatMessage {
   id?: number;
   event_id: number;
@@ -12,12 +13,14 @@ interface ChatMessage {
   timestamp: string;
 }
 
+// interface do participante
 interface Participant {
   id: number;
   name: string;
   rating: number | null;
 }
 
+// interface do evento
 interface EventDTO {
   id: number;
   name: string;
@@ -40,10 +43,10 @@ interface EventDTO {
   participants: Participant[];
 }
 
-const getAuthToken = (): string | null =>
+const getAuthToken = (): string | null =>     // vai buscar o token
   localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
 
-const getUserId = (): number | null => {
+const getUserId = (): number | null => {   // extrai o id do token
   const token = getAuthToken();
   if (!token) return null;
   try {
@@ -55,10 +58,12 @@ const getUserId = (): number | null => {
 };
 
 const ChatRoom: React.FC = () => {
+  // obtem o id do evento
   const { id } = useParams();
   const eventId = Number(id);
   const nav = useNavigate();
 
+  // ------------estados-------
   const [eventName, setEventName] = useState<string>("");
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -66,12 +71,14 @@ const ChatRoom: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+// ----- referencias do websocket----------
   const wsRef = useRef<WebSocket | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // token e id do user
   const token = getAuthToken();
   const myId = getUserId();
 
-  // ── Redirect if not authenticated ─────────────────────────────────────────
+  // ------se nao for autenticado vai para o login------- 
   useEffect(() => {
     if (!token) {
       setError("Acesso não autorizado.");
@@ -79,23 +86,24 @@ const ChatRoom: React.FC = () => {
     }
   }, [token, nav]);
 
-  // ── Fetch event name & participants ────────────────────────────────────────
+  // ------- vai buscar os detalhes do evento e participantes-----------------
   useEffect(() => {
     if (!token) return;
 
-    fetch("http://localhost:8081/api/events", {
+    fetch("http://localhost:8081/api/events", {    // chama api
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
         if (res.status === 401) throw new Error("Não autorizado.");
-        return res.json();
+        return res.json();     
       })
       .then((data: EventDTO[]) => {
+        // procura o evento
         const ev = data.find((e) => e.id === eventId);
-        if (ev) {
+        if (ev) {    // define o nome e os participantes do evento
           setEventName(ev.name);
           setParticipants(ev.participants);
-        } else {
+        } else {  // nao encontrou evento
           setEventName(`Evento ${eventId}`);
           setParticipants([]);
         }
@@ -107,19 +115,19 @@ const ChatRoom: React.FC = () => {
       });
   }, [eventId, token]);
 
-  // ── Fetch past messages ─────────────────────────────────────────────────────
+  // ── vai buscar as mensagens anteriores ao carregar o chat─────────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return;
 
     setLoading(true);
-    fetch(`http://localhost:8082/api/fetchMessages/${eventId}`, {
+    fetch(`http://localhost:8082/api/fetchMessages/${eventId}`, {  // chama o api
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
         if (res.status === 401) throw new Error("Não autorizado.");
         return res.json();
       })
-      .then((data) => {
+      .then((data) => {       // atualiza as mensagens 
         setMessages(data.messages || []);
       })
       .catch((err) => {
@@ -129,29 +137,29 @@ const ChatRoom: React.FC = () => {
       .finally(() => setLoading(false));
   }, [eventId, token]);
 
-  // ── Auto-scroll to bottom whenever messages change ───────────────────────────
+  // ------ faz scroll para baixo sempre que ha mensagem --------
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // ── WebSocket for real-time updates ───────────────────────────────────────────
+  // ── WebSocket em tempo real ───────────────────────────────────────────
   useEffect(() => {
     if (!token) return;
 
-    const port = import.meta.env.VITE_WS_PORT || "55333";
-    const ws = new WebSocket(`ws://localhost:${port}/?token=${token}`);
+    const port = import.meta.env.VITE_WS_PORT || "55333";   //porta
+    const ws = new WebSocket(`ws://localhost:${port}/?token=${token}`);  // cria a conexao com o token
     wsRef.current = ws;
 
-    ws.onmessage = ({ data }) => {
+    ws.onmessage = ({ data }) => {  // quando recebe  uma mensagem
       let msg: ChatMessage;
       try {
-        msg = JSON.parse(data);
+        msg = JSON.parse(data);  // faz parse do json recebido
       } catch {
         return;
       }
-      if (msg.event_id === eventId) {
+      if (msg.event_id === eventId) {   // verifica se a mensagem e para o evento atual
         setMessages((prev) => [...prev, msg]);
       }
     };
@@ -162,20 +170,20 @@ const ChatRoom: React.FC = () => {
     return () => ws.close();
   }, [eventId, token]);
 
-  // ── Send a new message ───────────────────────────────────────────────────────
+  // ----------------enviar uma mensagem---------------------
   const sendMessage = async () => {
-    if (!input.trim() || !token) return;
+    if (!input.trim() || !token) return;    // nao envia se estiver vazia ou nao tiver token
 
     try {
       const res = await fetch(
-        `http://localhost:8082/api/sendMessage/${eventId}`,
+        `http://localhost:8082/api/sendMessage/${eventId}`,   // chama a api
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ message: input }),
+          body: JSON.stringify({ message: input }),   // mensagem em json
         }
       );
 
@@ -185,16 +193,15 @@ const ChatRoom: React.FC = () => {
         return;
       }
 
-      setInput("");
-      // The new message will arrive via WebSocket
+      setInput("");  // limpa o campo depois de enviar
     } catch (err) {
       console.error("Send message error:", err);
       setError("Erro ao enviar a mensagem.");
     }
   };
 
-  // ── Render Loading / Error ───────────────────────────────────────────────────
-  if (loading) return <p className="loading">Loading your messages...</p>;
+
+  if (loading) return <p className="loading">Loading your messages...</p>;  // loading
   if (error) return <p className="error">{error}</p>;
 
   return (

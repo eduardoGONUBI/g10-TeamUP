@@ -1,4 +1,3 @@
-// src/ResetPassword.tsx
 import React, { useState, type FormEvent, type ChangeEvent, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
@@ -8,10 +7,11 @@ const ResetPassword = () => {
   const [search] = useSearchParams();
   const navigate = useNavigate();
 
-  // grab token & email from ?token=…&email=…
+  //  pena to token e mail
   const tokenParam = search.get("token") || "";
   const emailParam = search.get("email") || "";
 
+  // estados iniciais
   const [token] = useState(tokenParam);
   const [email] = useState(emailParam);
   const [password, setPassword] = useState("");
@@ -19,21 +19,21 @@ const ResetPassword = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Validation state
+  // Validaçao de password
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isPasswordValid, setIsPasswordValid] = useState(false);
 
-  // Password strength regex: at least 8 chars, 1 uppercase, 1 number
+  // regex da password
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
 
-  // if someone lands here without token/email, bounce them back
+  // sem token volta ao login
   useEffect(() => {
     if (!token || !email) {
       navigate("/", { replace: true });
     }
   }, [token, email, navigate]);
 
-  // Validate password as user types
+  // ------------------------Valida a password-------------------------
   useEffect(() => {
     if (!password) {
       setPasswordError(null);
@@ -52,6 +52,7 @@ const ResetPassword = () => {
     }
   }, [password]);
 
+  // -----------------funçao de submissao do formulario--------------------
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -66,8 +67,8 @@ const ResetPassword = () => {
       setError("Passwords do not match");
       return;
     }
-
-    try {
+ // -------------envia pedido a api---------------
+    try {   
       const res = await fetch("/api/password/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,7 +84,7 @@ const ResetPassword = () => {
       if (!res.ok) {
         throw new Error(json.message || "Reset failed");
       }
-
+        // se correr tudo bem mostra sucesso e vai para o login
       setSuccess("Password reset! Redirecting to login…");
       setTimeout(() => navigate("/", { replace: true }), 2000);
     } catch (err: any) {

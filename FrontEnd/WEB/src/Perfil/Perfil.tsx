@@ -1,4 +1,3 @@
-  // src/perfil/perfil.tsx
   import { useEffect, useState, useRef } from "react"
   import { useNavigate } from "react-router-dom"
   import {
@@ -17,6 +16,7 @@
   import { useLoadScript, Autocomplete } from "@react-google-maps/api"
   import Select from "react-select"
 
+  // label de reputaçao
   function behaviourLabel(score: number): string {
     if (score >= 90) return "Excellent"
     if (score >= 75) return "Very Good"
@@ -25,14 +25,12 @@
     return "Poor"
   }
 
-  const libraries: ("places")[] = ["places"]
+  const libraries: ("places")[] = ["places"]    // google maps api
 
   export default function Account() {
     const nav = useNavigate()
 
-    // ────────────────────────────────────────────────────────────────────────────────
-    // Original state and avatar/stats logic
-    // ────────────────────────────────────────────────────────────────────────────────
+ // --------------------ESTADOS-------------------------------
     const [user, setUser] = useState<User | null>(null)
     const [avatarSrc, setAvatarSrc] = useState<string | null>(null)
     const [achievements, setAchievements] = useState<Achievement[]>([])
@@ -42,9 +40,9 @@
     const [uploading, setUploading] = useState(false)
     const fileInput = useRef<HTMLInputElement>(null)
 
-    // ────────────────────────────────────────────────────────────────────────────────
-    // New form state
-    // ────────────────────────────────────────────────────────────────────────────────
+    
+    // -----------------estados do formulario-------------
+    
     const [editing, setEditing] = useState(false)
     const [sportsList, setSportsList] = useState<Sport[]>([])
     const [formData, setFormData] = useState<{
@@ -61,30 +59,26 @@
       sports: [],
     })
 
-    // ────────────────────────────────────────────────────────────────────────────────
-    // Google Maps Autocomplete setup
-    // ────────────────────────────────────────────────────────────────────────────────
+ 
+    // Google Maps api setup
     const { isLoaded, loadError } = useLoadScript({
       googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
       libraries,
     })
     const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
 
-    // ────────────────────────────────────────────────────────────────────────────────
-    // Fetch everything on mount
-    // ────────────────────────────────────────────────────────────────────────────────
-  // src/Account/perfil.tsx
+ // ------------------carregar os dados------------------
   useEffect(() => {
     let isMounted = true;
 
     (async () => {
-      // 1) Fetch the logged-in user
+      // vai buscar o utilizador
       const me = await fetchMe();
       if (!isMounted) return;
       setUser(me);
 
-      // 2) Seed form fields
-      setFormData({
+      //  Seed form fields
+      setFormData({  //preench formulario de editar com os dados do utilizador
         name: me.name,
         location: me.location || "",
         latitude: me.latitude ?? null,
@@ -92,7 +86,7 @@
         sports: me.sports,
       });
 
-      // 3) Fetch avatar blob URL
+      //  vai buscar a imagem de perfil
       try {
         const url = await fetchAvatar(me.id);
         if (isMounted) setAvatarSrc(url);
@@ -100,7 +94,7 @@
         console.error("Could not fetch avatar", err);
       }
 
-      // 4) Fetch achievements, XP/level, reputation, AND master sports list
+      // vai buscar achievements / xp / reputaçao / lista de desportos ao mesmo tempo
       try {
         const [ach, prof, rep, sports] = await Promise.all([
           fetchAchievements(me.id),
@@ -127,19 +121,21 @@
     };
   }, []);
 
-    // ────────────────────────────────────────────────────────────────────────────────
+
     // Place-changed handler for Google Autocomplete
-    // ────────────────────────────────────────────────────────────────────────────────
+
     const handlePlaceChanged = () => {
-      const place = autocompleteRef.current?.getPlace()
+      const place = autocompleteRef.current?.getPlace()     // obtem a localizaçao do campo
       if (!place) return
+      // procura uma cidade ou regiao
       const locality = place.address_components?.find(c =>
         c.types.includes("locality") ||
         c.types.includes("administrative_area_level_3")
       )
+      // se encontrou e tem coordenadas 
       if (locality && place.geometry?.location) {
         const loc = place.geometry.location
-        setFormData({
+        setFormData({  //atualiza o formulario
           ...formData,
           location: place.formatted_address || locality.long_name,
           latitude: loc.lat(),
@@ -150,12 +146,12 @@
       }
     }
 
-    // ────────────────────────────────────────────────────────────────────────────────
-    // Save handler – calls updateMe
-    // ────────────────────────────────────────────────────────────────────────────────
+ 
+    // guardar alteraçoes
+    
   const handleSave = async () => {
       try {
-        // build payload without nulls for latitude/longitude
+        // cria o payload com os dados do formulario
         const payload: Partial<UpdateMePayload> = {
           name: formData.name,
           location: formData.location,
@@ -164,16 +160,16 @@
         if (formData.latitude != null)  payload.latitude  = formData.latitude
         if (formData.longitude!= null)  payload.longitude = formData.longitude
 
-        await updateMe(payload)
-        // optionally re-fetch user & exit edit mode:
-        const me = await fetchMe()
+        await updateMe(payload)   // envia o payload
+        //recarrega os dados atualizados e sai de ediçao
+        const me = await fetchMe()  
         setUser(me)
         setEditing(false)
       } catch (err: any) {
         alert(err.message || "Failed to update profile.")
       }
     }
-    if (!user) return <p>Loading…</p>
+    if (!user) return <p>Loading…</p>   // loading
     if (loadError) return <p>Error loading maps</p>
 
     return (

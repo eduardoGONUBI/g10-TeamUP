@@ -1,4 +1,3 @@
-// ─── src/main.tsx ──────────────────────────────────────────────────────────────
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -12,7 +11,7 @@ import Layout from "./components/Layout";
 import MyActivities from "./Events/ActivitiesList";
 import EventDetails from "./Events/EventDetails";
 import ChatList from "./Chat/ChatList";
-import ChatRoom from "./Chat/ChatRoom"; // ✅ NEW
+import ChatRoom from "./Chat/ChatRoom";
 import CreateEvent from "./Events/CreateEvent";
 import Account from "./Perfil/Perfil";
 import UserProfile from "./Perfil/userProfile";
@@ -27,14 +26,13 @@ import Leaderboard from "./Leaderboard";
 
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  //<React.StrictMode>
     <BrowserRouter>
       <Routes>
-        {/* públicas ----------------------------------------------------------- */}
-        <Route path="/" element={<App />} />
+        {/* Rotas publicas (nao precisam de token) */}
+        <Route path="/" element={<App />} />  {/*LOGIN*/}
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* privadas (RequireAuth ⇒ Layout ⇒ Outlet) --------------------------- */}
+        {/* privadas (precisam de token) */}
         <Route
           element={
             <RequireAuth>
@@ -46,7 +44,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/my-activities" element={<MyActivities />} />
           <Route path="/events/:id" element={<EventDetails />} />
           <Route path="/chat" element={<ChatList />} />
-          <Route path="/chat/:id" element={<ChatRoom />} /> {/* ✅ NEW ROUTE */}
+          <Route path="/chat/:id" element={<ChatRoom />} />
           <Route path="/events/create" element={<CreateEvent />} />
           <Route path="/account" element={<Account />} />
           <Route path="/profile/:id" element={<UserProfile />} />
@@ -58,9 +56,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/leaderboard"     element={<Leaderboard />} />
         </Route>
 
-        {/* fallback 404 -------------------------------------------------------- */}
+        {/* fallback 404 -----*/}
         <Route path="*" element={<p>Not Found</p>} />
       </Routes>
     </BrowserRouter>
-  //</React.StrictMode>
 );

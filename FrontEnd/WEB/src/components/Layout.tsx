@@ -7,8 +7,9 @@ import "./Layout.css";
 
 const Layout: React.FC = () => {
   // ─── Estado do perfil autenticado ─────────────────────────
+  // Guarda os dados do utilizador autenticado
   const [user, setUser] = useState<User | null>(null);
-
+// chama a api
   useEffect(() => {
     fetchMe()
       .then(u => setUser(u))
@@ -16,15 +17,15 @@ const Layout: React.FC = () => {
   }, []);
 
   // ─── Estado de notificações ───────────────────────────────
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [bellGlow, setBellGlow]   = useState(false);
-  const [notifications, setNotifs] = useState<any[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);   // notificaçoes esta aberto
+  const [bellGlow, setBellGlow]   = useState(false);  // sino a abanar
+  const [notifications, setNotifs] = useState<any[]>([]);   // lista de notificaçoes
 
-  const toggleBell = () => {
+  const toggleBell = () => {     // desativa o abanar do sino e alterna o estado aberto ou fechado das notificaçoes
     setNotifOpen(o => !o);
     setBellGlow(false);
   };
-  const clearNotifs = () => setNotifs([]);
+  const clearNotifs = () => setNotifs([]);   // limpa notificaçoes
 
   // ─── Navegação ────────────────────────────────────────────
   const nav = useNavigate();
@@ -32,12 +33,11 @@ const Layout: React.FC = () => {
 
   return (
     <div className="layout">
-      <Sidebar onLogoClick={goHome} />
+      <Sidebar onLogoClick={goHome} />    
 
       <div className="content-area">
         <Topbar
-          username={user?.name ?? "guest"}
-          // converte null em undefined para satisfazer a prop
+          username={user?.name ?? "Guest"}
           avatarUrl={user?.avatar_url ?? undefined}
           notifications={notifications}
           notifOpen={notifOpen}
@@ -48,7 +48,7 @@ const Layout: React.FC = () => {
         />
 
         <main className="page-body">
-          <Outlet />
+          <Outlet />     {/*pagina dinamica*/}
         </main>
       </div>
     </div>

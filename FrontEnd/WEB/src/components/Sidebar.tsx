@@ -1,4 +1,3 @@
-// src/components/Layout/Sidebar.tsx
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/up.png";

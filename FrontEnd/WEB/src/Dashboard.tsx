@@ -13,9 +13,10 @@ import {
   AreaChart,
   Area,
   Tooltip as AreaTooltip,
-} from "recharts";
+} from "recharts";             // Biblioteca externa
 import "./Dashboard.css";
 
+// interface dos dados 
 interface Stats {
   user_id: string;
   total_active_activities: number;
@@ -28,6 +29,7 @@ interface Stats {
   top_sports: { sport_id: number; sport_name: string; total: number }[];
 }
 
+// interface de notificaçao que recebe do websocket
 interface NotificationPayload {
   type: string;
   event_id: number;
@@ -38,6 +40,7 @@ interface NotificationPayload {
   timestamp: string;
 }
 
+// interface da notificaçao para o front end
 interface NotificationItem {
   id: string;
   title: string;
@@ -49,6 +52,7 @@ const ACCENT = "#6f9bff";
 const WARNING = "#ff6b6b";
 
 const Dashboard: React.FC = () => {
+  // ---------estados ---------
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +62,7 @@ const Dashboard: React.FC = () => {
 
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Extrair user_id do JWT
+  // ----------------Extrair user_id do JWT--------------------
   const getUserId = (): number | null => {
     const token =
       localStorage.getItem("auth_token") ||
@@ -72,19 +76,20 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Conexão WebSocket
+  // -------------------Conexão WebSocket--------------------
   useEffect(() => {
     const token =
       localStorage.getItem("auth_token") ||
-      sessionStorage.getItem("auth_token");
+      sessionStorage.getItem("auth_token");      // vai buscar o token
     if (!token) return;
 
-    const port = import.meta.env.VITE_WS_PORT || "55333";
-    const ws = new WebSocket(`ws://localhost:${port}/?token=${token}`);
+    const port = import.meta.env.VITE_WS_PORT || "55333";       // porta do websocket
+    const ws = new WebSocket(`ws://localhost:${port}/?token=${token}`);   // ligaçao
     wsRef.current = ws;
 
+    // evento quando o webocker recebe uma mensagem
     ws.onmessage = ({ data }) => {
-      let msg: NotificationPayload;
+      let msg: NotificationPayload;       
       try {
         msg = JSON.parse(data);
       } catch {
@@ -93,32 +98,34 @@ const Dashboard: React.FC = () => {
       const myId = getUserId();
       if (myId == null) return;
 
+      // constroi a notificaçao 
       const item: NotificationItem = {
         id: `${msg.timestamp}-${msg.event_id}`,
         title: `${msg.user_name} → ${msg.event_name}`,
         subtitle: `${msg.message} • ${new Date(msg.timestamp).toLocaleString()}`,
       };
-      setNotifications((prev) => [item, ...prev]);
-      setBellGlow(true);
+
+      setNotifications((prev) => [item, ...prev]);   // atualiza o estado com a nova notificaçao
+      setBellGlow(true);       // abana o sino 3 seg
       setTimeout(() => setBellGlow(false), 3000);
     };
 
     return () => ws.close();
   }, []);
 
-  // Fetch das estatísticas
+  // --------------Fetch das estatísticas-----------------
   const fetchStats = useCallback(() => {
     setLoading(true);
     setError(null);
     const token =
-      localStorage.getItem("auth_token") ||
+      localStorage.getItem("auth_token") ||    // vai buscar o token
       sessionStorage.getItem("auth_token");
     if (!token) {
       setError("Not authenticated");
       setLoading(false);
       return;
     }
-    fetch("/api/stats", {
+    fetch("/api/stats", {     // chama a api
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
@@ -151,27 +158,31 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Dados para os gráficos
+  // --------------------- Dados para os graficos----------------------
+  // dados  para o grafico semanal
   const weeklyBars = [
     { name: "This Week", value: stats?.created_this_week ?? 0 },
     { name: "Same Week ’24", value: stats?.created_this_week_last_year ?? 0 },
   ];
+  // grafico de barras radiais
   const radialData = [
     { name: "Joined", value: stats?.participants_joined_this_month ?? 0, fill: BRAND },
     { name: "Left",   value: stats?.participants_left_this_month ?? 0, fill: WARNING },
   ];
+  // grafico de localizaçoes
 const locationBars = (stats?.top_locations ?? [])
   .sort((a, b) => b.total - a.total)
   .map(({ place, total }) => {
-    // split on commas, trim whitespace
+ 
     const parts = place.split(",").map((p) => p.trim());
-    // pick the second-to-last part if it exists (city/region), otherwise fallback
+    // pega so na cidade ou regiao
     const name =
       parts.length >= 2
         ? parts[parts.length - 2]
         : parts[0] || place;
     return { name, total };
   });
+  // grafico de tendencia mensal
   const joinTrend = [
     {
       period: "01",
