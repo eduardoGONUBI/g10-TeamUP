@@ -1,7 +1,7 @@
-// src/api/user.ts
-import authFetch from "./event" // custom wrapper that automatically sends credentials & parses JSON
-import type { Sport } from "./sports"
+import authFetch from "./event"  // import o helper
+import type { Sport } from "./sports" // importa o desporto
 
+// interface de um utilizador
 export interface User {
   id: number
   name: string
@@ -16,6 +16,7 @@ export interface User {
   longitude?: number | null
 }
 
+// interface de um achievement
 export interface Achievement {
   code: string
   title: string
@@ -24,6 +25,7 @@ export interface Achievement {
   unlocked_at: string
 }
 
+// interface da reputaçao
 export interface Reputation {
   score: number
   badges: string[]
@@ -35,7 +37,7 @@ export interface Reputation {
   afk_count: number
 }
 
-// after
+// interface do update o utilizador
 export interface UpdateMePayload {
   name?: string
   email?: string
@@ -45,15 +47,14 @@ export interface UpdateMePayload {
   longitude?: number
 }
 
-// ────────────────────────────────────────────────────────────────────────────────
-// BASIC PROFILE / AUTH
-// ────────────────────────────────────────────────────────────────────────────────
-export async function fetchMe(): Promise<User> {
+
+// vai buscar os dados do utilizador
+export async function fetchMe(): Promise<User> { 
   return authFetch("/api/auth/me")
 }
 
 
-
+// update o utilizador
 export async function updateMe(
   payload: Partial<UpdateMePayload>
 ) {
@@ -63,41 +64,38 @@ export async function updateMe(
   })
 }
 
-
+// apagar conta
 export async function deleteMe() {
   return authFetch("/api/auth/delete", { method: "DELETE" })
 }
 
+// logout
 export async function logout() {
   return authFetch("/api/auth/logout", { method: "POST" })
 }
 
-// ────────────────────────────────────────────────────────────────────────────────
-// GAMIFICATION / SOCIAL DATA
-// ────────────────────────────────────────────────────────────────────────────────
+ // buscar achievements de um utilizador
 export async function fetchAchievements(id: number): Promise<Achievement[]> {
   const json = await authFetch(`/api/achievements/${id}`)
   return json.achievements as Achievement[]
 }
 
+// buscar o xp de um  utilizador
 export async function fetchXpLevel(id: number) {
   return authFetch(`/api/profile/${id}`)
 }
 
+// buscar a reputaçao de um  utilizador
 export async function fetchReputation(id: number): Promise<Reputation> {
   return authFetch(`/api/rating/${id}`) as Promise<Reputation>
 }
 
-// ────────────────────────────────────────────────────────────────────────────────
-// USER DIRECTORY / LOOK-UPS
-// ────────────────────────────────────────────────────────────────────────────────
+// buscar dados publicos de um utilizador
 export function fetchUser(id: number): Promise<User> {
   return authFetch(`/api/users/${id}`)
 }
 
-// ────────────────────────────────────────────────────────────────────────────────
-// ACCOUNT SETTINGS
-// ────────────────────────────────────────────────────────────────────────────────
+// mudar a passeword
 export async function changePassword(
   current: string,
   next: string,
@@ -113,6 +111,7 @@ export async function changePassword(
   })
 }
 
+// mudar email
 export async function changeEmail(newEmail: string, password: string) {
   return authFetch("/api/auth/change-email", {
     method: "POST",
@@ -125,14 +124,7 @@ export async function changeEmail(newEmail: string, password: string) {
 
 
 
-// ────────────────────────────────────────────────────────────────────────────────
-// AVATAR ENDPOINTS
-// ────────────────────────────────────────────────────────────────────────────────
-/**
- * Fetches the binary avatar image for the given user and returns an ObjectURL
- * that can be fed directly into an <img src="…" /> tag. Remember to call
- * `URL.revokeObjectURL(url)` when the image is no longer needed to avoid leaks.
- */
+// buscar a foto de perfil como um url
 export async function fetchAvatar(id: number | string): Promise<string> {
   const res = await fetch(`/api/auth/avatar/${id}`, {
     credentials: "include",
@@ -143,16 +135,9 @@ export async function fetchAvatar(id: number | string): Promise<string> {
   return URL.createObjectURL(blob)
 }
 
-/**
- * Uploads a new avatar for the currently authenticated user.
- * The backend expects multipart/form-data with field name "avatar".
- *
- * @param file The image file selected by the user.
- * @returns The JSON response from the backend (typically `{ url: string }`).
- */
-// src/api/user.ts
+
+ // muda a foto de perfil
 export async function uploadAvatar(file: File): Promise<{ url: string }> {
-  // ← identical to the helper in src/api/event.ts
   const token =
     localStorage.getItem("auth_token") ??
     sessionStorage.getItem("auth_token");
@@ -160,20 +145,18 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
   if (!token) throw new Error("Not authenticated");
 
   const form = new FormData();
-  form.append("avatar", file);        // backend field name
+  form.append("avatar", file);       
 
   const res = await fetch("/api/auth/avatar", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`, // ✅ bearer included
-      Accept: "application/json",       // ✅ tell Laravel “API mode”
-      // do NOT set Content-Type – fetch will add the boundary for you
+      Authorization: `Bearer ${token}`, 
+      Accept: "application/json",      
     },
     body: form,
   });
 
   if (!res.ok) {
-    // try to extract JSON error, else plain text
     let details = "";
     try {
       const j = await res.json();
@@ -186,9 +169,5 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
 
   return res.json() as Promise<{ url: string }>;
 }
-
-// ────────────────────────────────────────────────────────────────────────────────
-// Leaderboard
-// ────────────────────────────────────────────────────────────────────────────────
 
 

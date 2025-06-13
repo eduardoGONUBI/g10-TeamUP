@@ -112,7 +112,7 @@ export async function updateEvent(     //atualiza uma atividade
   return authFetch(`/api/events/${id}`, {    //envia um PUT para o backend com os novos dados
     method: "PUT",
     body: JSON.stringify(data),
-  }) as Promise<{ message: string; event: Event }>;   // espera a resposta como um objeto com messagem e o evento
+  }) as Promise<{ message: string; event: Event }>;   // espera a resposta como um objeto com messagem e a atividade
 }
 
 
