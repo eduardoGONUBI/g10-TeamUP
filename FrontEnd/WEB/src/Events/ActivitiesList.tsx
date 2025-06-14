@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchAllMyEvents, type Event } from "../api/event";
+import { useMyEvents } from "../hooks/useMyEvents";
 import "./ActivitiesList.css";
 
 /* sport icons ---------------------------------------------------------------- */
@@ -50,47 +51,46 @@ const PAGE_SIZE = 5;  // numero de eventos por pagina
 const MyActivities: React.FC = () => {
 
   // -------------estados -------------------------
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  //const [events, setEvents] = useState<Event[]>([]);
+  //const [loading, setLoading] = useState(true);
+  //const [error, setError] = useState<string | null>(null);
   const [activePage, setActivePage] = useState(1);
   const [concludedPage, setConcludedPage] = useState(1);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
 
   // fetch os eventos do utilizador
-  useEffect(() => {
-    fetchAllMyEvents()
-      .then(raw => {
-         setEvents(raw);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  // react-query trata do fetch, cache, loading e erro
+  const {
+    data: events = [],
+    isLoading,
+    isError,
+    error,
+  } = useMyEvents(/* opcional: perPage */);
 
-  if (loading) return <p>Loading…</p>;  // loading
-  if (error) return <p className="err">{error}</p>;
+  if (isLoading) return <p>Loading…</p>;  // loading
+  if (isError) return <p className="err">{(error as Error).message}</p>;
 
-const norm   = (s: string) => s.toLocaleLowerCase();  // normaliza para minusculas
-const needle = norm(query);   // query de pesquiza
+  const norm = (s: string) => s.toLocaleLowerCase();  // normaliza para minusculas
+  const needle = norm(query);   // query de pesquiza
 
-const matches = (ev: Event) =>
-  norm(ev.name).includes(needle) || norm(ev.place).includes(needle);  // verifica se nome ou local contem pesquisa
+  const matches = (ev: Event) =>
+    norm(ev.name).includes(needle) || norm(ev.place).includes(needle);  // verifica se nome ou local contem pesquisa
 
-// filtro de pesquiza
-const filtered      = events.filter(matches);   
-// separa os eventos filtrados em dois grupos
-const active        = filtered.filter(e => e.status === "in progress");
-const concluded     = filtered.filter(e => e.status === "concluded");
+  // filtro de pesquiza
+  const filtered = events.filter(matches);
+  // separa os eventos filtrados em dois grupos
+  const active = filtered.filter(e => e.status === "in progress");
+  const concluded = filtered.filter(e => e.status === "concluded");
 
- //Calcula o número total de páginas para cada grupo
+  //Calcula o número total de páginas para cada grupo
   const totalActivePages = Math.ceil(active.length / PAGE_SIZE) || 1;
   const totalConcludedPages = Math.ceil(concluded.length / PAGE_SIZE) || 1;
 
   //-------- render dos eventos paginados ----------------
   const renderPaginated = (arr: Event[], page: number) => {  // indice inicial da pagina
     const start = (page - 1) * PAGE_SIZE;        // seleciona os eventos da pagina
-    return arr.slice(start, start + PAGE_SIZE).map(ev => { 
+    return arr.slice(start, start + PAGE_SIZE).map(ev => {
       const when = ev.starts_at;   // guarda data / hora
       return (
         <article
@@ -144,17 +144,17 @@ const concluded     = filtered.filter(e => e.status === "concluded");
       <div className="list-header">
         <h2>Activities Management</h2>
         <input
-    className="search-box"
-    type="text"
-    placeholder="Search by name or place…"
-    value={query}
-    onChange={e => {
-      setQuery(e.target.value);   // atualiza a pesquiza
-      // sempre que começa nova pesquisa volta à 1ª página
-      setActivePage(1);
-      setConcludedPage(1);
-    }}
-  />
+          className="search-box"
+          type="text"
+          placeholder="Search by name or place…"
+          value={query}
+          onChange={e => {
+            setQuery(e.target.value);   // atualiza a pesquiza
+            // sempre que começa nova pesquisa volta à 1ª página
+            setActivePage(1);
+            setConcludedPage(1);
+          }}
+        />
         <Link to="/events/create" className="create-btn"> Create Event</Link>
       </div>
 

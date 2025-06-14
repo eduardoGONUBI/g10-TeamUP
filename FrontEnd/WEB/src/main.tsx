@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import App from "./UserManagement/Login";
 import ResetPassword from "./UserManagement/ResetPassword";
@@ -24,8 +25,10 @@ import EditEvent from "./Events/EditEvent";
 import "./main.css";
 import Leaderboard from "./Leaderboard";
 
+const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
+  <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <Routes>
         {/* Rotas publicas (nao precisam de token) */}
@@ -60,4 +63,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="*" element={<p>Not Found</p>} />
       </Routes>
     </BrowserRouter>
+    </QueryClientProvider>
 );
