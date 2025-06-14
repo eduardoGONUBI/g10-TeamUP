@@ -43,18 +43,17 @@ class ResetPasswordNotification extends Notification
      */
     public function toMail($notifiable): MailMessage
     {
-        // 1) Determine your front‐end base URL
-        //    Add FRONTEND_URL=http://localhost:5173 to your .env
+        // URL DO frontend
         $frontend = 'http://localhost:5173';
 
-        // 2) Build the reset link
+        // constroi o link de reset
         $email = urlencode($notifiable->getEmailForPasswordReset());
         $link  = "{$frontend}/reset-password?token={$this->token}&email={$email}";
 
         return (new MailMessage)
             ->subject('Reset Password Notification')
             ->line('You are receiving this email because we received a password reset request for your account.')
-            // 3) Send a button/link instead of raw token
+            // envia o link
             ->action('Reset Password', $link)
             ->line('This password reset link will expire in '
                 . Config::get('auth.passwords.'.config('auth.defaults.passwords').'.expire')

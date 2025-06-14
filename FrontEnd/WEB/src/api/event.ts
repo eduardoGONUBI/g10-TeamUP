@@ -45,7 +45,7 @@ export interface Me {
   name: string;
 }
 
-// funçao auxiliar para fazer fetch autenticado
+// funçao auxiliar para fazer fetch autenticado ────────────────────────────────────────────────────────────────────────────────────────────────────
 async function authFetch(input: RequestInfo, init: RequestInit = {}) {
   const token =   // vai buscar o token
     localStorage.getItem("auth_token") ?? 
@@ -64,7 +64,8 @@ async function authFetch(input: RequestInfo, init: RequestInit = {}) {
   return json //se correr bem retorna o json
 }
 
-export async function fetchAllMyEvents(   // vai buscar todos as atividades
+// vai buscar todos as atividades ────────────────────────────────────────────────────────────────────────────────────────────────────
+export async function fetchAllMyEvents(   
   perPage = 100   // limite de atividades por pagina
 ): Promise<Event[]> {
 
@@ -88,7 +89,8 @@ export async function fetchAllMyEvents(   // vai buscar todos as atividades
   return events;   //devolve todas as atividades
 }
 
-export async function createEvent(data: NewEventData): Promise<Event> {     // criar uma atividade
+// criar uma atividade────────────────────────────────────────────────────────────────────────────────────────────────────
+export async function createEvent(data: NewEventData): Promise<Event> {     
   const json = await authFetch("/api/events", {   //chama api com a funçao auxiliar
     method: "POST",
     body: JSON.stringify(data),    
@@ -96,8 +98,8 @@ export async function createEvent(data: NewEventData): Promise<Event> {     // c
   return json.event as Event    // devolve uma atividade criada
 }
 
-
-export async function updateEvent(     //atualiza uma atividade
+//atualiza uma atividade──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+export async function updateEvent(    
   id: string,
   data: {
     name: string;

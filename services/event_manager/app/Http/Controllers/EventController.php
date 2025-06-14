@@ -18,15 +18,16 @@ use App\Services\WeatherService;
 class EventController extends Controller
 {
 
+    // serviço de metereologia
     private $weatherService;
 
     public function __construct(WeatherService $weatherService)
     {
         $this->weatherService = $weatherService;
     }
-    /**
-     * Check if a token is blacklisted using the /get-blacklist endpoint.
-     */
+
+    //───────────────────────────────────────────── TOKENS ────────────────────────────────────────────────────────────────────────────────────
+    //verifica se um token esta blacklisted
     private function isTokenBlacklisted($token)
     {
         $cacheKey = "blacklisted:{$token}";
@@ -34,9 +35,7 @@ class EventController extends Controller
         return Cache::has($cacheKey);
     }
 
-    /**
-     * Process token from Authorization header.
-     */
+    // extrai o token do pedido
     private function getTokenFromRequest(Request $request)
     {
         $token = $request->header('Authorization');
@@ -45,17 +44,15 @@ class EventController extends Controller
             throw new \Exception('Token is required.');
         }
 
-        // Strip "Bearer " prefix if present
+        // Remove o prefixo "Bearer " caso exista
         if (str_starts_with($token, 'Bearer ')) {
             $token = substr($token, 7);
         }
 
-        return $token;
+        return $token;  // devolve token limpo
     }
 
-    /**
-     * Validate token and check if blacklisted.
-     */
+    // valida o token
     private function validateToken(Request $request)
     {
         $token = $this->getTokenFromRequest($request);
@@ -64,28 +61,38 @@ class EventController extends Controller
             throw new \Exception('Unauthorized: Token is blacklisted.');
         }
 
-        return $token;
+        return $token;  // retorna se for valido
     }
 
+    // extrai o nome pelo token
+    private function getUserNameFromToken($token)
+    {
+        $payload = JWTAuth::setToken($token)->getPayload();
+        return $payload->get('name') ?? null;
+    }
+
+
+    //───────────────────────────────────────────── RABBIT ────────────────────────────────────────────────────────────────────────────────────
+    // publica uma mensagem numa fila de rabbitmq especifica
     private function publishToRabbitMQ($queueName, $messageBody)
     {
-        try {
+        try {  // estabelece ligaçao
             $connection = new AMQPStreamConnection('rabbitmq', 5672, 'guest', 'guest');
             $channel = $connection->channel();
 
-            // Declare the queue
+            // declara a fila
             $channel->queue_declare($queueName, false, true, false, false);
 
-            // Create the message
+            // cria a mensagem como persistente
             $msg = new AMQPMessage($messageBody, [
                 'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT
             ]);
 
-            // Publish the message to the specified queue
+            // publica a mensagem
             $channel->basic_publish($msg, '', $queueName);
 
 
-
+            //fecha canal e ligaçao
             $channel->close();
             $connection->close();
         } catch (\Exception $e) {
@@ -93,20 +100,18 @@ class EventController extends Controller
         }
     }
 
-
-    /**
-     * Store a new event.
-     */
+    //───────────────────────────────────────────── CRIAR EVENTO ────────────────────────────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
         try {
+            // valida e extrai token
             $token = $this->validateToken($request);
 
             $payload = JWTAuth::setToken($token)->getPayload();
             $userId = $payload->get('sub');
             $userName = $payload->get('name');
 
-            // Only validate the fields the user submits now. Note: we require "starts_at" here.
+            //valida os campos inseridos
             $validatedData = $request->validate([
                 'name' => 'required|string',
                 'sport_id' => 'required|exists:sports,id',
@@ -115,15 +120,14 @@ class EventController extends Controller
                 'max_participants' => 'required|integer|min:2',
             ]);
 
-            //
-            // ─── Geocode the place ───────────────────────────────────────────────
-            //
+            // -----------------GOOGLE MAPS API -------------------------------
+            // geocode localizaçao
             $geoKey = config('services.google_maps.key')
                 ?? env('GOOGLE_MAPS_GEOCODE_API_KEY');
             if (!$geoKey) {
                 throw new \Exception('Missing Google Geocoding API key');
             }
-
+            // obtem coordenadas da localizaçao
             $geoRes = Http::get('https://maps.googleapis.com/maps/api/geocode/json', [
                 'address' => $validatedData['place'],
                 'key' => $geoKey,
@@ -146,36 +150,26 @@ class EventController extends Controller
                 ], 422);
             }
 
+            // extrai coordenadas
             $loc = $geoRes['results'][0]['geometry']['location'];
             $lat = $loc['lat'];
             $lng = $loc['lng'];
 
-            //
-            // ─── Fetch weather for that lat/lng + date ────────────────────────────
-            //
-            // Change: use 'starts_at' when parsing the date for weather lookup
-            $eventDate = Carbon::parse($validatedData['starts_at'])->format('Y-m-d');
-            try {
-                // This may throw or return null/empty if the provider has no data
+            // --------------WEATHER API------------------------------
+            $eventDate = Carbon::parse($validatedData['starts_at'])->format('Y-m-d');   // dia para ver
+            try { // vai buscar o weather
                 $weatherData = $this->weatherService->getForecastForDate($lat, $lng, $eventDate);
-
-                // Normalise “no data” to null so we store a clean value
                 if (!$weatherData || empty($weatherData)) {
                     $weatherData = null;
                 }
             } catch (\Throwable $ex) {
-                // Silently continue – we only log a warning, we don’t block the event
-            
-                $weatherData = null;
+                $weatherData = null; // failure fica null
             }
 
-            //
-            // ─── Finally, create the event ───────────────────────────────────────
-            //
-            $event = Event::create([
+            // --------------Cria o evento------------------------------
+            $event = Event::create([      // insere na BD
                 'name' => $validatedData['name'],
                 'sport_id' => $validatedData['sport_id'],
-                // Change: write into "starts_at" (instead of "date")
                 'starts_at' => $validatedData['starts_at'],
                 'place' => $validatedData['place'],
                 'user_id' => $userId,
@@ -187,14 +181,14 @@ class EventController extends Controller
                 'weather' => $weatherData ? json_encode($weatherData) : null,
             ]);
 
-            // auto-join creator
+            // mete o criador como participante
             Participant::create([
                 'event_id' => $event->id,
                 'user_id' => $userId,
                 'user_name' => $userName,
             ]);
 
-            // push to RabbitMQ
+            //  // --------------notifica microserviços via rabbit-----------------------------
             $msg = [
                 'event_id' => $event->id,
                 'event_name' => $event->name,
@@ -209,19 +203,19 @@ class EventController extends Controller
             $this->publishToRabbitMQ('noti_event_join-leave', json_encode($msg));
 
             return response()->json([
-                'message' => 'Evento criado com sucesso!',
+                'message' => 'Evento criado com sucesso!',    // sucess
                 'event' => $event,
             ], 201);
 
         } catch (\Exception $e) {
-            // If something goes wrong, return the exception message
+
             return response()->json(['error' => $e->getMessage()], 400);
         }
     }
 
 
 
-
+    // transforma uma morada em coordenadas
     private function geocodePlace(string $place): array
     {
         $resp = Http::get(
@@ -237,19 +231,22 @@ class EventController extends Controller
         return [$loc['lat'], $loc['lng']];
     }
 
+    //───────────────────────────────────────────── MOSTRAR EVENTO ESPECIFICO ────────────────────────────────────────────────────────────────────────────────────
+    // mostra dados de um evento
     public function show(Request $request, $id)
     {
-        // 1) Authenticate & validate the token
+        // valida o token
         $token = $this->validateToken($request);
 
-        // 2) Find the Event (or 404 if not found)
+        // pega no evento
         $event = Event::findOrFail($id);
 
-        // 3) Decode the stored weather JSON (same as before)
+        // pega no weather
         $raw = is_array($event->weather)
             ? $event->weather
             : json_decode($event->weather, true) ?? [];
 
+        // normaliza os dados do weather
         $weather = [
             'temp' => $raw['temp'] ?? null,
             'high_temp' => $raw['high_temp'] ?? null,
@@ -257,7 +254,7 @@ class EventController extends Controller
             'description' => $raw['weather']['description'] ?? null,
         ];
 
-        // 4) Fetch participants from the pivot table (only non-deleted rows)
+        // busca os participantes
         $participants = DB::table('event_user')
             ->where('event_id', $event->id)
             ->whereNull('deleted_at')
@@ -267,11 +264,11 @@ class EventController extends Controller
                     'id' => $p->user_id,
                     'name' => $p->user_name,
                     'rating' => $p->rating,
-                    'avatar_url' => null, // or whatever default/avatar you want
+                    'avatar_url' => null,
                 ];
             });
 
-        // 5) Return JSON with “event” fields plus the new “participants” array
+        // devolve como JSON
         return response()->json([
             'id' => $event->id,
             'name' => $event->name,
@@ -292,107 +289,143 @@ class EventController extends Controller
         ], 200);
     }
 
-    /**
-     * GET /api/events
-     *
-     * Retorna apenas os eventos criados pelo utilizador autenticado,
-     * com dados de tempo, localização, participantes e pontuações.
-     */
- public function index(Request $request)
-{
-    $token  = $this->validateToken($request);
-    $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
+    //───────────────────────────────────────────── LISTA EVENTOS CRIADOS ────────────────────────────────────────────────────────────────────────────────────
 
-    // per_page entre 1 e 100
-    $perPage = min(max((int) $request->query('per_page', 7), 1), 100);
-
-    $paginator = Event::with('sport')
-        ->where('user_id', $userId)
-        ->orderByDesc('created_at')
-        ->paginate($perPage);      // ← magia aqui
-
-    // mapeia só a parte “data”; mantém meta/links intactos
-    $paginator->getCollection()->transform(function ($event) {
-        return $this->formatEvent($event);
-    });
-
-    return response()->json([
-        'data'  => $paginator->items(),
-        'meta'  => [
-            'current_page' => $paginator->currentPage(),
-            'last_page'    => $paginator->lastPage(),
-            'per_page'     => $paginator->perPage(),
-            'total'        => $paginator->total(),
-        ],
-    ]);
-}
+    // formata eventos para a paginaçao
+    private function formatEvent(Event $event): array
+    {
 
 
-    /**
-     * Delete an event.
-     */
-    /**
-     * Delete an event.
-     */
-    /**
-     * Delete an event.
-     */
+        // -----------metereologia --------------------------
+        $raw = is_array($event->weather)
+            ? $event->weather
+            : json_decode($event->weather, true) ?? [];
+
+        $weather = [
+            'app_max_temp' => $raw['app_max_temp'] ?? null,
+            'app_min_temp' => $raw['app_min_temp'] ?? null,
+            'temp' => $raw['temp'] ?? null,
+            'high_temp' => $raw['high_temp'] ?? null,
+            'low_temp' => $raw['low_temp'] ?? null,
+            'description' => $raw['weather']['description'] ?? null,
+        ];
+        // ------- participantes -----------------
+        $participants = DB::table('event_user')
+            ->where('event_id', $event->id)
+            ->whereNull('deleted_at')
+            ->get(['user_id', 'user_name', 'rating'])
+            ->map(fn($p) => [
+                'id' => $p->user_id,
+                'name' => $p->user_name,
+                'rating' => $p->rating,
+            ]);
+        //---------retorna evento formatado com array ----------------------
+        return [
+            'id' => $event->id,
+            'name' => $event->name,
+            'sport' => $event->sport->name ?? null,
+            'starts_at' => $event->starts_at,
+            'place' => $event->place,
+            'status' => $event->status,
+            'max_participants' => $event->max_participants,
+            'latitude' => $event->latitude,
+            'longitude' => $event->longitude,
+            'creator' => [
+                'id' => $event->user_id,
+                'name' => $event->user_name,
+            ],
+            'weather' => $weather,
+            'participants' => $participants,
+        ];
+    }
+
+
+    // Listar eventos criados pelo utilizador autenticado com paginação.
+    public function index(Request $request)
+    {
+        // valida token
+        $token = $this->validateToken($request);
+        $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
+
+        // define o numero de eventos por pagina (default :7)
+        $perPage = min(max((int) $request->query('per_page', 7), 1), 100);
+
+        // inicia a query dos eventos
+        $paginator = Event::with('sport')
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
+        // obtem os eventos da pagina atual  e chama a funçao formatevent 
+        $paginator->getCollection()->transform(function ($event) {
+            return $this->formatEvent($event);
+        });
+
+        return response()->json([   // retorna JSON com dados paginados
+            'data' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
+    }
+    //───────────────────────────────────────────── APAGAR EVENTO ────────────────────────────────────────────────────────────────────────────────────
     public function destroy(Request $request, $id)
     {
         try {
-            $token = $this->validateToken($request);
+            $token = $this->validateToken($request); // valida token
 
-            // Get authenticated user ID from token payload
-            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-            // Find the event
+            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');   // obtem id do user autenticado
+
+            // encontra o evento
             $event = Event::find($id);
 
             if (!$event) {
                 return response()->json(['error' => 'Event not found'], 404);
             }
 
-            // Check if the user is the creator of the event
+            // verifica se utilizador é o criador do evento
             if ((int) $event->user_id !== (int) $userId) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
-            // Store event ID for publishing to RabbitMQ
+            // dados para publicar no rabbit
             $eventDataForChatDeletion = ['event_id' => $event->id];
 
-            // Delete the event
+            // apaga evento da BD
             $event->delete();
 
-            // Publish a message to RabbitMQ with the event ID
+            // publica a mensagem no rabbitmq 
             $this->publishToRabbitMQ('event_deleted', json_encode($eventDataForChatDeletion));
 
-            return response()->json(['message' => 'Event deleted successfully'], 200);
+            return response()->json(['message' => 'Event deleted successfully'], 200);  // sucess
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
 
 
-    /**
-     * //Update an event.
-     */
+    //───────────────────────────────────────────── UPDATE EVENTO ────────────────────────────────────────────────────────────────────────────────────
     public function update(Request $request, $id)
     {
         try {
-            $token = $this->validateToken($request);
-            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
+            $token = $this->validateToken($request);   //valida token
+            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');   // extrai id do user
 
-            $event = Event::find($id);
+            $event = Event::find($id);    // encontra evento
 
             if (!$event) {
                 return response()->json(['error' => 'Event not found'], 404);
             }
 
-            if ((int) $event->user_id !== (int) $userId) {
+            if ((int) $event->user_id !== (int) $userId) {    // verifica se e criador 
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
-            $validatedData = $request->validate([
+            $validatedData = $request->validate([    // valida campos que foram enviados
                 'name' => 'string|nullable',
                 'sport_id' => 'exists:sports,id|nullable',
                 'date' => 'date|nullable',
@@ -401,83 +434,71 @@ class EventController extends Controller
                 'status' => 'in:in progress,concluded|nullable',
             ]);
 
-            $event->update($validatedData);
+            $event->update($validatedData);    // atualiza na BD
 
-            // Fetch all participants of the updated event
+            // obtem os participantes do evento 
             $participants = Participant::where('event_id', $id)
                 ->distinct()
                 ->get(['user_id', 'user_name'])
                 ->toArray();
 
-            // Prepare the notification message
+            // Prepare payload
             $notificationMessage = [
                 'type' => 'new_message',
                 'event_id' => $id,
                 'event_name' => $event->name ?? "Evento $id",
                 'user_id' => $userId,
-                'user_name' => $this->getUserNameFromToken($token), // Implement this method if needed
+                'user_name' => $this->getUserNameFromToken($token),
                 'message' => 'Event was Updated',
                 'timestamp' => now()->toISOString(),
                 'participants' => $participants,
             ];
 
-            // Publish the message to the RabbitMQ queue named 'notification'
+            //publica no rabbit na fila notification
             $this->publishToRabbitMQ('notification', json_encode($notificationMessage));
 
-            return response()->json(['message' => 'Event updated successfully', 'event' => $event], 200);
+            return response()->json(['message' => 'Event updated successfully', 'event' => $event], 200);  // sucesso
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
 
-    /**
-     * Optionally, define this helper method if you need the user_name from the token.
-     * If the token payload contains 'name', you can retrieve it similarly to user_id.
-     */
-    private function getUserNameFromToken($token)
-    {
-        $payload = JWTAuth::setToken($token)->getPayload();
-        return $payload->get('name') ?? null;
-    }
 
 
-    /**
-     * Join an event.
-     */
+    //───────────────────────────────────────────── JOIN EVENT ────────────────────────────────────────────────────────────────────────────────────
     public function join(Request $request, $id)
     {
-        try {
+        try { //  // valida token e extrai nome e id
             $token = $this->validateToken($request);
             $payload = JWTAuth::setToken($token)->getPayload();
             $userId = $payload->get('sub');
             $userName = $payload->get('name');
 
-            $event = Event::find($id);
+            $event = Event::find($id);  // encontra evento
 
             if (!$event) {
                 return response()->json(['error' => 'Event not found'], 404);
             }
 
-            // Prevent joining a concluded event
+            // verifica se ja acabou o evento
             if ($event->status === 'concluded') {
                 return response()->json(['error' => 'This event has concluded. You can no longer join.'], 400);
             }
-
+            // verifica se é o criador do evento
             if ($event->user_id === $userId) {
                 return response()->json(['error' => 'You cannot join your own event'], 400);
             }
-
+            // verifica limite de participantes
             $currentParticipantCount = Participant::where('event_id', $id)->count();
-
             if ($currentParticipantCount >= $event->max_participants) {
                 return response()->json(['error' => 'Event is full'], 400);
             }
-
+            // verifica se ja esta no evento
             if (Participant::where('event_id', $id)->where('user_id', $userId)->exists()) {
                 return response()->json(['error' => 'You have already joined this event'], 400);
             }
 
-            // Add the user as a participant
+            // cria o participante
             Participant::create([
                 'event_id' => $id,
                 'user_id' => $userId,
@@ -485,10 +506,10 @@ class EventController extends Controller
             ]);
 
 
-            // Fetch all participants to notify
+            // obtem lista dos participantes atual
             $participants = Participant::where('event_id', $id)->get(['user_id', 'user_name'])->toArray();
 
-            // Prepare the notification message without calling ->toArray() again on $participants
+            // prepara payload
             $notificationMessage = [
                 'type' => 'new_message',
                 'event_id' => $id,
@@ -500,11 +521,11 @@ class EventController extends Controller
                 'participants' => $participants, // Already an array
             ];
 
-            // Publish the message to the RabbitMQ queue named 'notification'
+            //   //publica no rabbit na fila notification
             $this->publishToRabbitMQ('notification', json_encode($notificationMessage));
 
 
-            // Publish a message specifically for the chat service queue after a user joins the event.
+            // Prepara payload para o chat
             $messageDataForChat = [
                 'event_id' => $id,
                 'event_name' => $event->name,
@@ -513,7 +534,7 @@ class EventController extends Controller
                 'message' => 'User joined the event'
             ];
 
-            // Publish this to the 'event_joined' queue (or whichever queue the chat microservice listens to)
+            // P publica no rabbit em varias filas
             $this->publishToRabbitMQ('event_joined', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
             $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
@@ -522,26 +543,26 @@ class EventController extends Controller
 
 
 
-            return response()->json(['message' => 'You have successfully joined the event'], 200);
+            return response()->json(['message' => 'You have successfully joined the event'], 200);  // sucesso
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
 
-
+    //───────────────────────────────────────────── LISTA PARTICIPANTES ────────────────────────────────────────────────────────────────────────────────────
     public function participants(Request $request, $id)
     {
         try {
-            /* ─── 1. Autenticação ──────────────────────────────────────────────── */
+            //valida token e extrai id
             $token = $this->validateToken($request);
             $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-            /* ─── 2. Evento & permissão ────────────────────────────────────────── */
+            // encontra o evento
             $event = Event::find($id);
             if (!$event) {
                 return response()->json(['error' => 'Event not found'], 404);
             }
-
+            //verifica se e criador ou participante
             $isAuthorized =
                 ($event->user_id == $userId) ||
                 Participant::where('event_id', $id)
@@ -555,21 +576,21 @@ class EventController extends Controller
                 );
             }
 
-            /* ─── 3. Participantes (apenas event_user) ────────────────────────── */
+            // busca participantes do evento
             $participants = DB::table('event_user')
                 ->where('event_id', $id)
                 ->whereNull('deleted_at')
-                ->get(['user_id', 'user_name', 'rating'])   // same columns as antes
+                ->get(['user_id', 'user_name', 'rating'])
                 ->map(function ($p) {
                     return [
                         'id' => $p->user_id,
                         'name' => $p->user_name,
                         'rating' => $p->rating,
-                        'avatar_url' => null,          // falta avatar → React usa default
+                        'avatar_url' => null,
                     ];
                 });
 
-            /* ─── 4. Resposta ─────────────────────────────────────────────────── */
+            //retorna json com os dados de cada participante
             return response()->json([
                 'event_id' => $event->id,
                 'event_name' => $event->name,
@@ -586,197 +607,560 @@ class EventController extends Controller
     }
 
 
+    //───────────────────────────────────────────── LISTA USER EVENTOS────────────────────────────────────────────────────────────────────────────────────
+// lista eventos criados ou participando do user autenticado com paginaçao
+    public function userEvents(Request $request)
+    {
+        try {
+            // valida token e extrai id
+            $token = $this->validateToken($request);
+            $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
 
-    /**
-     * Fetch user events.
-     */
-public function userEvents(Request $request)
-{
-    try {
-        // 1) Autenticação
-        $token  = $this->validateToken($request);
-        $userId = JWTAuth::setToken($token)->getPayload()->get('sub');
+            // define o numero de eventos por pagina (default :15)
+            $perPage = min(max((int) $request->query('per_page', 15), 1), 100);
 
-        // 2) Parâmetro de paginação (per_page entre 1 e 100)
-        $perPage = min(max((int) $request->query('per_page', 15), 1), 100);
+            // inicia a query dos eventos
+            $paginator = Event::with('sport')
+                ->where('user_id', $userId)
+                ->orWhereHas('participants', function ($q) use ($userId) {
+                    $q->where('user_id', $userId);
+                })
+                ->orderByDesc('created_at')
+                ->paginate($perPage);
 
-        // 3) Query com paginação
-        $paginator = Event::with('sport')
-            ->where('user_id', $userId)
-            ->orWhereHas('participants', function ($q) use ($userId) {
-                $q->where('user_id', $userId);
+            // obtem os eventos da pagina atual  e formata para paginas 
+            $paginator->getCollection()->transform(function ($event) {
+                $rawWeather = is_array($event->weather)
+                    ? $event->weather
+                    : json_decode($event->weather, true) ?? [];
+
+                $weather = [  // formata dados de meterologia
+                    'app_max_temp' => $rawWeather['app_max_temp'] ?? 'N/A',
+                    'app_min_temp' => $rawWeather['app_min_temp'] ?? 'N/A',
+                    'temp' => $rawWeather['temp'] ?? 'N/A',
+                    'high_temp' => $rawWeather['high_temp'] ?? 'N/A',
+                    'low_temp' => $rawWeather['low_temp'] ?? 'N/A',
+                    'description' => $rawWeather['weather']['description'] ?? 'N/A',
+                ];
+
+                $participants = DB::table('event_user')  // busca e formata participantes
+                    ->where('event_id', $event->id)
+                    ->whereNull('deleted_at')
+                    ->get(['user_id', 'user_name', 'rating'])
+                    ->map(function ($p) {
+                        return [
+                            'id' => $p->user_id,
+                            'name' => $p->user_name,
+                            'rating' => $p->rating,
+                        ];
+                    });
+
+                return [         //  devolve evento formatado
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'sport' => $event->sport->name ?? null,
+                    'starts_at' => $event->starts_at,
+                    'place' => $event->place,
+                    'status' => $event->status,
+                    'max_participants' => $event->max_participants,
+                    'latitude' => $event->latitude,
+                    'longitude' => $event->longitude,
+                    'creator' => [
+                        'id' => $event->user_id,
+                        'name' => $event->user_name,
+                    ],
+                    'weather' => $weather,
+                    'participants' => $participants,
+                ];
+            });
+
+
+            return response()->json([   // resposta com dados de paginaçao
+                'data' => $paginator->items(),
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'per_page' => $paginator->perPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'total' => $paginator->total(),
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
+    }
+
+
+    //───────────────────────────────────────────── SEARCH EVENT ────────────────────────────────────────────────────────────────────────────────────
+    public function search(Request $request)
+    {
+        try {
+            //valida token
+            $token = $this->validateToken($request);
+
+            // define o numero de eventos por pagina (default :15)
+            $perPage = min(max((int) $request->query('per_page', 15), 1), 100);
+
+            //  query de pesquisa veririca que campos foram inseridos
+            $query = Event::with('sport');
+
+            if ($request->has('id')) {
+                $query->where('id', $request->input('id'));
+            }
+            if ($request->has('name')) {
+                $query->where('name', 'like', '%' . $request->input('name') . '%');
+            }
+            if ($request->has('date')) {
+                $query->where('starts_at', 'like', $request->input('date') . '%');
+            }
+            if ($request->has('place')) {
+                $query->where('place', 'like', '%' . $request->input('place') . '%');
+            }
+
+            // Paginaçao e ordenaça
+            $paginator = $query
+                ->orderByDesc('starts_at')
+                ->paginate($perPage);
+
+            // obtem os eventos da pagina atual  e formata para paginas 
+            $paginator->getCollection()->transform(function ($event) {
+                $rawWeather = is_array($event->weather)
+                    ? $event->weather
+                    : json_decode($event->weather, true) ?? [];
+
+                $weather = [   //formatada dados de metereologia
+                    'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
+                    'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
+                    'temp' => $rawWeather['temp'] ?? null,
+                    'high_temp' => $rawWeather['high_temp'] ?? null,
+                    'low_temp' => $rawWeather['low_temp'] ?? null,
+                    'description' => $rawWeather['weather']['description'] ?? null,
+                ];
+
+                $participants = DB::table('event_user')  // busca participantes do evento
+                    ->where('event_id', $event->id)
+                    ->whereNull('deleted_at')
+                    ->get(['user_id', 'user_name', 'rating'])
+                    ->map(function ($p) {
+                        return [
+                            'id' => $p->user_id,
+                            'name' => $p->user_name,
+                            'rating' => $p->rating,
+                        ];
+                    });
+
+                return [  // retorna o array formatado do evento
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'sport' => $event->sport->name ?? null,
+                    'starts_at' => $event->starts_at,
+                    'place' => $event->place,
+                    'status' => $event->status,
+                    'max_participants' => $event->max_participants,
+                    'latitude' => $event->latitude,
+                    'longitude' => $event->longitude,
+                    'creator' => [
+                        'id' => $event->user_id,
+                        'name' => $event->user_name,
+                    ],
+                    'weather' => $weather,
+                    'participants' => $participants,
+                ];
+            });
+
+            // resposta com dados de paginaçao
+            return response()->json([
+                'data' => $paginator->items(),
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'per_page' => $paginator->perPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'total' => $paginator->total(),
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
+    }
+
+
+    //───────────────────────────────────────────── CONCLUIR EVENTO────────────────────────────────────────────────────────────────────────────────────
+    public function concludeByCreator(Request $request, $id)
+    {
+        try {
+            // valida token e extrai id e nome
+            $token = $this->validateToken($request);
+            $payload = JWTAuth::setToken($token)->getPayload();
+            $userId = $payload->get('sub');
+            $userName = $payload->get('name');
+
+            // encontra evento
+            $event = Event::find($id);
+            if (!$event) {
+                return response()->json(['error' => 'Event not found'], 404);
+            }
+            if ((int) $event->user_id !== (int) $userId) {
+                return response()->json(['error' => 'Unauthorized: only the creator can end the event'], 403);
+            }
+            if ($event->status === 'concluded') {
+                return response()->json(['message' => 'Event is already concluded'], 200);
+            }
+
+            // por evento com o concluido na BD
+            $wasConcluded = $event->status === 'concluded';
+            $event->status = 'concluded';
+            $event->save();
+
+            //  depois de concluido publica a mensagem no rabbit
+            if (!$wasConcluded && $event->status === 'concluded') {
+                $lifecycleMessage = [
+                    'event_id' => $event->id,
+                    'event_name' => $event->name,
+                    'user_id' => $userId,
+                    'user_name' => $userName,
+                    'message' => 'Event concluded by creator',
+                ];
+                // Para o micro-serviço de achievements e rating
+                $this->publishToRabbitMQ('event_concluded', json_encode($lifecycleMessage));
+                $this->publishToRabbitMQ('rating_event_concluded', json_encode($lifecycleMessage));
+            }
+
+            // Notificação chat fan-out
+            $participants = Participant::where('event_id', $id)   // vai buscar os participantes
+                ->get(['user_id', 'user_name'])
+                ->toArray();
+
+            $notification = [    // mensagem
+                'type' => 'new_message',
+                'event_id' => $event->id,
+                'event_name' => $event->name,
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'message' => 'The event has ended',
+                'timestamp' => now()->toISOString(),
+                'participants' => $participants,
+            ];
+            $this->publishToRabbitMQ('notification', json_encode($notification)); // publica 
+
+            return response()->json([
+                'message' => 'Event concluded successfully',    //sucesso
+                'event' => $event,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
+    }
+
+
+    //───────────────────────────────────────────── leave EVENTO────────────────────────────────────────────────────────────────────────────────────
+    public function leave(Request $request, $id)
+    {
+        try {
+            // valida token e retorna id e name
+            $token = $this->validateToken($request);
+            $payload = JWTAuth::setToken($token)->getPayload();
+            $userId = $payload->get('sub');
+            $userName = $payload->get('name');
+
+            // procura o evento
+            $event = Event::find($id);
+
+            if (!$event) {
+                return response()->json(['error' => 'Event not found'], 404);
+            }
+
+            // verifica se o user é participante
+            $participant = Participant::where('event_id', $id)->where('user_id', $userId)->first();
+
+            if (!$participant) {
+                return response()->json(['error' => 'You are not a participant of this event'], 400);
+            }
+
+            // apagar a participaçao na BD
+            $participant->delete();
+
+            //  publica no rabbit 
+            $messageDataForChat = [
+                'event_id' => $id,
+                'user_id' => $userId
+            ];
+
+            $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($messageDataForChat));
+
+            // busca todos os participantes
+            $remainingParticipants = Participant::where('event_id', $id)->get(['user_id', 'user_name'])->toArray();
+
+
+            // prepara a mensagem
+            $notificationMessage = [
+                'type' => 'new_message',
+                'event_id' => $id,
+                'event_name' => "Evento $id",
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'message' => 'A user has left the event',
+                'timestamp' => now()->toISOString(),
+                'participants' => $remainingParticipants, // Already an array
+            ];
+
+            // publica a mensagem na fila 'notification'
+            $this->publishToRabbitMQ('notification', json_encode($notificationMessage));
+
+            return response()->json(['message' => 'You have successfully left the event'], 200);  // sucesso
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
+    }
+
+
+    //───────────────────────────────────────────── EXPULSAR PARTICIPANTE ────────────────────────────────────────────────────────────────────────────────────
+    public function kickParticipant(Request $request, $event_id, $user_id)
+    {
+        try {
+            // valida token e extrai id
+            $token = $this->validateToken($request);
+            $payload = JWTAuth::setToken($token)->getPayload();
+            $currentUserId = $payload->get('sub');
+
+            // procura evento
+            $event = Event::find($event_id);
+
+            if (!$event) {
+                return response()->json(['error' => 'Event not found'], 404);
+            }
+
+            // verifica se é o criador
+            if ((int) $event->user_id !== (int) $currentUserId) {
+                return response()->json(['error' => 'You are not the creator of this event'], 403);
+            }
+
+            // verifica se o que esta a ser expulso é um participante
+            $participant = Participant::where('event_id', $event_id)
+                ->where('user_id', $user_id)
+                ->first();
+
+            if (!$participant) {
+                return response()->json(['error' => 'User is not a participant of this event'], 404);
+            }
+
+            // guarda o nome do utilizador antes de expulsar
+            $kickedUserName = $participant->user_name;
+
+            // remove participante na BD
+            $participant->delete();
+
+            //  publica no rabbit 
+            $messageDataForChat = [
+                'event_id' => $event_id,
+                'user_id' => $user_id,
+            ];
+
+            // usa a mesma fila de saair do evento
+            $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
+            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($messageDataForChat));
+
+            // pega nos restantes participantes para notificar
+            $remainingParticipants = Participant::where('event_id', $event_id)->get(['user_id', 'user_name'])->toArray();
+
+            // prepara a mensagem
+            $notificationMessage = [
+                'type' => 'new_message',
+                'event_id' => $event_id,
+                'event_name' => $event->name ?? "Evento $event_id",
+                'user_id' => $user_id,
+                'user_name' => $kickedUserName,
+                'message' => 'A user was kicked from the event',
+                'timestamp' => now()->toISOString(),
+                'participants' => $remainingParticipants,
+            ];
+
+            //  publica na fila notification
+            $this->publishToRabbitMQ('notification', json_encode($notificationMessage));
+
+            return response()->json(['message' => 'Participant kicked out successfully'], 200); // sucess
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
+    }
+
+
+
+    //───────────────────────────────────────────── LISTAR EVENTOS PUBLICO ────────────────────────────────────────────────────────────────────────────────────
+// lista eventos criados de qualquer user PUBLICO
+    public function eventsByUser(Request $request, $id)
+    {
+        try {
+            // valida token
+            $this->validateToken($request);
+
+            // procura eventos onde o criador é o id fornecido
+            $events = Event::with('sport')
+                ->where('user_id', $id)
+                ->get();
+
+            // transforma o evento para o mesmo formato usado em index
+            $response = $events->map(function ($event) {
+                $rawWeather = is_array($event->weather)
+                    ? $event->weather
+                    : json_decode($event->weather, true) ?? [];
+
+                $weather = [   // formata dados do weather
+                    'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
+                    'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
+                    'temp' => $rawWeather['temp'] ?? null,
+                    'high_temp' => $rawWeather['high_temp'] ?? null,
+                    'low_temp' => $rawWeather['low_temp'] ?? null,
+                    'description' => $rawWeather['weather']['description'] ?? null,
+                ];
+
+                // busca os participantes
+                $participants = DB::table('event_user')
+                    ->where('event_id', $event->id)
+                    ->whereNull('deleted_at')
+                    ->get(['user_id', 'user_name', 'rating'])
+                    ->map(function ($p) {
+                        return [
+                            'id' => $p->user_id,
+                            'name' => $p->user_name,
+                            'rating' => $p->rating,
+                        ];
+                    });
+
+                return [  // devolve o array formatado
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'sport' => $event->sport->name ?? null,
+                    'starts_at' => $event->starts_at,
+                    'place' => $event->place,
+                    'status' => $event->status,
+                    'max_participants' => $event->max_participants,
+                    'latitude' => $event->latitude,
+                    'longitude' => $event->longitude,
+                    'creator' => [
+                        'id' => $event->user_id,
+                        'name' => $event->user_name,
+                    ],
+                    'weather' => $weather,
+                    'participants' => $participants,
+                ];
+            });
+
+            return response()->json($response, 200);   // sucesso
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        }
+    }
+
+
+
+    //───────────────────────────────────────────── DASHBOARD STATS────────────────────────────────────────────────────────────────────────────────────
+    public function overview(Request $request)
+    {
+        //valida token e pega id  e verifica se e admin
+        $token = app(EventController::class)->validateToken($request);
+        $payload = JWTAuth::setToken($token)->getPayload();
+        $userId = $payload->get('sub');
+        $isAdmin = $payload->get('is_admin');
+
+        // verifica se é o utilizador ou admin
+        $targetUserId = $request->query('user_id', $userId);
+        if ($targetUserId != $userId && !$isAdmin) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // ─── calcula intervalos de datas com Carbon ────────────────────────────────
+        $now = Carbon::now();
+        $startOfWeek = $now->copy()->startOfWeek();
+        $endOfWeek = $now->copy()->endOfWeek();
+        $startOfWeekLastYr = $startOfWeek->copy()->subYear();
+        $endOfWeekLastYr = $endOfWeek->copy()->subYear();
+
+        $startOfMonth = $now->copy()->startOfMonth();
+        $endOfMonth = $now->copy()->endOfMonth();
+        $startOfLastMonth = $now->copy()->subMonthNoOverflow()->startOfMonth();
+        $endOfLastMonth = $now->copy()->subMonthNoOverflow()->endOfMonth();
+
+        // ─── total de eventos em progresso ─────────────────────
+        $totalActive = Event::where('user_id', $targetUserId)
+            ->where('status', 'in progress')
+            ->count();
+
+        // ───  Eventos criados esta semana vs mesma semana ano passado ──────────
+        $createdThisWeek = Event::where('user_id', $targetUserId)
+            ->whereBetween('created_at', [$startOfWeek, $endOfWeek])
+            ->count();
+
+        $createdWeekLastYr = Event::where('user_id', $targetUserId)
+            ->whereBetween('created_at', [$startOfWeekLastYr, $endOfWeekLastYr])
+            ->count();
+
+        // ─── Participações (joins) e saídas (leaves) este mês ─────────────────────────────
+        $joinedThisMonth = Participant::whereHas('event', function ($q) use ($targetUserId) {
+            $q->where('user_id', $targetUserId);
+        })
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->count();
+
+        $leftThisMonth = Participant::onlyTrashed()
+            ->whereHas('event', function ($q) use ($targetUserId) {
+                $q->where('user_id', $targetUserId);
             })
-            ->orderByDesc('created_at')
-            ->paginate($perPage);
+            ->whereBetween('deleted_at', [$startOfMonth, $endOfMonth])
+            ->count();
 
-        // 4) Formata cada evento
-        $paginator->getCollection()->transform(function ($event) {
-            $rawWeather = is_array($event->weather)
-                ? $event->weather
-                : json_decode($event->weather, true) ?? [];
+        $joinedLastMonth = Participant::whereHas('event', function ($q) use ($targetUserId) {
+            $q->where('user_id', $targetUserId);
+        })
+            ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
+            ->count();
 
-            $weather = [
-                'app_max_temp' => $rawWeather['app_max_temp'] ?? 'N/A',
-                'app_min_temp' => $rawWeather['app_min_temp'] ?? 'N/A',
-                'temp'         => $rawWeather['temp']     ?? 'N/A',
-                'high_temp'    => $rawWeather['high_temp']?? 'N/A',
-                'low_temp'     => $rawWeather['low_temp'] ?? 'N/A',
-                'description'  => $rawWeather['weather']['description'] ?? 'N/A',
-            ];
+        // ─── Top-3 locais e desportos──────────────────────────────────────────────
+        $topPlaces = Event::where('user_id', $targetUserId)
+            ->select('place', DB::raw('COUNT(*) as total'))
+            ->groupBy('place')
+            ->orderByDesc('total')
+            ->limit(3)
+            ->get();
 
-            $participants = DB::table('event_user')
-                ->where('event_id', $event->id)
-                ->whereNull('deleted_at')
-                ->get(['user_id', 'user_name', 'rating'])
-                ->map(function ($p) {
-                    return [
-                        'id'     => $p->user_id,
-                        'name'   => $p->user_name,
-                        'rating' => $p->rating,
-                    ];
-                });
+        $topSports = Event::with('sport')
+            ->where('user_id', $targetUserId)
+            ->select('sport_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('sport_id')
+            ->orderByDesc('total')
+            ->limit(3)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'sport_id' => $row->sport_id,
+                    'sport_name' => $row->sport->name ?? null,
+                    'total' => $row->total,
+                ];
+            });
 
-            return [
-                'id'               => $event->id,
-                'name'             => $event->name,
-                'sport'            => $event->sport->name ?? null,
-                'starts_at'        => $event->starts_at,
-                'place'            => $event->place,
-                'status'           => $event->status,
-                'max_participants' => $event->max_participants,
-                'latitude'         => $event->latitude,
-                'longitude'        => $event->longitude,
-                'creator'          => [
-                    'id'   => $event->user_id,
-                    'name' => $event->user_name,
-                ],
-                'weather'          => $weather,
-                'participants'     => $participants,
-            ];
-        });
-
-        // 5) Retorno com data + meta
+        // ─── Resposta em JSON de todas as estatisticas──────────────────────────────────────
         return response()->json([
-            'data' => $paginator->items(),
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page'     => $paginator->perPage(),
-                'last_page'    => $paginator->lastPage(),
-                'total'        => $paginator->total(),
-            ],
+            'user_id' => $targetUserId,
+            'total_active_activities' => $totalActive,
+            'created_this_week' => $createdThisWeek,
+            'created_this_week_last_year' => $createdWeekLastYr,
+            'participants_joined_this_month' => $joinedThisMonth,
+            'participants_left_this_month' => $leftThisMonth,
+            'participants_joined_last_month' => $joinedLastMonth,
+            'top_locations' => $topPlaces,
+            'top_sports' => $topSports,
         ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 401);
     }
-}
-
-
-
-    /**
-     * Search for events.
-     */
-    /**
-     * Search for events (returns the same structure as "userEvents" for each match).
-     * GET /api/events/search?name=X&place=Y&date=Z
-     */
-    /**
-     * Search for events (returns the same structure as index/userEvents for each match).
-     * GET /api/events/search?name=X&place=Y&date=Z
-     */
-public function search(Request $request)
-{
-    try {
-        // 1) Autenticação
-        $token = $this->validateToken($request);
-
-        // 2) Parâmetro de paginação (per_page entre 1 e 100)
-        $perPage = min(max((int) $request->query('per_page', 15), 1), 100);
-
-        // 3) Monta a query base
-        $query = Event::with('sport');
-
-        if ($request->has('id')) {
-            $query->where('id', $request->input('id'));
-        }
-        if ($request->has('name')) {
-            $query->where('name', 'like', '%' . $request->input('name') . '%');
-        }
-        if ($request->has('date')) {
-            $query->where('starts_at', 'like', $request->input('date') . '%');
-        }
-        if ($request->has('place')) {
-            $query->where('place', 'like', '%' . $request->input('place') . '%');
-        }
-
-        // 4) Paginação e ordenação
-        $paginator = $query
-            ->orderByDesc('starts_at')
-            ->paginate($perPage);
-
-        // 5) Formata cada evento
-        $paginator->getCollection()->transform(function ($event) {
-            $rawWeather = is_array($event->weather)
-                ? $event->weather
-                : json_decode($event->weather, true) ?? [];
-
-            $weather = [
-                'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
-                'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
-                'temp'         => $rawWeather['temp'] ?? null,
-                'high_temp'    => $rawWeather['high_temp'] ?? null,
-                'low_temp'     => $rawWeather['low_temp'] ?? null,
-                'description'  => $rawWeather['weather']['description'] ?? null,
-            ];
-
-            $participants = DB::table('event_user')
-                ->where('event_id', $event->id)
-                ->whereNull('deleted_at')
-                ->get(['user_id', 'user_name', 'rating'])
-                ->map(function ($p) {
-                    return [
-                        'id'     => $p->user_id,
-                        'name'   => $p->user_name,
-                        'rating' => $p->rating,
-                    ];
-                });
-
-            return [
-                'id'               => $event->id,
-                'name'             => $event->name,
-                'sport'            => $event->sport->name ?? null,
-                'starts_at'        => $event->starts_at,
-                'place'            => $event->place,
-                'status'           => $event->status,
-                'max_participants' => $event->max_participants,
-                'latitude'         => $event->latitude,
-                'longitude'        => $event->longitude,
-                'creator'          => [
-                    'id'   => $event->user_id,
-                    'name' => $event->user_name,
-                ],
-                'weather'          => $weather,
-                'participants'     => $participants,
-            ];
-        });
-
-        // 6) Retorna data + meta
-        return response()->json([
-            'data' => $paginator->items(),
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page'     => $paginator->perPage(),
-                'last_page'    => $paginator->lastPage(),
-                'total'        => $paginator->total(),
-            ],
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 401);
-    }
-}
-
-
+    //───────────────────────────────────────────── ADMIN──────────────────────────────────────────────────────────────────────────────────
 
     /**
      * Admin List all events
@@ -901,222 +1285,8 @@ public function search(Request $request)
         }
     }
 
-    /**
-     * Creator concludes / ends an event.
-     *
-     * PUT /events/{id}/conclude        (see routes file below)
-     */
-    public function concludeByCreator(Request $request, $id)
-    {
-        try {
-            // ─── Autenticação & validação de propriedade ─────────────────────────────
-            $token = $this->validateToken($request);
-            $payload = JWTAuth::setToken($token)->getPayload();
-            $userId = $payload->get('sub');
-            $userName = $payload->get('name');
 
-            $event = Event::find($id);
-            if (!$event) {
-                return response()->json(['error' => 'Event not found'], 404);
-            }
-            if ((int) $event->user_id !== (int) $userId) {
-                return response()->json(['error' => 'Unauthorized: only the creator can end the event'], 403);
-            }
-            if ($event->status === 'concluded') {
-                return response()->json(['message' => 'Event is already concluded'], 200);
-            }
-
-            // ─── Guardar estado antigo & persistir novo estado ────────────────────────
-            $wasConcluded = $event->status === 'concluded';
-            $event->status = 'concluded';
-            $event->save();
-
-            // ─── Se efetivamente mudou para "concluded", publica o evento ─────────────
-            if (!$wasConcluded && $event->status === 'concluded') {
-                $lifecycleMessage = [
-                    'event_id' => $event->id,
-                    'event_name' => $event->name,
-                    'user_id' => $userId,
-                    'user_name' => $userName,
-                    'message' => 'Event concluded by creator',
-                ];
-                // Para o micro-serviço de achievements e rating
-                $this->publishToRabbitMQ('event_concluded', json_encode($lifecycleMessage));
-                $this->publishToRabbitMQ('rating_event_concluded', json_encode($lifecycleMessage));
-            }
-
-            // ─── Notificação tipo chat/fan-out ────────────────────────────────────────
-            $participants = Participant::where('event_id', $id)
-                ->get(['user_id', 'user_name'])
-                ->toArray();
-
-            $notification = [
-                'type' => 'new_message',
-                'event_id' => $event->id,
-                'event_name' => $event->name,
-                'user_id' => $userId,
-                'user_name' => $userName,
-                'message' => 'The event has ended',
-                'timestamp' => now()->toISOString(),
-                'participants' => $participants,
-            ];
-            $this->publishToRabbitMQ('notification', json_encode($notification));
-
-            return response()->json([
-                'message' => 'Event concluded successfully',
-                'event' => $event,
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
-        }
-    }
-
-
-    /**
-     * User Leaves event
-     */
-    public function leave(Request $request, $id)
-    {
-        try {
-            // Validate the token and retrieve the user info
-            $token = $this->validateToken($request);
-            $payload = JWTAuth::setToken($token)->getPayload();
-            $userId = $payload->get('sub');
-            $userName = $payload->get('name'); // Add userName for the notification message
-
-            // Find the event by ID
-            $event = Event::find($id);
-
-            if (!$event) {
-                return response()->json(['error' => 'Event not found'], 404);
-            }
-
-            // Check if the user is a participant of the event
-            $participant = Participant::where('event_id', $id)->where('user_id', $userId)->first();
-
-            if (!$participant) {
-                return response()->json(['error' => 'You are not a participant of this event'], 400);
-            }
-
-            // Delete the participant record to leave the event
-            $participant->delete();
-
-            // Publish a message to RabbitMQ to inform the chat microservice
-            $messageDataForChat = [
-                'event_id' => $id,
-                'user_id' => $userId
-            ];
-
-            $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
-            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
-            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
-            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
-            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($messageDataForChat));
-
-            // Fetch all remaining participants to notify
-            $remainingParticipants = Participant::where('event_id', $id)->get(['user_id', 'user_name'])->toArray();
-
-
-            // Prepare the notification message without calling ->toArray() again on $participants
-            $notificationMessage = [
-                'type' => 'new_message',
-                'event_id' => $id,
-                'event_name' => "Evento $id",
-                'user_id' => $userId,
-                'user_name' => $userName,
-                'message' => 'A user has left the event',
-                'timestamp' => now()->toISOString(),
-                'participants' => $remainingParticipants, // Already an array
-            ];
-
-            // Publish the message to the RabbitMQ queue named 'notification'
-            $this->publishToRabbitMQ('notification', json_encode($notificationMessage));
-
-            return response()->json(['message' => 'You have successfully left the event'], 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
-        }
-    }
-
-
-    /**
-     * Creator kicks user from event
-     */
-    public function kickParticipant(Request $request, $event_id, $user_id)
-    {
-        try {
-            // Validate the token and get the authenticated user's info
-            $token = $this->validateToken($request);
-            $payload = JWTAuth::setToken($token)->getPayload();
-            $currentUserId = $payload->get('sub');
-
-            // Find the event
-            $event = Event::find($event_id);
-
-            if (!$event) {
-                return response()->json(['error' => 'Event not found'], 404);
-            }
-
-            // Check if the current user is the creator of the event
-            if ((int) $event->user_id !== (int) $currentUserId) {
-                return response()->json(['error' => 'You are not the creator of this event'], 403);
-            }
-
-            // Check if the user to be kicked is a participant
-            $participant = Participant::where('event_id', $event_id)
-                ->where('user_id', $user_id)
-                ->first();
-
-            if (!$participant) {
-                return response()->json(['error' => 'User is not a participant of this event'], 404);
-            }
-
-            // Store the participant's name before deleting
-            $kickedUserName = $participant->user_name;
-
-            // Kick the participant out (delete the participant record)
-            $participant->delete();
-
-            // Publish a message to RabbitMQ to inform the chat microservice that the user left (or was kicked)
-            $messageDataForChat = [
-                'event_id' => $event_id,
-                'user_id' => $user_id,
-            ];
-
-            // Using the same queue as the "leave" method
-            $this->publishToRabbitMQ('user_left_event', json_encode($messageDataForChat));
-            $this->publishToRabbitMQ('chat_event_join-leave', json_encode($messageDataForChat));
-            $this->publishToRabbitMQ('lolchat_event_join-leave', json_encode($messageDataForChat));
-            $this->publishToRabbitMQ('ach_event_join-leave', json_encode($messageDataForChat));
-            $this->publishToRabbitMQ('noti_event_join-leave', json_encode($messageDataForChat));
-
-            // Fetch all remaining participants to notify
-            $remainingParticipants = Participant::where('event_id', $event_id)->get(['user_id', 'user_name'])->toArray();
-
-            // Prepare the notification message
-            $notificationMessage = [
-                'type' => 'new_message',
-                'event_id' => $event_id,
-                'event_name' => $event->name ?? "Evento $event_id",
-                'user_id' => $user_id,
-                'user_name' => $kickedUserName,
-                'message' => 'A user was kicked from the event',
-                'timestamp' => now()->toISOString(),
-                'participants' => $remainingParticipants,
-            ];
-
-            // Publish the notification
-            $this->publishToRabbitMQ('notification', json_encode($notificationMessage));
-
-            return response()->json(['message' => 'Participant kicked out successfully'], 200);
-
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
-        }
-    }
-
-
+    //─────────────────────────────────────────────    obsolete────────────────────────────────────────────────────────────────────────────────────
     public function rateUser(Request $request, $event_id)
     {
         try {
@@ -1161,218 +1331,6 @@ public function search(Request $request)
         }
     }
 
-    /**
-     * GET /stats
-     * Optional ?user_id=X (admins only) – otherwise stats for the auth user.
-     */
-    public function overview(Request $request)
-    {
-        // ─── Auth / optional impersonation ───────────────────────────────────────
-        $token = app(EventController::class)->validateToken($request); // reuse helper
-        $payload = JWTAuth::setToken($token)->getPayload();
-        $userId = $payload->get('sub');
-        $isAdmin = $payload->get('is_admin');
-
-        $targetUserId = $request->query('user_id', $userId);
-        if ($targetUserId != $userId && !$isAdmin) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        // ─── Date helpers (all Carbon, local tz) ────────────────────────────────
-        $now = Carbon::now();
-        $startOfWeek = $now->copy()->startOfWeek();
-        $endOfWeek = $now->copy()->endOfWeek();
-        $startOfWeekLastYr = $startOfWeek->copy()->subYear();
-        $endOfWeekLastYr = $endOfWeek->copy()->subYear();
-
-        $startOfMonth = $now->copy()->startOfMonth();
-        $endOfMonth = $now->copy()->endOfMonth();
-        $startOfLastMonth = $now->copy()->subMonthNoOverflow()->startOfMonth();
-        $endOfLastMonth = $now->copy()->subMonthNoOverflow()->endOfMonth();
-
-        // ─── Query 1: total active activities for that user ─────────────────────
-        $totalActive = Event::where('user_id', $targetUserId)
-            ->where('status', 'in progress')
-            ->count();
-
-        // ─── Query 2-3: events created this week / same week last year ──────────
-        $createdThisWeek = Event::where('user_id', $targetUserId)
-            ->whereBetween('created_at', [$startOfWeek, $endOfWeek])
-            ->count();
-
-        $createdWeekLastYr = Event::where('user_id', $targetUserId)
-            ->whereBetween('created_at', [$startOfWeekLastYr, $endOfWeekLastYr])
-            ->count();
-
-        // ─── participant-based queries (join/leave) ─────────────────────────────
-        $joinedThisMonth = Participant::whereHas('event', function ($q) use ($targetUserId) {
-            $q->where('user_id', $targetUserId);
-        })
-            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
-            ->count();
-
-        $leftThisMonth = Participant::onlyTrashed()
-            ->whereHas('event', function ($q) use ($targetUserId) {
-                $q->where('user_id', $targetUserId);
-            })
-            ->whereBetween('deleted_at', [$startOfMonth, $endOfMonth])
-            ->count();
-
-        $joinedLastMonth = Participant::whereHas('event', function ($q) use ($targetUserId) {
-            $q->where('user_id', $targetUserId);
-        })
-            ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
-            ->count();
-
-        // ─── Top-3 places all time ──────────────────────────────────────────────
-        $topPlaces = Event::where('user_id', $targetUserId)
-            ->select('place', DB::raw('COUNT(*) as total'))
-            ->groupBy('place')
-            ->orderByDesc('total')
-            ->limit(3)
-            ->get();
-
-        // ─── Top-3 sports all time ──────────────────────────────────────────────
-        $topSports = Event::with('sport')
-            ->where('user_id', $targetUserId)
-            ->select('sport_id', DB::raw('COUNT(*) as total'))
-            ->groupBy('sport_id')
-            ->orderByDesc('total')
-            ->limit(3)
-            ->get()
-            ->map(function ($row) {
-                return [
-                    'sport_id' => $row->sport_id,
-                    'sport_name' => $row->sport->name ?? null,
-                    'total' => $row->total,
-                ];
-            });
-
-        // ─── Return nicely structured JSON ──────────────────────────────────────
-        return response()->json([
-            'user_id' => $targetUserId,
-            'total_active_activities' => $totalActive,
-            'created_this_week' => $createdThisWeek,
-            'created_this_week_last_year' => $createdWeekLastYr,
-            'participants_joined_this_month' => $joinedThisMonth,
-            'participants_left_this_month' => $leftThisMonth,
-            'participants_joined_last_month' => $joinedLastMonth,
-            'top_locations' => $topPlaces,
-            'top_sports' => $topSports,
-        ], 200);
-    }
-
-
-    /**
-     * GET /api/users/{id}/events
-     * Returns all events created by user {id}, including weather/participants, etc.
-     */
-    public function eventsByUser(Request $request, $id)
-    {
-        try {
-            // 1) Validate incoming token (doesn’t need to match $id; just any valid JWT)
-            $this->validateToken($request);
-
-            // 2) Fetch all events whose creator is exactly $id
-            $events = Event::with('sport')
-                ->where('user_id', $id)
-                ->get();
-
-            // 3) Map each Event model to the same JSON structure your index() uses:
-            $response = $events->map(function ($event) {
-                $rawWeather = is_array($event->weather)
-                    ? $event->weather
-                    : json_decode($event->weather, true) ?? [];
-
-                $weather = [
-                    'app_max_temp' => $rawWeather['app_max_temp'] ?? null,
-                    'app_min_temp' => $rawWeather['app_min_temp'] ?? null,
-                    'temp' => $rawWeather['temp'] ?? null,
-                    'high_temp' => $rawWeather['high_temp'] ?? null,
-                    'low_temp' => $rawWeather['low_temp'] ?? null,
-                    'description' => $rawWeather['weather']['description'] ?? null,
-                ];
-
-                $participants = DB::table('event_user')
-                    ->where('event_id', $event->id)
-                    ->whereNull('deleted_at')
-                    ->get(['user_id', 'user_name', 'rating'])
-                    ->map(function ($p) {
-                        return [
-                            'id' => $p->user_id,
-                            'name' => $p->user_name,
-                            'rating' => $p->rating,
-                        ];
-                    });
-
-                return [
-                    'id' => $event->id,
-                    'name' => $event->name,
-                    'sport' => $event->sport->name ?? null,
-                    'starts_at' => $event->starts_at,
-                    'place' => $event->place,
-                    'status' => $event->status,
-                    'max_participants' => $event->max_participants,
-                    'latitude' => $event->latitude,
-                    'longitude' => $event->longitude,
-                    'creator' => [
-                        'id' => $event->user_id,
-                        'name' => $event->user_name,
-                    ],
-                    'weather' => $weather,
-                    'participants' => $participants,
-                ];
-            });
-
-            return response()->json($response, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
-        }
-    }
-
-    private function formatEvent(Event $event): array
-{
-    $raw = is_array($event->weather)
-        ? $event->weather
-        : json_decode($event->weather, true) ?? [];
-
-    $weather = [
-        'app_max_temp' => $raw['app_max_temp'] ?? null,
-        'app_min_temp' => $raw['app_min_temp'] ?? null,
-        'temp'         => $raw['temp'] ?? null,
-        'high_temp'    => $raw['high_temp'] ?? null,
-        'low_temp'     => $raw['low_temp'] ?? null,
-        'description'  => $raw['weather']['description'] ?? null,
-    ];
-
-    $participants = DB::table('event_user')
-        ->where('event_id', $event->id)
-        ->whereNull('deleted_at')
-        ->get(['user_id', 'user_name', 'rating'])
-        ->map(fn ($p) => [
-            'id'   => $p->user_id,
-            'name' => $p->user_name,
-            'rating' => $p->rating,
-        ]);
-
-    return [
-        'id' => $event->id,
-        'name' => $event->name,
-        'sport' => $event->sport->name ?? null,
-        'starts_at' => $event->starts_at,
-        'place' => $event->place,
-        'status' => $event->status,
-        'max_participants' => $event->max_participants,
-        'latitude' => $event->latitude,
-        'longitude' => $event->longitude,
-        'creator' => [
-            'id' => $event->user_id,
-            'name' => $event->user_name,
-        ],
-        'weather' => $weather,
-        'participants' => $participants,
-    ];
-}
 
 
 }

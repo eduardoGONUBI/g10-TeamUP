@@ -17,7 +17,7 @@ use App\Http\Controllers\ChatController;
 
 Route::get('/achievements/{id}', [ChatController::class, 'listAchievements']);
 
-// NEW – returns { xp, level } or nulls if user never appeared in any event
+
 Route::get('/profile/{id}',       [ChatController::class, 'getProfile']);
 
 Route::get('/leaderboard', [ChatController::class, 'leaderboard']);

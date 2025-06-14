@@ -8,13 +8,13 @@ use App\Http\Controllers\SportsController;
 
 Route::middleware('validate.jwt')->group(function () {
     Route::post('/events', [EventController::class, 'store']);
-    Route::get('/events', [EventController::class, 'index']);
+    Route::get('/events', [EventController::class, 'index']);  // lista eventos criados do user autenticado
     Route::delete('/events/{id}', [EventController::class, 'destroy']);
     Route::put('/events/{id}', [EventController::class, 'update']);
     Route::post('/events/{id}/join', [EventController::class, 'join']);
     Route::get('/events/{id}/participants', [EventController::class, 'participants']);
     Route::get('/events/search', [EventController::class, 'search']);
-    Route::get('/events/mine', [EventController::class, 'userEvents']);
+    Route::get('/events/mine', [EventController::class, 'userEvents']);   // lista eventos criados ou participando do user autenticado
     Route::get('/admin/events', [EventController::class, 'listAllEvents']);
     Route::delete('/admin/events/{id}', [EventController::class, 'deleteEventAsAdmin']);
     Route::delete('/events/{id}/leave', [EventController::class, 'leave']);
@@ -24,6 +24,6 @@ Route::middleware('validate.jwt')->group(function () {
     Route::put('/events/{id}/conclude', [EventController::class, 'concludeByCreator']);
     Route::get('/stats', [EventController::class, 'overview']);
     Route::get('/events/{id}', [EventController::class, 'show']);
-    Route::get('/sports', [SportsController::class, 'index']);
-    Route::get('/users/{id}/events', [EventController::class, 'eventsByUser']);
+    Route::get('/sports', [SportsController::class, 'index']);     
+    Route::get('/users/{id}/events', [EventController::class, 'eventsByUser']);   /// lista eventos criados de qualquer user PUBLICO
 });
