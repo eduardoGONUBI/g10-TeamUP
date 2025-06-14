@@ -11,16 +11,17 @@ use PhpAmqpLib\Message\AMQPMessage;
 
 class ChatController extends Controller
 {
-    /**
-     * Listen to RabbitMQ queue and display messages being published.
-     */
+
+    //───────────────────────────────────────────── RABBIT ────────────────────────────────────────────────────────────────────────────────────
+
+    //Escuta uma fila do rabbit  e regista na BD 
     public function listenRabbitMQ()
     {
-        $rabbitmqHost     = env('RABBITMQ_HOST', 'rabbitmq');
-        $rabbitmqPort     = env('RABBITMQ_PORT', 5672);
-        $rabbitmqUser     = env('RABBITMQ_USER', 'guest');
+        $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
+        $rabbitmqPort = env('RABBITMQ_PORT', 5672);
+        $rabbitmqUser = env('RABBITMQ_USER', 'guest');
         $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
-        $queueName        = env('RABBITMQ_QUEUE', 'lolchat_event_join-leave');
+        $queueName = env('RABBITMQ_QUEUE', 'lolchat_event_join-leave');
 
         try {
             $connection = new AMQPStreamConnection(
@@ -36,15 +37,15 @@ class ChatController extends Controller
 
             $callback = function ($msg) {
                 echo 'Message received: ', $msg->body, "\n";
-                \Log::info('Message received by RabbitMQ listener:', ['message' => $msg->body]);
+
                 $messageData = json_decode($msg->body, true);
 
-                EventUser::create([
-                    'event_id'   => $messageData['event_id'],
+                EventUser::create([             //guarda na base de dados          
+                    'event_id' => $messageData['event_id'],
                     'event_name' => $messageData['event_name'],
-                    'user_id'    => $messageData['user_id'],
-                    'user_name'  => $messageData['user_name'],
-                    'message'    => $messageData['message'],
+                    'user_id' => $messageData['user_id'],
+                    'user_name' => $messageData['user_name'],
+                    'message' => $messageData['message'],
                 ]);
 
                 $msg->ack();
@@ -59,177 +60,170 @@ class ChatController extends Controller
             $channel->close();
             $connection->close();
         } catch (\Exception $e) {
-            \Log::error('Error in listenRabbitMQ:', ['error' => $e->getMessage()]);
+
         }
     }
 
-    /**
-     * Send a message in an event chat.
-     */
+    // pubica no rabbit
+    private function publishToRabbitMQ(string $messageBody)
+    {
+        $rabbitmqHost = env('RABBITMQ_HOST', 'rabbitmq');
+        $rabbitmqPort = env('RABBITMQ_PORT', 5672);
+        $rabbitmqUser = env('RABBITMQ_USER', 'guest');
+        $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
+
+        // Fanout exchanges + target queue
+        $fanoutExchanges = [
+            'notification_fanout_1',
+            'notification_fanout_2',
+        ];
+        $directQueue = 'realfrontchat';
+
+        try {
+            $connection = new AMQPStreamConnection(
+                $rabbitmqHost,
+                $rabbitmqPort,
+                $rabbitmqUser,
+                $rabbitmqPassword
+            );
+            $channel = $connection->channel();
+
+            // Publish to fanout exchanges
+            foreach ($fanoutExchanges as $exchange) {
+                $channel->exchange_declare(
+                    $exchange,
+                    'fanout',
+                    false,
+                    true,
+                    false
+                );
+
+                $msg = new AMQPMessage($messageBody, [
+                    'content_type' => 'application/json',
+                    'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+                ]);
+
+                $channel->basic_publish($msg, $exchange);
+
+            }
+
+            // Ensure direct queue exists
+            $channel->queue_declare($directQueue, false, true, false, false);
+
+            // Publish directly to the queue using default exchange ("")
+            $directMsg = new AMQPMessage($messageBody, [
+                'content_type' => 'application/json',
+                'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+            ]);
+            $channel->basic_publish($directMsg, '', $directQueue);
+
+
+            $channel->close();
+            $connection->close();
+        } catch (\Exception $e) {
+        }
+    }
+
+    //───────────────────────────────────────────── SEND MESSAGE────────────────────────────────────────────────────────────────────────────────────
     public function sendMessage(Request $request, $id)
     {
-        try {
-            $token   = $this->validateToken($request);
+        try { // valida token e extrai id e name
+            $token = $this->validateToken($request);
             $payload = JWTAuth::setToken($token)->getPayload();
-            $userId   = $payload->get('sub');
+            $userId = $payload->get('sub');
             $userName = $payload->get('name');
 
+            // valida a mensagem
             $validatedData = $request->validate([
                 'message' => 'required|string',
             ]);
 
+            // verifica se o user é participante
             $isParticipating = EventUser::where('event_id', $id)
                 ->where('user_id', $userId)
                 ->exists();
 
-            if (! $isParticipating) {
-                \Log::warning('Unauthorized attempt to send a message to an event:', [
-                    'user_id'  => $userId,
-                    'event_id' => $id,
-                ]);
+            if (!$isParticipating) {
+
                 return response()->json(['error' => 'Unauthorized: User is not participating in this event'], 403);
             }
 
+            // guarda na BD
             $messageData = [
-                'event_id'   => $id,
+                'event_id' => $id,
                 'event_name' => "Evento $id",
-                'user_id'    => $userId,
-                'user_name'  => $userName,
-                'message'    => $validatedData['message'],
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'message' => $validatedData['message'],
             ];
             EventUser::create($messageData);
 
+            // obtem lista de participantes
             $eventParticipants = EventUser::where('event_id', $id)
                 ->distinct()
                 ->get(['user_id', 'user_name']);
 
+            // faz o payload
             $notificationMessage = [
-                'type'         => 'new_message',
-                'event_id'     => $id,
-                'event_name'   => "Evento $id",
-                'user_id'      => $userId,
-                'user_name'    => $userName,
-                'message'      => $validatedData['message'],
-                'timestamp'    => now()->toISOString(),
+                'type' => 'new_message',
+                'event_id' => $id,
+                'event_name' => "Evento $id",
+                'user_id' => $userId,
+                'user_name' => $userName,
+                'message' => $validatedData['message'],
+                'timestamp' => now()->toISOString(),
                 'participants' => $eventParticipants->toArray(),
             ];
 
-            // Publish the message to two hardcoded fanout exchanges
+            //  publica no rabbit
             $this->publishToRabbitMQ(json_encode($notificationMessage));
 
-            return response()->json(['status' => 'Message sent successfully'], 201);
+            return response()->json(['status' => 'Message sent successfully'], 201); // sucesso
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'Validation Error',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error in sendMessage:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
 
-    /**
-     * Publish a message to two RabbitMQ fanout exchanges.
-     */
-    private function publishToRabbitMQ(string $messageBody)
-{
-    $rabbitmqHost     = env('RABBITMQ_HOST', 'rabbitmq');
-    $rabbitmqPort     = env('RABBITMQ_PORT', 5672);
-    $rabbitmqUser     = env('RABBITMQ_USER', 'guest');
-    $rabbitmqPassword = env('RABBITMQ_PASSWORD', 'guest');
-
-    // Fanout exchanges + target queue
-    $fanoutExchanges = [
-        'notification_fanout_1',
-        'notification_fanout_2',
-    ];
-    $directQueue = 'realfrontchat';
-
-    try {
-        $connection = new AMQPStreamConnection(
-            $rabbitmqHost,
-            $rabbitmqPort,
-            $rabbitmqUser,
-            $rabbitmqPassword
-        );
-        $channel = $connection->channel();
-
-        // Publish to fanout exchanges
-        foreach ($fanoutExchanges as $exchange) {
-            $channel->exchange_declare(
-                $exchange,
-                'fanout',
-                false,
-                true,
-                false
-            );
-
-            $msg = new AMQPMessage($messageBody, [
-                'content_type'  => 'application/json',
-                'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
-            ]);
-
-            $channel->basic_publish($msg, $exchange);
-            \Log::info("Published message to exchange '{$exchange}'", ['body' => $messageBody]);
-        }
-
-        // Ensure direct queue exists
-        $channel->queue_declare($directQueue, false, true, false, false);
-
-        // Publish directly to the queue using default exchange ("")
-        $directMsg = new AMQPMessage($messageBody, [
-            'content_type'  => 'application/json',
-            'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
-        ]);
-        $channel->basic_publish($directMsg, '', $directQueue);
-        \Log::info("Published message to direct queue '{$directQueue}'", ['body' => $messageBody]);
-
-        $channel->close();
-        $connection->close();
-    } catch (\Exception $e) {
-        \Log::error('Error publishing to RabbitMQ exchanges or queue:', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-    }
-}
 
 
-    /**
-     * Fetch messages for an event.
-     */
+
+    //───────────────────────────────────────────── FETCH MESSAGE────────────────────────────────────────────────────────────────────────────────────
     public function fetchMessages(Request $request, $id)
     {
         try {
-            $token   = $this->validateToken($request);
+            // valida token e extrai id
+            $token = $this->validateToken($request);
             $payload = JWTAuth::setToken($token)->getPayload();
-            $userId  = $payload->get('sub');
+            $userId = $payload->get('sub');
 
+            // verifica se o utilizador participa no evento
             $isParticipating = EventUser::where('event_id', $id)
                 ->where('user_id', $userId)
                 ->exists();
 
-            if (! $isParticipating) {
-                \Log::warning('Unauthorized attempt to fetch messages for an event:', [
-                    'user_id' => $userId,
-                    'event_id' => $id,
-                ]);
+            if (!$isParticipating) {
+
                 return response()->json(['error' => 'Unauthorized: User is not participating in this event'], 403);
             }
 
+            // fetch a todas as mensagens gravadas na BD
             $messages = EventUser::where('event_id', $id)->get();
 
-            return response()->json(['messages' => $messages], 200);
+            return response()->json(['messages' => $messages], 200);  // sucesso retorna array de mensagens
         } catch (\Exception $e) {
-            \Log::error('Error in fetchMessages:', ['error' => $e->getMessage()]);
+
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
 
-    /**
-     * Check if a token is blacklisted using the /get-blacklist endpoint.
-     */
+    //───────────────────────────────────────────── token ────────────────────────────────────────────────────────────────────────────────────
+    //verifica se token esta blacklisted
     private function isTokenBlacklisted($token)
     {
         $cacheKey = "blacklisted:{$token}";
@@ -237,14 +231,12 @@ class ChatController extends Controller
         return Cache::has($cacheKey);
     }
 
-    /**
-     * Process token from Authorization header.
-     */
+    //extrai token do pedido
     private function getTokenFromRequest(Request $request)
     {
         $token = $request->header('Authorization');
 
-        if (! $token) {
+        if (!$token) {
             throw new \Exception('Token is required.');
         }
 
@@ -255,9 +247,9 @@ class ChatController extends Controller
         return $token;
     }
 
-    /**
-     * Validate token and check if blacklisted.
-     */
+
+    //  valida token e verifica se esta blacklisted
+
     private function validateToken(Request $request)
     {
         $token = $this->getTokenFromRequest($request);

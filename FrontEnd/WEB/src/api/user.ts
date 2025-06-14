@@ -48,13 +48,13 @@ export interface UpdateMePayload {
 }
 
 
-// vai buscar os dados do utilizador
+// vai buscar os dados do utilizador────────────────────────────────────────────────────────────────────────────────────────────────────
 export async function fetchMe(): Promise<User> { 
   return authFetch("/api/auth/me")
 }
 
 
-// update o utilizador
+// update o utilizador ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function updateMe(
   payload: Partial<UpdateMePayload>
 ) {
@@ -64,38 +64,38 @@ export async function updateMe(
   })
 }
 
-// apagar conta
+// apagar conta ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function deleteMe() {
   return authFetch("/api/auth/delete", { method: "DELETE" })
 }
 
-// logout
+// logout ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function logout() {
   return authFetch("/api/auth/logout", { method: "POST" })
 }
 
- // buscar achievements de um utilizador
+ // buscar achievements de um utilizador ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function fetchAchievements(id: number): Promise<Achievement[]> {
   const json = await authFetch(`/api/achievements/${id}`)
   return json.achievements as Achievement[]
 }
 
-// buscar o xp de um  utilizador
+// buscar o xp de um  utilizador ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function fetchXpLevel(id: number) {
   return authFetch(`/api/profile/${id}`)
 }
 
-// buscar a reputaçao de um  utilizador
+// buscar a reputaçao de um  utilizador ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function fetchReputation(id: number): Promise<Reputation> {
   return authFetch(`/api/rating/${id}`) as Promise<Reputation>
 }
 
-// buscar dados publicos de um utilizador
+// buscar dados publicos de um utilizador ───────────────────────────────────────────────────────────────────────────────────────────────────
 export function fetchUser(id: number): Promise<User> {
   return authFetch(`/api/users/${id}`)
 }
 
-// mudar a passeword
+// mudar a passeword ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function changePassword(
   current: string,
   next: string,
@@ -111,8 +111,8 @@ export async function changePassword(
   })
 }
 
-// mudar email
-export async function changeEmail(newEmail: string, password: string) {
+// mudar email ───────────────────────────────────────────────────────────────────────────────────────────────────
+export async function changeEmail(newEmail: string, password: string) { 
   return authFetch("/api/auth/change-email", {
     method: "POST",
     body: JSON.stringify({
@@ -124,7 +124,7 @@ export async function changeEmail(newEmail: string, password: string) {
 
 
 
-// buscar a foto de perfil como um url
+// buscar a foto de perfil como um url ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function fetchAvatar(id: number | string): Promise<string> {
   const res = await fetch(`/api/auth/avatar/${id}`, {
     credentials: "include",
@@ -136,7 +136,7 @@ export async function fetchAvatar(id: number | string): Promise<string> {
 }
 
 
- // muda a foto de perfil
+ // muda a foto de perfil ───────────────────────────────────────────────────────────────────────────────────────────────────
 export async function uploadAvatar(file: File): Promise<{ url: string }> {
   const token =
     localStorage.getItem("auth_token") ??

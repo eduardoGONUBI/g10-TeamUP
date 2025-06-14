@@ -7,14 +7,11 @@ use Illuminate\Http\Request;
 
 class SportsController extends Controller
 {
-    /**
-     * Return all sports (id + name).
-     */
+    // devolve todos os desportos 
     public function index()
     {
-        // optionally sort by name
         $sports = Sport::orderBy('name')
-                       ->get(['id','name']);
+            ->get(['id', 'name']);
 
         return response()->json($sports, 200);
     }

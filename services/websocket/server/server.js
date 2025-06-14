@@ -1,4 +1,6 @@
-require('dotenv').config();
+require('dotenv').config();    // le o ENV
+
+//bibliotecas
 const amqp      = require('amqplib');
 const WebSocket = require('ws');
 const jwt       = require('jsonwebtoken');
@@ -12,21 +14,21 @@ const {
   WS_PORT = 8080
 } = process.env;
 
-// ─── RabbitMQ sources ───────────────────────────────────────────────────────
-const FANOUT_EXCHANGE  = 'notification_fanout_1';
-const CHAT_QUEUE       = 'realfrontchat';   // for real-time chat messages
-const NOTIFICATION_QUEUE = 'notification';  // for bell notifications
+// RabbitMQ sources
+const FANOUT_EXCHANGE  = 'notification_fanout_1';  // fanout exchange
+const CHAT_QUEUE       = 'realfrontchat';   // chat em tempo real
+const NOTIFICATION_QUEUE = 'notification';  // notificaçoes
 
-const WS_PORT_NUM = Number(WS_PORT);
+const WS_PORT_NUM = Number(WS_PORT);      // porta websocket
 
 // Map userId -> Set<WebSocket>
 const clients = new Map();
 
-// ─── DEDUP CACHE (Option B) ─────────────────────────────────────────────────
+// cache para evitar mensagens duplicadas
 const SEEN     = new Set();
 const MAX_SEEN = 500;
 
-// Helper: push payload to every open WebSocket in a Set<WebSocket>
+// envia o payload para todos os websockets abertos
 const push = (conns, payload) => {
   for (const ws of conns) {
     if (ws.readyState === WebSocket.OPEN) {
@@ -35,10 +37,11 @@ const push = (conns, payload) => {
   }
 };
 
-// Common handler for any RabbitMQ message we receive.
+// hander para receber mensagems do rabbit
 function handleMessage(msg, channel) {
   if (!msg) return;
 
+  // parse do json
   let data;
   try {
     data = JSON.parse(msg.content.toString());
@@ -47,38 +50,42 @@ function handleMessage(msg, channel) {
     return channel.ack(msg);
   }
 
-  // ─── DEDUP STEP ────────────────────────────────────────────────────────────
+  // Passo de deduplicaçao: gera uma chave única para cada evento+utilizador+timestamp
   const dedupKey = `${data.event_id}|${data.user_id}|${data.timestamp}`;
   if (SEEN.has(dedupKey)) {
-    return channel.ack(msg);
+    return channel.ack(msg);    // descarta evento ja processado
   }
-  SEEN.add(dedupKey);
+  SEEN.add(dedupKey);   // Se exceder o limite da cache, remove a entrada mais antiga
   if (SEEN.size > MAX_SEEN) {
     SEEN.delete(SEEN.values().next().value);
   }
-  // ────────────────────────────────────────────────────────────────────────────
-
+  // extrai os dados principais
   const eventId     = Number(data.event_id);
   const initiatorId = Number(data.user_id);
   const timestamp   = data.timestamp;
 
+  // constroi a lista de participantes
   const participants = (data.participants || []).map(p => ({
     id:   Number(p.user_id),
     name: p.user_name,
   }));
 
-  console.log(
+  console.log(  // log
     `[RabbitMQ] Dispatching "${data.type}" for event #${eventId}\n` +
     `  From user: ${initiatorId} at ${timestamp}\n` +
     `  To participants: ${participants.map(p => p.id).join(', ')}`
   );
 
-  // Push to every online participant (including sender)
+  // envia a notificaçao para cada participante online
   participants.forEach(p => {
-    const conns  = clients.get(p.id);
-    const online = conns && conns.size > 0;
+
+     if (p.id === initiatorId) return; // impede que o iniciador receba a sua notificaçao
+
+    const conns  = clients.get(p.id);  //Obtem o conjunto de conexões WebSocket ativas para o utilizador p.id
+    const online = conns && conns.size > 0; //Determina se o utilizador está online (tem pelo menos uma conexão aberta)
+    // prepara e envia o payload 
     if (online) {
-      push(conns, {
+      push(conns, { 
         type:       data.type,
         event_id:   eventId,
         event_name: data.event_name,
@@ -94,16 +101,20 @@ function handleMessage(msg, channel) {
   channel.ack(msg);
 }
 
-// ─── WebSocket server ────────────────────────────────────────────────────────
+//-------WebSocket server -----------------------------------------------
+//cria o servidor websocket
 const wss = new WebSocket.Server({ port: WS_PORT_NUM }, () => {
   console.log(`WebSocket server running on port ${WS_PORT_NUM}`);
 });
-
+// evento dispara sempre que um cliense se liga
 wss.on('connection', (ws, req) => {
-  const url   = new URL(req.url, `http://localhost:${WS_PORT_NUM}`);
+  //extrai o token
+  const url   = new URL(req.url, `http://localhost:${WS_PORT_NUM}`);    
   const token = url.searchParams.get('token');
-  if (!token) return ws.close(4001, 'Authentication token required');
 
+  if (!token) return ws.close(4001, 'Authentication token required'); // nao ha token
+
+  // valida token
   let payload;
   try {
     payload = jwt.verify(token, JWT_SECRET);
@@ -111,10 +122,14 @@ wss.on('connection', (ws, req) => {
     return ws.close(4002, 'Invalid or expired token');
   }
 
+  // obtem o id do user a partir do token
   const userId = Number(payload.sub);
-  if (!clients.has(userId)) clients.set(userId, new Set());
+
+  // regista a ligaçao websocket no mapa dos clientes
+  if (!clients.has(userId)) clients.set(userId, new Set());  // se for a primeira ligaçao cria um novo set
   clients.get(userId).add(ws);
 
+  //Quando a ligação fechar, remove-a do Set e limpa o mapa se vazio
   ws.on('close', () => {
     const set = clients.get(userId);
     if (set) {
@@ -126,10 +141,12 @@ wss.on('connection', (ws, req) => {
 
 // ─── RabbitMQ consumers ──────────────────────────────────────────────────────
 (async () => {
+  // estabelece a ligaçao ao servidor rabbitmq usando oi env
   try {
     const conn    = await amqp.connect(
       `amqp://${RABBITMQ_USERNAME}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_PORT}`
     );
+    // cria o canal
     const channel = await conn.createChannel();
 
     // 1) Fan-out exchange

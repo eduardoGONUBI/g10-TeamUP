@@ -13,18 +13,18 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    // Register a new user
+    /// registar um user
     public function register(Request $request)
     {
         $validatedData = $request->validate([
-            'name' => 'required|string|unique:users|regex:/^\w+$/|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
-            'location' => 'nullable|string|max:255',
-            'sports' => 'array',
+            'name' => 'required|string|unique:users|regex:/^\w+$/|max:255',    // nome unico apenas letras e numeros
+            'email' => 'required|string|email|max:255|unique:users',       // email valido e unico
+            'password' => 'required|string|min:6|confirmed',         // password min 6
+            'location' => 'nullable|string|max:255',                 //   location
+            'sports' => 'array',                   // array de ids
         ]);
 
-        $user = User::create([
+        $user = User::create([         // cria na base de dados
             'name' => $validatedData['name'],
             'email' => $validatedData['email'],
             'password' => bcrypt($validatedData['password']),
@@ -33,50 +33,50 @@ class AuthController extends Controller
         ]);
 
         if ($request->has('sports')) {
-            $user->sports()->sync($request->sports);
+            $user->sports()->sync($request->sports);   // se registar com uma lista de desportos faz a relaçao many to many
         }
 
-        // Send email verification notification
-        $user->sendEmailVerificationNotification();
+
+        $user->sendEmailVerificationNotification();          // manda email de confirmaçao
 
         return response()->json([
-            'message' => 'User registered successfully. Please check your email for verification instructions.',
+            'message' => 'User registered successfully. Please check your email for verification instructions.',        //resposta JSON
         ], 201);
     }
 
-    // User login
+    // User login e gera token
     public function login(Request $request)
     {
-        $credentials = $request->only('email', 'password');
+        $credentials = $request->only('email', 'password');         // credencias do payload
 
-        // Attempt to authenticate the user
-        if (!auth()->attempt($credentials)) {
+
+        if (!auth()->attempt($credentials)) {                          // autentica o user
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        // Get the authenticated user
-        $user = auth()->user();
 
-        // Check if the user's email is verified
-        if (!$user->hasVerifiedEmail()) {
+        $user = auth()->user();                // obtem o user autenticado
+
+
+        if (!$user->hasVerifiedEmail()) {                          // verifica se tem o email verificado
             return response()->json(['error' => 'Email not verified'], 403);
         }
 
-        // Include the user's name in the token claims
-        $customClaims = ['name' => $user->name];
 
-        // Generate a token with custom claims
-        $token = JWTAuth::claims($customClaims)->fromUser($user);
+        $customClaims = ['name' => $user->name];   // mete o nome do user no token
 
-        // Return the token including user's name and id
-        return $this->respondWithToken($token, [
+
+        $token = JWTAuth::claims($customClaims)->fromUser($user);      // gera o token
+
+
+        return $this->respondWithToken($token, [      // devolve o token com id nome e localizaçao
             'id' => $user->id,
             'name' => $user->name,
             'location' => $user->location,
         ]);
     }
 
-    // Helper function to respond with token
+    // Helper formatar a resposto do token
     protected function respondWithToken($token, array $additionalPayload = [])
     {
         return response()->json([
@@ -87,70 +87,71 @@ class AuthController extends Controller
         ]);
     }
 
+    // atualia foto de perfil
     public function updateAvatar(Request $request)
     {
+        //valida a imagem pelo tipo e tamanho max
         $request->validate([
             'avatar' => 'required|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
         ]);
 
-        $user = JWTAuth::user();       // same guard you already use
+        $user = JWTAuth::user();       // obtem o utilizador autenticado
 
-        // kill the old file (if any) before writing a new one
+        // se ja existir um ficheiro elimina o
         if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
             Storage::disk('public')->delete($user->avatar);
         }
 
-        // store() returns "avatars/xxxx.ext"
+        // guarda o novo ficheiro em storage/app/public/avatar
         $path = $request->file('avatar')->store('avatars', 'public');
+        // atualiza o campo avatar do utilizador
         $user->avatar_url = $path;
         $user->save();
 
-        return response()->json([
+        return response()->json([    // sucesso
             'message' => 'Avatar updated ✨',
-            'avatar_url' => $user->avatar_url,  // accessor above
+            'avatar_url' => $user->avatar_url,
         ]);
     }
 
-    /**
-     * GET /api/avatar/{id}
-     * Sends the raw image file (good for native <img src="…"> tags).
-     */
+    // vai buscar a foto de perfil de um utilizador
     public function getAvatar($id)
     {
-        $user = User::findOrFail($id);
+        $user = User::findOrFail($id);   // procura o utilizador por ID
 
-        // Grab the exact value from the DB (e.g. "avatars/8Rv3GqTGzqEgws9LUzF4BUB3iHLhZinNHSabg9we.jpg")
-        $rawPath = $user->getRawOriginal('avatar_url');
 
-        // If it’s empty or missing on disk, we abort with a 404
+        $rawPath = $user->getRawOriginal('avatar_url');  // vai buscar o caminho do ficheiro
+
+        // se tiver vazio
         if (!$rawPath || !Storage::disk('public')->exists($rawPath)) {
             abort(404, 'Avatar not found');
         }
 
-        // Stream the file from storage/app/public/avatars/…
+        // devolve a imagem com ficheiro
         return response()->file(
             Storage::disk('public')->path($rawPath)
         );
     }
 
-    // Get the authenticated user
+    // devolve dados do utilizador autenticado
     public function me()
     {
-        $user = JWTAuth::user()->load('sports');
-        return response()->json($user);
+        $user = JWTAuth::user()->load('sports');     // carrega a relaçao de desportos
+        return response()->json($user);     //retorna os dados em JSON
     }
 
+    //logout
     public function logout()
     {
         try {
-            $token = JWTAuth::getToken();
-            JWTAuth::invalidate($token);
+            $token = JWTAuth::getToken();     //obtem token
+            JWTAuth::invalidate($token);     // invalida token
 
-            // Optionally store the invalidated token in Redis for additional validation
+            // guarda o token invalido no redis
             $redis = app('redis');
             $redis->setex('blacklist:' . $token, config('jwt.ttl') * 60, true);
 
-            // Publish the blacklisted token to RabbitMQ
+            // public o token invalida no rabbit para todos microserviços saberem que esta invalido
             $this->publishToRabbitMQ($token);
 
             return response()->json(['message' => 'Successfully logged out']);
@@ -159,11 +160,11 @@ class AuthController extends Controller
         }
     }
 
-    // Helper function to publish to RabbitMQ and initialize Redis state
+    // Helper  para mandar mensagem no broker ( neste caso so para enviar o token invalido)
     protected function publishToRabbitMQ($token)
     {
         try {
-            // Create a connection to RabbitMQ
+            // Cria a conexao no RabbitMQ
             $connection = new AMQPStreamConnection(
                 'rabbitmq', // RabbitMQ host
                 5672,       // RabbitMQ port
@@ -172,25 +173,25 @@ class AuthController extends Controller
             );
             $channel = $connection->channel();
 
-            // Declare a fan-out exchange
+            // fan-out exchange   (distribui a todos os consumidores ligados)
             $exchange = 'fanout_exchange';
             $channel->exchange_declare($exchange, 'fanout', false, true, false);
 
-            // Create a new message with the raw token as payload
+            // Cria a mensagem com o token
             $msg = new AMQPMessage($token);
 
-            // Publish the message to the exchange
+            // publica a mensagem
             $channel->basic_publish($msg, $exchange);
 
-            // Store the token in Redis with a counter for the number of consumers
+            // regista no redis o token com quandos microserviços devem consumi lo
             $redis = app('redis');
-            $redis->setex("blacklisted:{$token}", config('jwt.ttl') * 60, 3); // 3 services
+            $redis->setex("blacklisted:{$token}", config('jwt.ttl') * 60, 3); // 3 serviços
 
-            // Close the channel and connection
+            // fecha canal e conexao
             $channel->close();
             $connection->close();
 
-            logger()->info("Published and initialized token: {$token}");
+            logger()->info("Published and initialized token: {$token}");  //sucesso
         } catch (\Exception $e) {
             // Log the error
             logger()->error("Failed to publish message to RabbitMQ: " . $e->getMessage());
@@ -198,28 +199,28 @@ class AuthController extends Controller
     }
 
 
-    // Delete user account
+    // Apaga a conta do utilizador autenticado
     public function delete()
     {
-        $user = JWTAuth::user();
+        $user = JWTAuth::user();   // obtem o utilizador autenticado
 
-        // Check if the user is an admin
+        // verifica se é admion
         if ($user->is_admin) {
             return response()->json([
                 'message' => 'Cannot delete admin.'
             ], 403); // 403 Forbidden
         }
 
-        JWTAuth::invalidate(JWTAuth::getToken());
-        $user->delete();
+        JWTAuth::invalidate(JWTAuth::getToken());    // invalida o token
+        $user->delete();     //remove da base de dados
 
         return response()->json(['message' => 'User deleted successfully']);
     }
 
-    // Update user details
+    // atualiza dados do utilizador autenticado
     public function update(Request $request)
     {
-        // Validate the incoming request
+        // valida os campos recebidos (tudo opcional)
         $validatedData = $request->validate([
             'name' => [
                 'sometimes',
@@ -239,15 +240,15 @@ class AuthController extends Controller
             ],
             'location' => 'sometimes|nullable|string|max:255',
             'sports' => 'sometimes|array',
-            'sports.*' => 'exists:sports,id', // Validate that each sport ID exists
+            'sports.*' => 'exists:sports,id',
             'latitude' => 'sometimes|nullable|numeric|between:-90,90',
             'longitude' => 'sometimes|nullable|numeric|between:-180,180',
         ]);
 
-        // Get the authenticated user
+        // obtem o utilizador autenticado
         $user = auth()->user();
 
-        // Update name and email if they are provided
+        // atualiza campos se vierem no payload
         if (isset($validatedData['name'])) {
             $user->name = $validatedData['name'];
         }
@@ -258,72 +259,77 @@ class AuthController extends Controller
             $user->location = $validatedData['location'];
         }
 
-        // Sync sports if provided
+        // sincroniza os desportos
         if (isset($validatedData['sports'])) {
             $user->sports()->sync($validatedData['sports']);
         }
 
+        // atualiza as coordenadas se fornecidas
         if (array_key_exists('latitude', $validatedData))
             $user->latitude = $validatedData['latitude'];
         if (array_key_exists('longitude', $validatedData))
             $user->longitude = $validatedData['longitude'];
 
-        // Save the changes
+        // guarda na base de dados
         $user->save();
 
-        // Return the updated user data
+        // devolve json suceeso e dados
         return response()->json([
             'message' => 'User updated successfully',
-            'user' => $user->load('sports'), // Include sports in the response
+            'user' => $user->load('sports'),
         ], 200);
     }
 
 
-    /**  Alterar password  */
+    //  Alterar password  
     public function changePassword(Request $request)
     {
+        // valida a palavra passe 
         $request->validate([
             'current_password' => ['required'],
             'new_password' => ['required', 'confirmed', PasswordRule::defaults()],
         ]);
 
-        $user = JWTAuth::user();                       // usa o mesmo guard JWT
+        $user = JWTAuth::user();                       // obtem user autenticado
 
+        // verifica se a pass atual esta correta
         if (!Hash::check($request->current_password, $user->password)) {
             return response()->json(['message' => 'Password actual incorreta'], 422);
         }
 
+        // grava a nova palavra passe na base de dados
         $user->password = Hash::make($request->new_password);
         $user->save();
 
-        // ⚠ NÃO existe apagador de sessões em ambiente JWT
-        // auth()->logoutOtherDevices($request->new_password);
 
+        // sucesso em json
         return response()->json(['message' => 'Password alterada com sucesso'], 200);
     }
 
-    /**  Alterar e-mail  */
+    // Alterar e-mail  
     public function changeEmail(Request $request)
     {
-        $request->validate([
+        $request->validate([      //valida novo email e password
             'new_email' => 'required|email|unique:users,email',
             'password' => ['required'],
         ]);
 
-        $user = JWTAuth::user();
+        $user = JWTAuth::user();   // obtem user autenticado
 
+        // verifica se password esta correta
         if (!Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Password incorreta'], 422);
         }
 
+        // atualiza email e marca como por verficiar
         $user->email = $request->new_email;
         $user->email_verified_at = null;
         $user->save();
 
-        $user->sendEmailVerificationNotification();
+        $user->sendEmailVerificationNotification();  // manda email de confirmaçao
 
         return response()->json([
-            'message' => 'E-mail alterado. Verifique a nova caixa de correio.',
+            'message' => 'E-mail alterado. Verifique a nova caixa de correio.',   //sucesso
         ], 200);
     }
 
