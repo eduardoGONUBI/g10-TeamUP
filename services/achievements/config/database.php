@@ -93,6 +93,19 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+    /* ligação ao MySQL exposto em 3307 */
+    'users_db' => [
+        'driver'    => env('USERS_DB_CONNECTION', 'mysql'),
+        'host'      => env('USERS_DB_HOST', 'host.docker.internal'),
+        'port'      => env('USERS_DB_PORT', 3307),
+        'database'  => env('USERS_DB_NAME', 'laravel'),
+        'username'  => env('USERS_DB_USER', 'root'),
+        'password'  => env('USERS_DB_PASS', ''),
+        'charset'   => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'strict'    => false,
+    ],
+
     ],
 
     /*

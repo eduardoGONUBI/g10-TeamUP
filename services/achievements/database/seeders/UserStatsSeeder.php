@@ -6,31 +6,26 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use App\Models\UserStat;
 
-/**
- * Garante que todos os user_ids têm uma linha em user_stats.
- * Define xp e level a 0 se ainda não existir.
- */
 class UserStatsSeeder extends Seeder
 {
     public function run(): void
     {
-        // Se usares **a mesma BD** para os dois serviços
-        $ids = DB::table('users')->pluck('id');
+        // 1) Vai buscar todos os IDs à BD do micro-serviço users
+        $userIds = DB::connection('users_db')
+                     ->table('users')
+                     ->pluck('id');
 
-        /* -------------------------------------------
-         *  Caso cada serviço tenha a sua BD
-         *  cria no config/database.php uma ligação
-         *  p-ex. 'users_db' e usa:
-         *
-         *  $ids = DB::connection('users_db')
-         *           ->table('users')->pluck('id');
-         * ------------------------------------------- */
+        // 2) Para cada ID, garante a linha base em user_stats
+        foreach ($userIds as $uid) {
+            // se já existe, salta — evita duplicar
+            if (UserStat::where('user_id', $uid)->exists()) {
+                continue;
+            }
 
-        foreach ($ids as $id) {
-            UserStat::firstOrCreate(
-                ['user_id' => $id],
-                ['xp' => 0, 'level' => 0]
-            );
+            // cria com XP/nível definidos pela factory
+            UserStat::factory()->create([
+                'user_id' => $uid,
+            ]);
         }
     }
 }
