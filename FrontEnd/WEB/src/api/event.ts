@@ -64,9 +64,10 @@ async function authFetch(input: RequestInfo, init: RequestInit = {}) {
   return json //se correr bem retorna o json
 }
 
-// vai buscar todos as atividades ────────────────────────────────────────────────────────────────────────────────────────────────────
+// vai buscar todos as atividades criadas ────────────────────────────────────────────────────────────────────────────────────────────────────
 export async function fetchAllMyEvents(   
-  perPage = 100   // limite de atividades por pagina
+  perPage = 100 ,  // limite de atividades por pagina
+  maxEvents = 500   // limite de atividades
 ): Promise<Event[]> {
 
   const first = await authFetch(`/api/events?per_page=${perPage}&page=1`); // fetch a 1 pagina
@@ -75,11 +76,15 @@ export async function fetchAllMyEvents(
   }
   let events: Event[] = first.data;   // eventos da primeira pagina
 
-  // se houver mais páginas, vai buscá-las todas ao mesmo tempo
+  // se houver mais páginas, vai buscá-las 
   const { last_page } = first.meta ?? { last_page: 1 };
   if (last_page > 1) {
-    const rest = await Promise.all(
-      Array.from({ length: last_page - 1 }, (_, i) =>
+    // calcula quantas paginas vai buscar para nao passar o limite 
+     const maxPages = Math.ceil(maxEvents / perPage);
+    const pagesToFetch = Math.min(last_page, maxPages);
+
+    const rest = await Promise.all( //todas ao mesmo tempo
+      Array.from({ length: pagesToFetch - 1 }, (_, i) =>
         authFetch(`/api/events?per_page=${perPage}&page=${i + 2}`)
       )
     );
