@@ -102,7 +102,7 @@ public function getProfile($id)
 
 //───────────────────────────────────────────── LEADERBOARD────────────────────────────────────────────────────────────────────────────────────
 // devolve a lista paginada de utilizadores ordenadas por nivel e xp
-    public function leaderboard(Request $req)
+public function leaderboard(Request $req)
 {
     // numero de resultados por pagina
     $perPage = $req->query('per_page', 15);
@@ -115,15 +115,24 @@ public function getProfile($id)
     // pagina automaticamente co base em ?page=
     $pageData = $qb->paginate($perPage);
 
+
+     // query para busca os nomes dos users da pagina
+    $userIds = $pageData->getCollection()->pluck('user_id');
+    $names   = DB::connection('users_db')
+                 ->table('users')
+                 ->whereIn('id', $userIds)
+                 ->pluck('name', 'id');        
+
     // calcula o indice inicial de ranking para a pagina
     $startRank = ($pageData->currentPage() - 1) * $pageData->perPage();
+
     // mapeia cada estatistica
-    $rows = $pageData->getCollection()->map(function($stat, $idx) use ($startRank) {
+    $rows = $pageData->getCollection()->map(function ($stat, $idx) use ($startRank, $names) {
         return [
-            'rank'    => $startRank + $idx + 1,
-            'user_id' => $stat->user_id,
-            'level'   => (int)$stat->level,
-            'xp'      => (int)$stat->xp,
+            'rank'  => $startRank + $idx + 1,
+            'user'  => $names[$stat->user_id] ?? '—',   
+            'level' => (int) $stat->level,
+            'xp'    => (int) $stat->xp,
         ];
     });
 
@@ -138,7 +147,6 @@ public function getProfile($id)
         ],
     ], 200);
 }
-
 
 //───────────────────────────────────────────── XP LOGIC────────────────────────────────────────────────────────────────────────────────────--------------------------------------------------------------- */
     private const EVENT_XP = 25;   // XP ganho por evento concluido
