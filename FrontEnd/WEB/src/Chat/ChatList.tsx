@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from "react";
+// src/ChatList.tsx
+
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchAllMyEvents, type Event } from "../api/event";
+import { type Event } from "../api/event";
+import { useMyEvents } from "../hooks/useMyEvents";
 import "./ChatList.css";
 
 const PER_PAGE = 5;  // numero de chats por pagina
@@ -8,44 +11,35 @@ const PER_PAGE = 5;  // numero de chats por pagina
 const ChatList: React.FC = () => {
 
   // -----------estados -------------------------
-  const [active,    setActive]    = useState<Event[]>([]);
-  const [archived,  setArchived]  = useState<Event[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
-  const [pageA,     setPageA]     = useState(1);   //pag atual ativos
-  const [pageC,     setPageC]     = useState(1);  // pag atual arquivados
+  // usa react-query para fetch, cache, loading e erro
+  const {
+    data: events = [],
+    isLoading,
+    isError,
+    error,
+  } = useMyEvents(/* opcional: perPage */);
+
+  const [pageA, setPageA]     = useState(1);   // pag atual ativos
+  const [pageC, setPageC]     = useState(1);   // pag atual arquivados
 
   const nav = useNavigate();
 
-  useEffect(() => {
-    setLoading(true);
-   fetchAllMyEvents()   //vai buscar os eventos do user
-  .then((events) => {  // filtra os ativos ou arquivados
-    const act = events
-      .filter((e) => e.status === "in progress")  
-    const arch = events
-      .filter((e) => e.status === "concluded")
-
-
-    setActive(act);
-    setArchived(arch);
-  })
-      .catch(() => setError("Não foi possível carregar os chats."))
-      .finally(() => setLoading(false));
-  }, []);
-
   const openChat = (id: number) => nav(`/chat/${id}`);   // redireciona para o chat do evento
 
-  if (loading) return <p className="loading">A carregar…</p>;  // loading
-  if (error)   return <p className="error">{error}</p>;
+  if (isLoading) return <p className="loading">A carregar…</p>;  // loading
+  if (isError)   return <p className="error">{(error as Error).message}</p>;
+
+  // separa os eventos em ativos e arquivados
+  const active   = events.filter(e => e.status === "in progress");
+  const archived = events.filter(e => e.status === "concluded");
 
   // calcula as fatias para a paginaçao
-  const totalA = active.length;   //total de eventos ativos
-  const totalC = archived.length;   //total  eventos arquivados
-  const pagesA = Math.ceil(totalA / PER_PAGE);  // numero total de paginas de ativos
-  const pagesC = Math.ceil(totalC / PER_PAGE);// numero total de paginas de arquivados
-  const sliceA = active.slice((pageA - 1) * PER_PAGE, pageA * PER_PAGE);    // extrai os eventos ativos da pagina atual
-  const sliceC = archived.slice((pageC - 1) * PER_PAGE, pageC * PER_PAGE);  // extrai os eventos arquivados da pagina atual
+  const totalA = active.length;    // total de eventos ativos
+  const totalC = archived.length;  // total de eventos arquivados
+  const pagesA = Math.ceil(totalA / PER_PAGE);   // numero total de paginas de ativos
+  const pagesC = Math.ceil(totalC / PER_PAGE);   // numero total de paginas de arquivados
+  const sliceA = active.slice((pageA - 1) * PER_PAGE, pageA * PER_PAGE);   // extrai os eventos ativos da pagina atual
+  const sliceC = archived.slice((pageC - 1) * PER_PAGE, pageC * PER_PAGE); // extrai os eventos arquivados da pagina atual
 
   // ---------------componente reutilizavel de paginaçao--------
   const Pager = ({
@@ -65,7 +59,8 @@ const ChatList: React.FC = () => {
       <button onClick={onNext} disabled={page >= pages}>Next ›</button>
     </div>
   );
-//-------------------------
+
+  //-------------------------
   return (
     <section className="chat-list-page">
       <h2>Chat Management</h2>
