@@ -107,6 +107,7 @@ const CreateEvent: React.FC = () => {
     }
   }
 
+  // guarda a referencia do autocomplete
   const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
     autocompleteRef.current = autocomplete
   }
@@ -116,11 +117,12 @@ const CreateEvent: React.FC = () => {
   const onPlaceChanged = () => {
     const ac = autocompleteRef.current
     if (!ac) return
-    const place = ac.getPlace()
+    const place = ac.getPlace()    // obtem o local selecionado
+      // verifica se e valido com coordenadas
     const addr = place.formatted_address
     if (typeof addr === "string" && place.geometry?.location) {
       const loc = place.geometry.location
-      setForm(f => ({ ...f, place: addr }))
+      setForm(f => ({ ...f, place: addr }))  // atualiza o campo do formulario
       setLatitude(loc.lat())
       setLongitude(loc.lng())
     }

@@ -139,7 +139,7 @@ export default function EditProfilePage() {
      value={location}
      onChange={e => {
        setLocation(e.target.value)
-       // clear coords until they choose again
+       // limpa as coordenadas
        setLatitude(null)
        setLongitude(null)
        setErr("Please select a city from the dropdown.")

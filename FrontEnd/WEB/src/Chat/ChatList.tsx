@@ -15,7 +15,7 @@ const ChatList: React.FC = () => {
     isLoading,
     isError,
     error,
-  } = useMyEvents(/* opcional: perPage */);
+  } = useMyEvents();
 
   const [pageA, setPageA]     = useState(1);   // pag atual ativos
   const [pageC, setPageC]     = useState(1);   // pag atual arquivados
