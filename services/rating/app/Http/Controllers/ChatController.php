@@ -114,7 +114,7 @@ class ChatController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['message' => 'Validation error', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            \Log::error('giveFeedback error', ['error' => $e->getMessage()]);
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -151,27 +151,24 @@ class ChatController extends Controller
 
     public function showReputation($id)
     {
-        $rep = \App\Models\UserReputation::find($id);  // obtem o registo de reputaçao na pase de dados
+      
+        
+        $rep = UserReputation::where('user_id', $id)->first(); // obtem o registo de reputaçao 
+    $data = [
+        'user_id'              => $id,
+        'score'                => $rep?->score               ?? 70,
+        'good_teammate_count'  => $rep?->good_teammate_count ?? 0,
+        'friendly_count'       => $rep?->friendly_count      ?? 0,
+        'team_player_count'    => $rep?->team_player_count   ?? 0,
+        'toxic_count'          => $rep?->toxic_count         ?? 0,
+        'bad_sport_count'      => $rep?->bad_sport_count     ?? 0,
+        'afk_count'            => $rep?->afk_count           ?? 0,
+        'badges'               => $rep ? $this->resolveBadges($rep) : [],
+    ];
 
-        $data = [   // inicialisa o behaviour index (default 70)
-            'user_id' => $id,
-            'score' => $rep->score ?? 70,
-        ];
-
-        if ($rep) {   // se existir adiciona os feedbaks recebidos
-            $data += $rep->only([
-                'good_teammate_count',
-                'friendly_count',
-                'team_player_count',
-                'toxic_count',
-                'bad_sport_count',
-                'afk_count',
-            ]);
-
-            $data['badges'] = $this->resolveBadges($rep);
-        }
-
-        return response()->json($data, 200);   // sucesso
+          return response()->json($data, 200);   // sucesso
+        
+        
     }
 
 
@@ -245,7 +242,7 @@ class ChatController extends Controller
     /**
      * Fetch messages for an event.
      */
-    public function fetchMessages(Request $request, $id)
+    /*public function fetchMessages(Request $request, $id)
     {
         try {
             // Validate the token
@@ -261,7 +258,7 @@ class ChatController extends Controller
                 ->exists();
 
             if (!$isParticipating) {
-                \Log::warning('Unauthorized attempt to fetch messages for an event:', [
+
                     'user_id' => $userId,
                     'event_id' => $id,
                 ]);
@@ -273,11 +270,11 @@ class ChatController extends Controller
 
             return response()->json(['messages' => $messages], 200);
         } catch (\Exception $e) {
-            \Log::error('Error in fetchMessages:', ['error' => $e->getMessage()]);
+    
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
-
+*/
     /**
      * Return the list of events that have been concluded
      * and in which the authenticated user took part.
@@ -302,7 +299,7 @@ class ChatController extends Controller
             return response()->json(['concluded_events' => $concluded], 200);
 
         } catch (\Exception $e) {
-            \Log::error('Error in listConcludedEvents:', ['error' => $e->getMessage()]);
+
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
@@ -395,7 +392,7 @@ class ChatController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error in rateUser:', ['error' => $e->getMessage()]);
+      
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -442,8 +439,8 @@ class ChatController extends Controller
             $callback = function ($msg) {
                 echo 'Message received: ', $msg->body, "\n";
 
-                // Log the received message
-                \Log::info('Message received by RabbitMQ listener:', ['message' => $msg->body]);
+        
+          
 
                 // Decode the message body
                 $messageData = json_decode($msg->body, true);
@@ -473,7 +470,7 @@ class ChatController extends Controller
             $channel->close();
             $connection->close();
         } catch (\Exception $e) {
-            \Log::error('Error in listenRabbitMQ:', ['error' => $e->getMessage()]);
+
         }
     }
 
@@ -512,7 +509,7 @@ class ChatController extends Controller
                     'message' => $displayText,
                 ]);
 
-                \Log::info('rating_event_concluded consumed', $data);
+         
                 $msg->ack();
             };
 
@@ -525,7 +522,7 @@ class ChatController extends Controller
             $channel->close();
             $connection->close();
         } catch (\Exception $e) {
-            \Log::error('Error in listenEventConcludedQueue:', ['error' => $e->getMessage()]);
+      
         }
     }
 
@@ -557,10 +554,7 @@ class ChatController extends Controller
                 ->exists();
 
             if (!$isParticipating) {
-                \Log::warning('Unauthorized attempt to send a message to an event:', [
-                    'user_id' => $userId,
-                    'event_id' => $id,
-                ]);
+
                 return response()->json(['error' => 'Unauthorized: User is not participating in this event'], 403);
             }
 
@@ -602,7 +596,7 @@ class ChatController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error in sendMessage:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+         
             return response()->json(['error' => $e->getMessage()], 401);
         }
     }
@@ -636,9 +630,9 @@ class ChatController extends Controller
             $channel->close();
             $connection->close();
 
-            \Log::info('Message published to RabbitMQ:', ['queue' => $queueName, 'message' => $messageBody]);
+
         } catch (\Exception $e) {
-            \Log::error('Error publishing message to RabbitMQ:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
         }
     }
 
