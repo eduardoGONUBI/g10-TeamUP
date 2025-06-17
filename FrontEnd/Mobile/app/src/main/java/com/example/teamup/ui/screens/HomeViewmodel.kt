@@ -1,14 +1,25 @@
 package com.example.teamup.ui.screens
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Geocoder
+import android.os.Looper
+import com.google.android.gms.location.LocationRequest
 import android.util.Base64
+import androidx.annotation.RequiresPermission
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.api.AuthApi
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -134,4 +145,59 @@ class HomeViewModel(
         val a = sin(Δφ / 2).pow(2) + cos(φ1) * cos(φ2) * sin(Δλ / 2).pow(2)
         return 2 * R * atan2(sqrt(a), sqrt(1 - a))
     }
+
+    /* Force-set centre even if numerically the same */
+    /* Force-emit even if coordinates are identical */
+    private fun pushCenterAlways(lat: Double, lon: Double) {
+        val newCenter = LatLng(lat, lon)
+
+        // If nothing changed, inject a tiny “jitter” first
+        if (newCenter == _center.value) {
+            _center.value = LatLng(lat, lon + 0.005)      // ≈ 500 m east
+        }
+
+        _center.value = newCenter                          // then real point
+    }
+
+    /* called from UI when GPS permission is granted */
+    fun updateCenter(latLng: LatLng) = pushCenterAlways(latLng.latitude, latLng.longitude)
+
+
+    @SuppressLint("MissingPermission")
+    fun fetchAndCenterOnGps(ctx: Context) {
+        val fused = LocationServices.getFusedLocationProviderClient(ctx)
+
+        val tokenSrc = CancellationTokenSource()
+        fused.getCurrentLocation(
+            Priority.PRIORITY_HIGH_ACCURACY,           // ← was BALANCED
+            tokenSrc.token
+        ).addOnSuccessListener { loc ->
+            loc?.let { pushCenterAlways(it.latitude, it.longitude) }
+                ?: requestSingleUpdate(fused)          // fall-back
+        }.addOnFailureListener { e ->
+            _error.value = "Could not get location: ${e.localizedMessage}"
+        }
+    }
+
+    /* one accurate fix, then stop */
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    private fun requestSingleUpdate(fused: FusedLocationProviderClient) {
+        val req = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            2_000L                                     // 2 s – must be > 0
+        )
+            .setMaxUpdates(1)
+            .build()
+
+        fused.requestLocationUpdates(req, object : LocationCallback() {
+            override fun onLocationResult(res: LocationResult) {
+                res.lastLocation?.let {
+                    pushCenterAlways(it.latitude, it.longitude)
+                }
+                fused.removeLocationUpdates(this)
+            }
+        }, Looper.getMainLooper())
+    }
+
+
 }
