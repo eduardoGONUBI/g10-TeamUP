@@ -61,6 +61,7 @@ fun HomeScreen(
         }
     )
 
+
     /* 2) UI-state from the VM */
     val allActivities     by vm.activities.collectAsState()
     val visibleActivities by vm.visibleActivities.collectAsState()
@@ -68,9 +69,11 @@ fun HomeScreen(
     val error             by vm.error.collectAsState()
     val center            by vm.center.collectAsState()
 
+
     /* 3) Context & fine-location permission */
     val ctx = LocalContext.current
     val locPerm = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
+    val locationGranted = locPerm.status is PermissionStatus.Granted
 
     /* ─── SHOW THE DIALOG WHEN NEEDED ─── */
     LaunchedEffect(locPerm.status) {
@@ -79,17 +82,18 @@ fun HomeScreen(
             locPerm.launchPermissionRequest()
         }
     }
-    /* If granted, fetch last known fix once and update map centre */
-    LaunchedEffect(locPerm.status, token) {
-        if (locPerm.status is PermissionStatus.Granted) {
-            vm.fetchAndCenterOnGps(ctx)          // GPS wins whenever we have permission
-        } else {
-            vm.loadFallbackCenter(token, ctx)    // profile / city fallback otherwise
-        }
 
-        vm.loadActivities(token)                // still refresh the list
+    LaunchedEffect(token) {
+        vm.loadActivities(token)
     }
-
+    // 2) Only react to permission changes for centering the map
+    LaunchedEffect(locPerm.status) {
+        if (locPerm.status is PermissionStatus.Granted) {
+            vm.fetchAndCenterOnGps(ctx)
+        } else {
+            vm.loadFallbackCenter(token, ctx)
+        }
+    }
 
 
     /* 5) UI layout */
@@ -104,23 +108,12 @@ fun HomeScreen(
             MapView(
                 modifier   = Modifier.matchParentSize(),
                 activities = allActivities,
-                center     = center
+                center     = center,
+                locationGranted = locationGranted
+
             )
 
-            /* FAB appears only if location permission is granted */
-            if (locPerm.status is PermissionStatus.Granted) {
-                FloatingActionButton(
-                    onClick = { vm.fetchAndCenterOnGps(ctx) },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                ) {
-                    Icon(
-                        imageVector   = Icons.Filled.MyLocation,
-                        contentDescription = "My location"
-                    )
-                }
-            }
+
         }
 
         error?.let {
@@ -144,14 +137,15 @@ fun HomeScreen(
 private fun MapView(
     modifier: Modifier,
     activities: List<ActivityItem>,
-    center: LatLng
+    center: LatLng,
+    locationGranted: Boolean
 ) {
     val cameraState = rememberCameraPositionState()
 
     /**
      * Whenever the VM publishes a new centre:
-     *   1. Instantly `move()` so the map jumps even if it's still binding.
-     *   2. Immediately start a smooth `animate()` so the jump is hardly visible.
+     *   1. Instantly move() so the map jumps even if it's still binding.
+     *   2. Immediately start a smooth animate() so the jump is hardly visible.
      */
     LaunchedEffect(center) {
         val update = CameraUpdateFactory.newLatLngZoom(center, 14f)
@@ -163,8 +157,8 @@ private fun MapView(
         GoogleMap(
             modifier = Modifier.matchParentSize(),
             cameraPositionState = cameraState,
-            properties = MapProperties(isMyLocationEnabled = true),
-            uiSettings = MapUiSettings(myLocationButtonEnabled = false)
+            properties = MapProperties(isMyLocationEnabled = locationGranted),
+            uiSettings = MapUiSettings(myLocationButtonEnabled = locationGranted)
         ) {
             activities.forEach { act ->
                 Marker(

@@ -55,6 +55,7 @@ class HomeViewModel(
     val hasMore: StateFlow<Boolean>                   = _hasMoreLocal
     val activities: StateFlow<List<ActivityItem>>     = _filteredActivities   // para o mapa
 
+
     init {
         // Quando muda a lista original ou o centro → refiltra e reinicia paginação local
         viewModelScope.launch {
@@ -84,12 +85,12 @@ class HomeViewModel(
                 allItems += pageItems
                 page++
             } while (repo.hasMore)
-                // anota “isCreator” e dispara para a UI
-                _allActivities.value = allItems.map { it.copy(isCreator = (it.creatorId == userId)) }
+            // anota “isCreator” e dispara para a UI
+            _allActivities.value = allItems.map { it.copy(isCreator = (it.creatorId == userId)) }
             _error.value         = null
         } catch (e: Exception) {
             _error.value = e.localizedMessage
-            }
+        }
     }
 
     /** Fallback para encontrar centro do mapa */
@@ -136,15 +137,7 @@ class HomeViewModel(
             ?.firstOrNull()?.let { LatLng(it.latitude, it.longitude) }
     } catch (_: IOException) { null }
 
-    private fun distanceMetres(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val R = 6_371_000.0
-        val φ1 = Math.toRadians(lat1)
-        val φ2 = Math.toRadians(lat2)
-        val Δφ = Math.toRadians(lat2 - lat1)
-        val Δλ = Math.toRadians(lon2 - lon1)
-        val a = sin(Δφ / 2).pow(2) + cos(φ1) * cos(φ2) * sin(Δλ / 2).pow(2)
-        return 2 * R * atan2(sqrt(a), sqrt(1 - a))
-    }
+
 
     /* Force-set centre even if numerically the same */
     /* Force-emit even if coordinates are identical */
@@ -158,11 +151,6 @@ class HomeViewModel(
 
         _center.value = newCenter                          // then real point
     }
-
-    /* called from UI when GPS permission is granted */
-    fun updateCenter(latLng: LatLng) = pushCenterAlways(latLng.latitude, latLng.longitude)
-
-
     @SuppressLint("MissingPermission")
     fun fetchAndCenterOnGps(ctx: Context) {
         val fused = LocationServices.getFusedLocationProviderClient(ctx)
@@ -178,6 +166,7 @@ class HomeViewModel(
             _error.value = "Could not get location: ${e.localizedMessage}"
         }
     }
+
 
     /* one accurate fix, then stop */
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
