@@ -19,6 +19,7 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -30,6 +31,12 @@ import kotlin.math.*
 class HomeViewModel(
     private val repo: ActivityRepository
 ) : ViewModel() {
+
+    /* ▼ NEW: last visible map area */
+    private val _mapBounds = MutableStateFlow<LatLngBounds?>(null)
+    fun updateMapBounds(bounds: LatLngBounds) {          // call from the map
+        _mapBounds.value = bounds
+    }
 
     /* ────── raw data from server ────── */
     private val _allActivities = MutableStateFlow<List<ActivityItem>>(emptyList())
@@ -57,20 +64,24 @@ class HomeViewModel(
 
 
     init {
-        // Quando muda a lista original ou o centro → refiltra e reinicia paginação local
+        // Whenever server list, map centre **or bounds** change → rebuild paging
         viewModelScope.launch {
-            combine(_allActivities, _center) { list, c ->
+            combine(_allActivities, _center, _mapBounds) { list, _, bounds ->
                 list.filter { item ->
-                    !item.status.equals("concluded", ignoreCase = true)
+                    // ① hide concluded, ② keep only items inside the map
+                    !item.status.equals("concluded", true) &&
+                            (bounds == null ||                       // first launch
+                                    bounds.contains(LatLng(item.latitude, item.longitude)))
                 }
             }.collect { filtered ->
-                _filteredActivities.value = filtered
-                currentPageLocal.value = 1
+                _filteredActivities.value = filtered       // list for the map pins
+                currentPageLocal.value = 1                 // restart local paging
                 _visibleActivities.value = filtered.take(pageSize)
                 _hasMoreLocal.value = filtered.size > pageSize
             }
         }
     }
+
 
     /** Busca **todas** as páginas do backend, acumulando resultados */
     fun loadActivities(rawToken: String) = viewModelScope.launch {

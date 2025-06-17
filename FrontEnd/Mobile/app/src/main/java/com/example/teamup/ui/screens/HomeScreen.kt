@@ -35,11 +35,14 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.android.gms.maps.model.LatLngBounds
 
 // ▶ CORRECT imports for Compose‐Maps:
 import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapEffect
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.MapsComposeExperimentalApi
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
@@ -109,7 +112,9 @@ fun HomeScreen(
                 modifier   = Modifier.matchParentSize(),
                 activities = allActivities,
                 center     = center,
-                locationGranted = locationGranted
+                locationGranted = locationGranted,
+                onBoundsChanged  = vm::updateMapBounds
+
 
             )
 
@@ -132,13 +137,14 @@ fun HomeScreen(
         )
     }
 }
-
+@OptIn(MapsComposeExperimentalApi::class)
 @Composable
 private fun MapView(
     modifier: Modifier,
     activities: List<ActivityItem>,
     center: LatLng,
-    locationGranted: Boolean
+    locationGranted: Boolean,
+    onBoundsChanged: (LatLngBounds) -> Unit
 ) {
     val cameraState = rememberCameraPositionState()
 
@@ -157,8 +163,9 @@ private fun MapView(
         GoogleMap(
             modifier = Modifier.matchParentSize(),
             cameraPositionState = cameraState,
+
             properties = MapProperties(isMyLocationEnabled = locationGranted),
-            uiSettings = MapUiSettings(myLocationButtonEnabled = locationGranted)
+            uiSettings = MapUiSettings(myLocationButtonEnabled = locationGranted),
         ) {
             activities.forEach { act ->
                 Marker(
@@ -166,7 +173,17 @@ private fun MapView(
                     title = act.title
                 )
             }
+            // 2) Inside the GoogleMap content lambda, attach MapEffect
+            MapEffect(cameraState) { googleMap ->
+                // 3) Register the idle-listener on the raw GoogleMap
+                googleMap.setOnCameraIdleListener {
+                    // when idle, compute the new visible bounds and pass them up
+                    val bounds = googleMap.projection.visibleRegion.latLngBounds
+                    onBoundsChanged(bounds)
+                }
+            }
         }
+
     }
 }
 
