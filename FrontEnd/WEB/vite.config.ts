@@ -7,7 +7,7 @@ export default defineConfig({
     proxy: {
       // catch every /api/* call and send it to your nginx at port 80
       '/api': {
-        target: 'https://127.0.0.1:8443',
+        target: 'http://127.0.0.1:8085',
         changeOrigin: true,
         secure: false,
       },
