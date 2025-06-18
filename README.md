@@ -32,6 +32,9 @@
    docker compose up -d
    ```
 
+3. Aceda à aplicação via navegador:
+   [http://localhost:3000/](http://localhost:3000/)
+
 ## 📱 Front-end (Mobile)
 
 1. Abra o pasta **FrontEnd/Mobile** no Android Studio.
