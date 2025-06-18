@@ -1,28 +1,40 @@
-Como correr os microserviços
+# README
 
-    Para cada microserviço, dentro da pasta do diretório, correr os seguintes comandos:
+**Recomendação:** para melhor compatibilidade e desempenho, execute este projeto em ambiente Linux.
 
-    docker compose up -d
-    docker compose exec app php artisan migrate --seed
+## Como correr o servidor
 
-    No microserviço do RabbitMQ e API Gateway só é necessário correr o primeiro comando:
+1. Navegue até à pasta **services** e execute:
 
-Como testar as funcionalidades
+```
+docker compose up -d
+```
 
-    Regista uma conta fazendo o pedido POST /api/auth/register.
+2. Executar os seeds: basta correr o script **database**, que irá lançar os seguintes comandos:
 
-    Vai a mailtrap.io.
+```
+docker compose exec users-main-app php artisan migrate --seed
+docker compose exec event_manager-app php artisan migrate --seed
+docker compose exec chat-app php artisan migrate --seed
+docker compose exec rating-app php artisan migrate --seed
+docker compose exec achievements-app php artisan migrate --seed
+```
 
-    Faz login com os seguintes dados:
+## Como correr o front-end (Web)
 
-        Email: a12145@alunos.ipca.pt
+1. Navegue até à pasta **FrontEnd/WEB** e execute:
 
-        Password: MEI grupo10
+```
+docker compose up -d
+```
 
-    Abre a inbox e clica no link de confirmação do e-mail.
+## Como correr o front-end (Mobile)
 
-    Faz login na aplicação para obter o token de autenticação.
+1. Abra o projecto no Android Studio.
 
-    Usa esse token para aceder aos restantes endpoints da API.
+## Testes de funcionalidades
 
-teste3
+A conta de **seed**:
+
+- **E-mail:** teste1@gmail.com  
+- **Password:** password
