@@ -1,4 +1,4 @@
-# Nome do Projeto
+# TeamUP
 
 **Recomendação:** para melhor compatibilidade e desempenho, execute este projeto em ambiente Linux.
 
