@@ -1,9 +1,10 @@
 package com.example.teamup.ui.screens.main.UserManager
 
-import android.util.Log                       // ← NEW
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.teamup.data.domain.usecase.LoginUseCase
+import com.example.teamup.data.local.SessionRepository
 import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.data.remote.api.StoreFcmTokenRequest
 import com.google.firebase.messaging.FirebaseMessaging
@@ -15,6 +16,7 @@ import kotlinx.coroutines.tasks.await
 
 class LoginViewModel(
     private val loginUseCase: LoginUseCase,
+    private val sessionRepo: SessionRepository,              // ← NEW
     private val authApi: AuthApi = AuthApi.create()
 ) : ViewModel() {
 
@@ -27,7 +29,7 @@ class LoginViewModel(
 
     /** UI can collect this to show Toast/Snackbar messages */
     private val _toast = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val toast = _toast                    // expose as read-only
+    val toast = _toast                    // expose as read‑only
 
     fun login(email: String, password: String) = viewModelScope.launch {
         Log.d(TAG, "🔑 login() called with email=$email")
@@ -40,25 +42,30 @@ class LoginViewModel(
                 Log.d(TAG, "✅ loginUseCase success – got JWT (${jwt.take(12)}…)")
                 val bearer = "Bearer $jwt"
 
-                /* 1️⃣  Get device FCM token */
+                /* 1️⃣  Persist JWT locally so next app launch can skip login */
+                try {
+                    sessionRepo.save(jwt)
+                    Log.d(TAG, "💾 JWT cached in SessionRepository")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Could not cache JWT", e)
+                }
+
+                /* 2️⃣  Get device FCM token */
                 try {
                     Log.d(TAG, "📡 Fetching FCM token…")
                     val fcmToken = FirebaseMessaging.getInstance().token.await()
                     Log.d(TAG, "📨 FCM token fetched: $fcmToken")
 
-                    /* 2️⃣  Register it with backend */
+                    /* 3️⃣  Register it with backend */
                     Log.d(TAG, "➡️  Sending token to backend …")
                     val resp = authApi.storeFcmToken(
                         auth = bearer,
                         body = StoreFcmTokenRequest(fcmToken)
                     )
-                    Log.d(
-                        TAG,
-                        "⬅️  storeFcmToken() HTTP ${resp.code()} ${resp.message()}"
-                    )
+                    Log.d(TAG, "⬅️  storeFcmToken() HTTP ${resp.code()} ${resp.message()}")
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ Could not register FCM token", e)
-                    _toast.tryEmit("Could not register push-token: ${e.message}")
+                    _toast.tryEmit("Could not register push‑token: ${e.message}")
                 }
 
                 _loginState.value = LoginState.Success(jwt)

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    kotlin("kapt")
 }
 
 android {
@@ -55,10 +56,20 @@ android {
 }
 
 dependencies {
+
+
+    kapt ("androidx.room:room-compiler:2.7.0-alpha13")
+
+    implementation ("androidx.room:room-runtime:2.7.0-alpha13")
+    implementation ("androidx.room:room-ktx:2.7.0-alpha13")
+    implementation(libs.androidx.room.common.jvm)
+
     // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:33.15.0"))
 
     implementation ("com.google.firebase:firebase-messaging-ktx")
+
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Compose BOM
     implementation(platform(libs.androidx.compose.bom))
