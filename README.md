@@ -1,18 +1,25 @@
 # TeamUP
 
-**Recomendação:** para melhor compatibilidade e desempenho, execute este projeto em ambiente Linux.
+**TeamUP** is a app built as part of a Master’s project in Software Engineering.
 
-## 🚀 Iniciar o Servidor
+- **Backend:** Laravel microservices 
+- **Web frontend:** React  
+- **Mobile app:** Android (Kotlin + Jetpack Compose)  
+- **Deployment:** Docker Compose
 
-1. Navegue até à pasta **services**:
+---
+
+## 🚀 Start the Server
+
+1. Go to the **services** folder:
    ```bash
    cd services
    ```
-2. Suba os containers em modo detached:
+2. Start the containers in detached mode:
    ```bash
    docker compose up -d
    ```
-3. Execute os seeds através do script **database**, que irá lançar os comandos:
+3. Run the seed script (`database`), which will execute:
    ```bash
    docker compose exec users-main-app       php artisan migrate --seed
    docker compose exec event_manager-app    php artisan migrate --seed
@@ -21,26 +28,26 @@
    docker compose exec achievements-app     php artisan migrate --seed
    ```
 
-## 🌐 Front-end (Web)
+## 🌐 Web Frontend
 
-1. Navegue até à pasta **FrontEnd/WEB**:
+1. Go to the **FrontEnd/WEB** folder:
    ```bash
    cd FrontEnd/WEB
    ```
-2. Suba os containers:
+2. Start the containers:
    ```bash
    docker compose up -d
    ```
 
-3. Aceda à aplicação via navegador:
+3. Access the app in your browser:  
    [http://localhost:3000/](http://localhost:3000/)
 
-## 📱 Front-end (Mobile)
+## 📱 Mobile Frontend
 
-1. Abra o pasta **FrontEnd/Mobile** no Android Studio.
+1. Open the **FrontEnd/Mobile** folder in Android Studio.
 
-## 🧪 Testes de Funcionalidades
+## 🧪 Test Account
 
-Utilize a conta de **seed** para aceder e testar:
-- **E-mail:** `teste1@gmail.com`
+Use the seeded account to log in and test:
+- **Email:** `teste1@gmail.com`  
 - **Password:** `password`
