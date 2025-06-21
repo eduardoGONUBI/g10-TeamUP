@@ -3,16 +3,14 @@ package com.example.teamup.ui.screens.main.UserManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.teamup.data.domain.usecase.LoginUseCase
+import com.example.teamup.data.local.SessionRepository
 
 class LoginViewModelFactory(
-    private val loginUseCase: LoginUseCase
+    private val loginUseCase: LoginUseCase,
+    private val sessionRepo: SessionRepository           // NEW
 ) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(LoginViewModel::class.java)) {
-            return LoginViewModel(loginUseCase) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
+    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+        LoginViewModel(loginUseCase, sessionRepo) as T
 }
 
 class RegisterViewModelFactory : ViewModelProvider.Factory {

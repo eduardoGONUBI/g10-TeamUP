@@ -3,7 +3,10 @@ package com.example.teamup.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -12,10 +15,12 @@ import androidx.navigation.navArgument
 import com.example.teamup.data.remote.Repository.AuthRepositoryImpl
 import com.example.teamup.data.domain.usecase.LoginUseCase
 import com.example.teamup.data.remote.api.AuthApi
+import com.example.teamup.data.local.AppDatabase
+import com.example.teamup.data.local.SessionRepository
 import com.example.teamup.ui.components.RootScaffold
 import com.example.teamup.ui.screens.*
 import com.example.teamup.ui.screens.Activity.EditActivityScreen
-import com.example.teamup.ui.screens.ChatDetailScreen         // ← FIXED import
+import com.example.teamup.ui.screens.ChatDetailScreen
 import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.main.UserManager.*
 import java.net.URLDecoder
@@ -23,18 +28,26 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
-fun AppNavGraph() {
-    val nav = rememberNavController()
+fun AppNavGraph(
+    navController: NavHostController = rememberNavController()      // default for previews/tests
+) {
+    val nav = navController  // alias preserves existing variable names
+
+    /* ───── SessionRepository scoped to this NavGraph ───── */
+    val context = LocalContext.current
+    val sessionRepo = remember {
+        SessionRepository(AppDatabase.get(context).sessionDao())
+    }
 
     NavHost(navController = nav, startDestination = "login") {
 
         /* ─── 1) LOGIN ─────────────────────────────────────────── */
         composable("login") {
             val loginVM: LoginViewModel = viewModel(
-                factory = remember {
-                    val repo     = AuthRepositoryImpl(AuthApi.create())
-                    val useCase  = LoginUseCase(repo)
-                    LoginViewModelFactory(useCase)
+                factory = remember(sessionRepo) {
+                    val repo    = AuthRepositoryImpl(AuthApi.create())
+                    val useCase = LoginUseCase(repo)
+                    LoginViewModelFactory(useCase, sessionRepo)    // pass SessionRepository ✅
                 }
             )
 
@@ -69,8 +82,8 @@ fun AppNavGraph() {
 
             RegisterScreen(
                 registerViewModel = registerVM,
-                onBackToLogin        = { nav.popBackStack("login", inclusive = false) },
-                onRegistrationDone   = { nav.popBackStack("login", inclusive = false) }
+                onBackToLogin      = { nav.popBackStack("login", inclusive = false) },
+                onRegistrationDone = { nav.popBackStack("login", inclusive = false) }
             )
         }
 
