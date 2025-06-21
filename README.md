@@ -51,6 +51,6 @@
 Use the seeded accounts to log in and test:
 - **Email:** `teste1@gmail.com`  
 - **Password:** `password`
-///////////////////////////////
+
 -  **Email:** `admin@example.com`  
 - **Password:** `admin`
