@@ -88,6 +88,11 @@ class ProfileViewModel(
     /* ── Cache userId do token ────────────────────────────── */
     private var userId: Int? = null
 
+    // avatar
+    private val _avatarUrl = MutableStateFlow<String?>(null)
+    val avatarUrl: StateFlow<String?> = _avatarUrl
+
+
     // ─────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────
@@ -134,6 +139,8 @@ class ProfileViewModel(
             _username.value = me.name
             _location.value = me.location
             _sports.value   = me.sports?.map { it.name } ?: emptyList()
+            _avatarUrl.value = BaseUrlProvider.getBaseUrl() +
+                    "api/auth/avatar/${me.id}?t=${System.currentTimeMillis()}"
         } catch (e: Exception) {
             _error.value = e.localizedMessage
         }

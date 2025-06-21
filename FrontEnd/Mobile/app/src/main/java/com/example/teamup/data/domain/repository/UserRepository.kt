@@ -4,10 +4,12 @@ import com.example.teamup.data.domain.model.User
 import com.example.teamup.data.remote.model.SportDto
 import com.example.teamup.data.remote.model.UpdateUserRequest
 import com.example.teamup.data.remote.model.UserDto
+import okhttp3.MultipartBody
 
 interface UserRepository {
     suspend fun getMe(token: String): UserDto
     suspend fun updateMe(token: String, body: UpdateUserRequest): UserDto
     suspend fun deleteMe(token: String)
     suspend fun getAllSports(token: String): List<SportDto>
+    suspend fun uploadAvatar(token: String, part: MultipartBody.Part): UserDto
 }

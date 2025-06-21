@@ -2,6 +2,7 @@ package com.example.teamup.data.remote.api
 
 import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.model.*
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient                     // ← NEW
 import okhttp3.logging.HttpLoggingInterceptor  // ← NEW
 import retrofit2.Response
@@ -63,6 +64,14 @@ interface AuthApi {
         @Header("Authorization") auth: String,
         @Body body: ChangeEmailRequestDto
     ): Response<GenericMessageResponseDto>
+
+    /** POST /api/auth/avatar – upload (or replace) the current user’s avatar */
+    @Multipart
+    @POST("/api/auth/avatar")
+    suspend fun uploadAvatar(
+        @Header("Authorization") auth: String,
+        @Part avatar: MultipartBody.Part            // field name MUST be “avatar”
+    ): UserDto                                      // server returns the updated user
 
     // ------------------------------------------------------------------
 

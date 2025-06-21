@@ -1,6 +1,9 @@
 // File: app/src/main/java/com/example/teamup/ui/screens/EditProfileScreen.kt
 package com.example.teamup.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts.GetContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,7 +28,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.teamup.R
+import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.Repository.UserRepositoryImpl
 import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.data.remote.model.SportDto
@@ -40,6 +46,7 @@ import com.google.android.libraries.places.api.net.PlacesClient
 @Composable
 fun EditProfileScreen(
     token: String,
+    userId: Int,
     usernameInitial: String,
     locationInitial: String,
     sportsInitial: List<Int>,
@@ -72,9 +79,18 @@ fun EditProfileScreen(
 
     var didDelete       by remember { mutableStateOf(false) }
     var showDeleteDlg   by remember { mutableStateOf(false) }
+    var avatarUri by remember { mutableStateOf<Uri?>(null) }
+    val ctx = LocalContext.current
+    /* ─────── Image picker ─────── */
+    val pickImage = rememberLauncherForActivityResult(GetContent()) { uri: Uri? ->
+        uri?.let {
+            avatarUri = it
+            vm.uploadAvatar("Bearer $token", it, ctx.contentResolver)
+        }
+    }
 
     /* ──────── Google Places (inline autocomplete) ──────── */
-    val ctx = LocalContext.current
+
 
     LaunchedEffect(Unit) {
         if (!Places.isInitialized()) {
@@ -152,32 +168,42 @@ fun EditProfileScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            /* Avatar placeholder ------------------------------------------------ */
+
+            /* Avatar ----------------------------------------------------------- */
             Box(
                 modifier = Modifier
                     .size(120.dp)
                     .align(Alignment.CenterHorizontally)
             ) {
-                Surface(
+                /* Imagem actual (Se avatarUri == null faz load do URL existente) */
+                val avatarUrl = avatarUri
+                    ?: "${BaseUrlProvider.getBaseUrl()}api/auth/avatar/$userId"
+
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(avatarUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Avatar",
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {}
+                        .clip(CircleShape)
+                )
+
+                /* Botão flutuante para trocar */
                 Icon(
                     painter = painterResource(R.drawable.change_profile_pic),
-                    contentDescription = null,
-                    tint  = Color.White.copy(alpha = .7f),
+                    contentDescription = "Mudar fotografia",
+                    tint = Color.White.copy(alpha = .7f),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .size(32.dp)
                         .background(MaterialTheme.colorScheme.primary, CircleShape)
                         .padding(4.dp)
-                        .clickable { /* TODO image picker */ }
+                        .clickable { pickImage.launch("image/*") }
                 )
             }
 
-            Spacer(Modifier.height(32.dp))
 
             /* Form --------------------------------------------------------------- */
             Column(Modifier.padding(horizontal = 16.dp)) {
@@ -364,6 +390,15 @@ fun EditProfileScreen(
                 )
             }
         }
+        /* Progress circular enquanto carrega avatar */
+        if (uiState.avatarBusy) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .size(36.dp)
+                    .align(Alignment.TopCenter)
+            )
+        }
+
 
         /* Snackbars --------------------------------------------------------- */
         uiState.error?.let {

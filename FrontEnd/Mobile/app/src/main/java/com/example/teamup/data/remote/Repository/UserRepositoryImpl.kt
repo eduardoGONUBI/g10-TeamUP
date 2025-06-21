@@ -7,6 +7,7 @@ import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.model.UpdateUserRequest
 import com.example.teamup.data.remote.model.UserDto
 import com.example.teamup.data.remote.model.SportDto
+import okhttp3.MultipartBody
 
 class UserRepositoryImpl(
     private val authApi: AuthApi
@@ -37,5 +38,9 @@ class UserRepositoryImpl(
     override suspend fun getAllSports(token: String): List<SportDto> {
         // Now that activityApi is defined, we can call getSports(...)
         return activityApi.getSports(bearer(token))
+    }
+
+    override suspend fun uploadAvatar(token: String, part: MultipartBody.Part): UserDto {
+        return authApi.uploadAvatar(bearer(token), part)
     }
 }
