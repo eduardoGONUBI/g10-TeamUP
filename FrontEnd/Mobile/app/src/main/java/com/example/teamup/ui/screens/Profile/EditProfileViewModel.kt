@@ -10,9 +10,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import com.example.teamup.data.remote.model.SportDto
+import android.net.Uri
+import android.content.ContentResolver
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 
 data class EditProfileUiState(
     val saving: Boolean = false,
+    val avatarBusy : Boolean = false,
     val error : String? = null,
     val done  : Boolean = false          // flips to true when update succeeds / account deleted
 )
@@ -81,4 +87,30 @@ class EditProfileViewModel(
             _error.value = e.message
         }
     }
+
+    fun uploadAvatar(bearer: String, uri: Uri, resolver: ContentResolver) {
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(avatarBusy = true, error = null)
+            try {
+                // Convert Uri → MultipartBody.Part
+                val stream = resolver.openInputStream(uri)!!
+                val bytes  = stream.readBytes()
+                val req    = bytes.toRequestBody("image/*".toMediaType())
+                val part   = MultipartBody.Part.createFormData(
+                    name  = "avatar",
+                    filename = "avatar_${System.currentTimeMillis()}.jpg",
+                    body = req
+                )
+
+                repo.uploadAvatar(bearer, part)
+                _ui.value = _ui.value.copy(avatarBusy = false)
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(
+                    avatarBusy = false,
+                    error = e.message
+                )
+            }
+        }
+    }
+
 }

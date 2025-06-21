@@ -30,12 +30,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.teamup.R
 import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.presentation.profile.ProfileViewModel
@@ -73,8 +79,21 @@ fun ProfileScreen(
     val hasMore         by viewModel.hasMoreCreated.collectAsState()
     val error           by viewModel.error.collectAsState()
     val activitiesError by viewModel.activitiesError.collectAsState()
+    val avatarUrl by viewModel.avatarUrl.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(Unit) {
+        val obs = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadUser(token)            // refaz pedido /me
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
 
     // Trigger loads
     LaunchedEffect(token) {
@@ -90,6 +109,7 @@ fun ProfileScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
+
             // Avatar
             item {
                 Box(
@@ -98,9 +118,21 @@ fun ProfileScreen(
                         .fillMaxWidth()
                         .padding(top = 24.dp)
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.fotografia),
-                        contentDescription = "Default Avatar",
+                    val fullUrl = when {
+                        avatarUrl.isNullOrBlank()            -> null                     // usa fallback
+                        avatarUrl!!.startsWith("http")       -> avatarUrl                // URL absoluta
+                        else -> {                                                      // caminho relativo
+                            BaseUrlProvider.getBaseUrl().trimEnd('/') +
+                                    "/" + avatarUrl!!.trimStart('/')
+                        }
+                    }
+
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(fullUrl ?: R.drawable.fotografia)   // fallback se for null
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Avatar",
                         modifier = Modifier
                             .size(96.dp)
                             .clip(CircleShape),
@@ -108,6 +140,7 @@ fun ProfileScreen(
                     )
                 }
             }
+
 
             // Username
             item {

@@ -149,7 +149,7 @@ fun RootScaffold(
 
                     onEditProfile = {
                         val e = URLEncoder.encode(decoded, "UTF-8")
-                        navController.navigate("edit_profile/$e")
+                        navController.navigate("edit_profile/$e/$myUserId")
                     },
 
                     onLogout = {
@@ -169,15 +169,19 @@ fun RootScaffold(
 
             /* ─── Edit profile ───────────────────────────────────────────── */
             composable(
-                "edit_profile/{token}",
+                "edit_profile/{token}/{uid}",
                 arguments = listOf(navArgument("token") { type = NavType.StringType })
+
             ) { back ->
                 val raw     = back.arguments!!.getString("token")!!
                 val decoded = URLDecoder.decode(raw, "UTF-8")
 
+                val uid      = back.arguments!!.getInt("uid")
+
                 // You could fetch current values first; here we pass blanks for brevity
                 EditProfileScreen(
                     token            = decoded,
+                    userId           = uid,
                     usernameInitial  = "",      // pre-fill when you have them
                     locationInitial  = "",
                     sportsInitial    = emptyList(),
