@@ -2,6 +2,7 @@ package com.example.teamup.data.remote.model
 
 import com.google.gson.annotations.SerializedName
 
+
 data class MessageDto(
     val id: Int?,
     @SerializedName("event_id") val eventId: Int,

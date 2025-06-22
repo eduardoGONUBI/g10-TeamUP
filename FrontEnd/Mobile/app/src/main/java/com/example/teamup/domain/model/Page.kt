@@ -1,4 +1,3 @@
-// Page.kt   (generic pagination wrapper)
 package com.example.teamup.domain.model
 
 

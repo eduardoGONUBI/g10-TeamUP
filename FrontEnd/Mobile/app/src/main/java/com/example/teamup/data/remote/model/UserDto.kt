@@ -7,8 +7,8 @@ data class UserDto(
     val name      : String,
     val email     : String,
     val location  : String?,
-    val latitude  : Double?,      // ← NEW
-    val longitude : Double?,      // ← NEW
+    val latitude  : Double?,
+    val longitude : Double?,
     val sports    : List<SportDto>?,
     @SerializedName("avatar_url")
     val avatarUrl : String?
@@ -21,7 +21,7 @@ data class PublicUserDto(
     val name      : String,
     val avatar_url: String?,
     val location  : String?,
-    val latitude  : Double?,      // ← NEW
-    val longitude : Double?,      // ← NEW
+    val latitude  : Double?,
+    val longitude : Double?,
     val sports    : List<SportDto>?
 )

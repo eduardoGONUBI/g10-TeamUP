@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/HomeScreen.kt
 package com.example.teamup.ui.screens
 
 import android.Manifest
@@ -46,7 +45,7 @@ fun HomeScreen(
     token: String,
     onActivityClick: (Activity) -> Unit
 ) {
-    /* 1) ViewModel with injected repository */
+    // Cria o HomeViewModel com o repo injetado
     val vm: HomeViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -58,7 +57,7 @@ fun HomeScreen(
     )
 
 
-    /* 2) UI-state from the VM */
+    /* estados do viewmodel*/
     val allActivities     by vm.activities.collectAsState()
     val visibleActivities by vm.visibleActivities.collectAsState()
     val hasMore           by vm.hasMore.collectAsState()
@@ -66,7 +65,7 @@ fun HomeScreen(
     val center            by vm.center.collectAsState()
 
 
-    /* 3) Context & fine-location permission */
+    /* permissao de localizaçao*/
     val ctx = LocalContext.current
     val locPerm = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
     val locationGranted = locPerm.status is PermissionStatus.Granted
@@ -82,7 +81,7 @@ fun HomeScreen(
     LaunchedEffect(token) {
         vm.loadActivities(token)
     }
-    // 2) Only react to permission changes for centering the map
+    // Only react to permission changes for centering the map
     LaunchedEffect(locPerm.status) {
         if (locPerm.status is PermissionStatus.Granted) {
             vm.fetchAndCenterOnGps(ctx)
@@ -92,10 +91,10 @@ fun HomeScreen(
     }
 
 
-    /* 5) UI layout */
+    /* UI layout */
     Column(modifier = Modifier.fillMaxSize()) {
 
-        /* Map with “My location” FAB layered on top */
+
         Box(
             modifier = Modifier
                 .height(300.dp)

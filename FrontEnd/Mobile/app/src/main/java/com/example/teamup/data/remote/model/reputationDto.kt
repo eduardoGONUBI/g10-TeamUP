@@ -21,6 +21,6 @@ data class UserAverageResponse(
 
 data class FeedbackRequestDto(
     @SerializedName("user_id")  val userId:   Int,
-    @SerializedName("attribute")val attribute:String   // “good_teammate”, “friendly”… in snake-case
+    @SerializedName("attribute")val attribute:String
 )
 

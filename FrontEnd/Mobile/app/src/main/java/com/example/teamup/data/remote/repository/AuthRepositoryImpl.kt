@@ -17,6 +17,7 @@ class AuthRepositoryImpl(
     private val api: AuthApi
 ) : AuthRepository {
 
+    // login
     override suspend fun login(email: String, password: String): Result<String> {
         return try {
             val response = api.login(LoginRequestDto(email, password))
@@ -26,6 +27,7 @@ class AuthRepositoryImpl(
         }
     }
 
+    // registar
     override suspend fun register(request: RegisterRequestDomain): Result<String> {
         return try {
             val dto      = request.toDto()
@@ -34,7 +36,6 @@ class AuthRepositoryImpl(
                 val body = response.body()
                 Result.success(body?.message ?: "Registered successfully")
             } else {
-                // Extract Laravel validation errors or fallback
                 val errorMsg = try {
                     val errorJson = response.errorBody()?.string() ?: ""
                     val jsonObj   = JSONObject(errorJson)
@@ -60,6 +61,7 @@ class AuthRepositoryImpl(
         }
     }
 
+    // forgot password
     override suspend fun forgotPassword(email: String): Result<String> {
         return try {
             val dto      = ForgotPasswordRequestDto(email = email)
@@ -93,6 +95,7 @@ class AuthRepositoryImpl(
         }
     }
 
+    // change password
     override suspend fun changePassword(
         token: String,
         currentPassword: String,
@@ -134,6 +137,7 @@ class AuthRepositoryImpl(
         }
     }
 
+    // change email
     override suspend fun changeEmail(
         token: String,
         newEmail: String,

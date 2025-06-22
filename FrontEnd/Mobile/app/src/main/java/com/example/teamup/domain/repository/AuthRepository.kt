@@ -1,10 +1,9 @@
 package com.example.teamup.domain.repository
 
-import com.example.teamup.data.remote.model.RegisterRequestDto
 import com.example.teamup.domain.model.RegisterRequestDomain
 
 interface AuthRepository {
-    suspend fun login(email: String, password: String): Result<String> // returns token or error
+    suspend fun login(email: String, password: String): Result<String>
     suspend fun register(request: RegisterRequestDomain): Result<String>
     suspend fun forgotPassword(email: String): Result<String>
     suspend fun changePassword(

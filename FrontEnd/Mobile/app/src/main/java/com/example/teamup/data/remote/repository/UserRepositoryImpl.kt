@@ -10,22 +10,25 @@ import com.example.teamup.domain.model.User
 import com.example.teamup.domain.repository.UserRepository
 import okhttp3.MultipartBody
 
-/**
- * Implements domain-level UserRepository by mapping between DTOs and domain models.
- */
+
 class UserRepositoryImpl(
     private val authApi: AuthApi,
     private val activityApi: ActivityApi
 ) : UserRepository {
 
+
+
     private fun bearer(token: String): String =
         if (token.startsWith("Bearer ")) token else "Bearer $token"
 
+
+
     override suspend fun getMe(token: String): User {
-        val dto = authApi.getCurrentUser() // interceptor adds header
+        val dto = authApi.getCurrentUser()
         return dto.toDomain()
     }
 
+    // edita o profile
     override suspend fun updateMe(
         token: String,
         body: UpdateUserRequestDomain
@@ -35,15 +38,18 @@ class UserRepositoryImpl(
         return updated.toDomain()
     }
 
+    // apaga a conta
     override suspend fun deleteMe(token: String) {
         authApi.deleteMe(bearer(token))
     }
 
+    // lista desportos
     override suspend fun getAllSports(token: String): List<Sport> {
         return activityApi.getSports(bearer(token))
             .map { it.toDomain() }
     }
 
+    // muda a foto de perfil
     override suspend fun uploadAvatar(
         token: String,
         part: MultipartBody.Part

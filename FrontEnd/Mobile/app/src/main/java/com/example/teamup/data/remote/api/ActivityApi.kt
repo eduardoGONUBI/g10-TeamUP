@@ -1,6 +1,6 @@
 package com.example.teamup.data.remote.api
 
-import com.example.teamup.domain.model.CreateEventRequestDomain
+
 import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.model.ActivityDto
 import com.example.teamup.data.remote.model.CreateEventRawResponse
@@ -23,6 +23,7 @@ import retrofit2.http.Query
 
 interface ActivityApi {
 
+    // minhas ativities
     @GET("/api/events/mine")
     suspend fun getMyActivities(
         @Header("Authorization") token: String,
@@ -30,23 +31,22 @@ interface ActivityApi {
         @Query("per_page")       per:   Int = 7
     ): PaginatedResponse<ActivityDto>
 
+    // atividades criados do utilizador
     @GET("/api/events/{id}")
     suspend fun getEventDetail(
         @Path("id") id: Int,
         @Header("Authorization") token: String
     ): ActivityDto
 
+    // apagar atividade
     @DELETE("/api/events/{id}")
     suspend fun deleteActivity(
         @Header("Authorization") token: String,
         @Path("id") id: Int
     ): Response<Unit>
 
-    /*@GET("/api/events")
-    suspend fun getAllEvents(
-        @Header("Authorization") token: String
-    ): List<ActivityDto>
-*/
+
+    // remover participante
     @DELETE("/api/events/{eventId}/participants/{participantId}")
     suspend fun kickParticipant(
         @Header("Authorization") token: String,
@@ -54,14 +54,14 @@ interface ActivityApi {
         @Path("participantId") participantId: Int
     ): Response<Unit>
 
-    // ⚙️ Leave event endpoint
+    // sair da atividade
     @DELETE("/api/events/{id}/leave")
     suspend fun leaveEvent(
         @Header("Authorization") token: String,
         @Path("id") id: Int
     ): Response<Unit>
 
-    // ✅ Update an event
+    // update atividade
     @PUT("/api/events/{id}")
     suspend fun updateActivity(
         @Header("Authorization") token: String,
@@ -70,6 +70,7 @@ interface ActivityApi {
     ): Response<Unit>
 
 
+    // procurar atividade
     @GET("/api/events/search")
     suspend fun searchEvents(
         @Header("Authorization") token: String,
@@ -81,34 +82,31 @@ interface ActivityApi {
         @Query("date")  date:  String? = null
     ): PaginatedResponse<ActivityDto>
 
+    // lista de desportos
     @GET("/api/sports")
     suspend fun getSports(
         @Header("Authorization") token: String
     ): List<SportDto>
 
-    /**
-     * The server’s response to POST /api/events
-     */
+// criar atividade
     @POST("/api/events")
     suspend fun createEvent(
         @Header("Authorization") token: String,
-        @Body body: CreateEventRequestDto        // <- changed
+        @Body body: CreateEventRequestDto
     ): CreateEventRawResponse
 
-    /**
-     * Join an event.
-     * */
+ // join atividade
     @POST("/api/events/{id}/join")
     suspend fun joinEvent(
         @Header("Authorization") token: String,
         @Path("id") id: Int
     ): Response<Unit>
 
-//Stashed changes
+
 companion object {
     fun create(): ActivityApi {
         val retrofit = Retrofit.Builder()
-            .baseUrl(BaseUrlProvider.getBaseUrl())  // switch between emulator and phone
+            .baseUrl(BaseUrlProvider.getBaseUrl())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 

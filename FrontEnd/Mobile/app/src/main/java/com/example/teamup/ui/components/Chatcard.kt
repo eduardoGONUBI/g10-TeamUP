@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/teamup/ui/components/ChatCard.kt
+
 package com.example.teamup.ui.components
 
 import androidx.compose.foundation.Image
@@ -26,20 +26,20 @@ import com.example.teamup.R
 import com.example.teamup.domain.model.Chat
 import java.util.Locale
 
+// cartao do chat nas listas
 @Composable
 fun ChatCard(
     chat: Chat,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 1) Decide background color
+
     val bgColor = when {
-        chat.isCreator     -> Color(0xFFE3F2FD)   // pale blue if creator
-        chat.isParticipant -> Color(0xFFF5F5F5)   // light gray if participant
-        else               -> Color(0xFFF5F5F5)   // light gray otherwise
+        chat.isCreator     -> Color(0xFFE3F2FD)
+        chat.isParticipant -> Color(0xFFF5F5F5)
+        else               -> Color(0xFFF5F5F5)
     }
 
-    // 2) Force all text/icon to black
     val titleColor         = Color.Black
     val secondaryTextColor = Color.Black.copy(alpha = 0.8f)
     val labelColor         = Color.Black.copy(alpha = 0.7f)
@@ -92,7 +92,7 @@ fun ChatCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // 4) Text column with “You are the creator” BELOW sport
+
             Column(Modifier.weight(1f)) {
                 // Title
                 Text(
@@ -110,7 +110,7 @@ fun ChatCard(
                     color = secondaryTextColor
                 )
 
-                // “You are the creator” label now comes below the sport
+                // You are the creator
                 if (chat.isCreator) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -122,7 +122,7 @@ fun ChatCard(
                 }
             }
 
-            // 5) Chevron icon
+            // >>>>>>
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,

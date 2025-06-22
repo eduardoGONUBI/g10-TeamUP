@@ -74,6 +74,7 @@ fun NotificationScreen() {
     }
 }
 
+
 @Composable
 private fun NotificationCard(
     note: Notify,

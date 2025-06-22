@@ -1,6 +1,5 @@
 package com.example.teamup.domain.model
 
-
 data class Activity(
     val id: String,
     val title: String,

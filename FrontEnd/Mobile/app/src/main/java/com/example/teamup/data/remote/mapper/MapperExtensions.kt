@@ -142,7 +142,8 @@ internal fun <T, R> PaginatedResponse<T>.toDomain(mapper: (T) -> R): Page<R> = P
     totalPages = meta.lastPage,
     totalItems = meta.total
 )
-// Chat message mapping
+
+
 internal fun MessageDto.toDomain(currentUserId: Int): Message =
     Message(
         id        = id,
@@ -154,7 +155,7 @@ internal fun MessageDto.toDomain(currentUserId: Int): Message =
         fromMe    = (userId == currentUserId)
     )
 
-// === Domain → DTO mappers for requests ===
+// === Domain → DTO mappers (para enviar para API) ===
 
 internal fun UpdateUserRequestDomain.toDto(): UpdateUserRequest = UpdateUserRequest(
     name      = this.name,
@@ -173,11 +174,7 @@ internal fun RegisterRequestDomain.toDto(): RegisterRequestDto = RegisterRequest
     location             = this.location
 )
 
-/**
- * Converts the label that the user picked in the dialog
- * (“Friendly”, “Good teammate”, …) into the slug string
- * required by the API.
- */
+
 internal fun String.toFeedbackSlug(): String = when (trim().lowercase()) {
     "friendly"        -> "friendly"
     "good teammate"   -> "good_teammate"
@@ -185,6 +182,6 @@ internal fun String.toFeedbackSlug(): String = when (trim().lowercase()) {
     "toxic"           -> "toxic"
     "bad sport"       -> "bad_sport"
     "afk"             -> "afk"
-    else              -> "friendly"      // sensible default / fallback
+    else              -> "friendly"
 }
 

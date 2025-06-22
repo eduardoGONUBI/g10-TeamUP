@@ -1,7 +1,5 @@
 package com.example.teamup.data.remote.model
 
-import com.google.gson.annotations.SerializedName
-
 
 data class AchievementDto(
     val code: String,

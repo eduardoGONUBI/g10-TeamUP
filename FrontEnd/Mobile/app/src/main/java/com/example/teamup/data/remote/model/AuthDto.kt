@@ -30,9 +30,9 @@ data class Payload(
 data class UpdateUserRequest(
     val name      : String?  = null,
     val email     : String?  = null,
-    val location  : String?  = null,   // “Lisbon”
-    val latitude  : Double?  = null,   // 38.7167
-    val longitude : Double?  = null,   // -9.1396
+    val location  : String?  = null,
+    val latitude  : Double?  = null,
+    val longitude : Double?  = null,
     val sports    : List<Int>? = null
 )
 
@@ -42,11 +42,11 @@ data class RegisterRequestDto(
     val email: String,
     val password: String,
 
-    // IMPORTANT: Laravel expects “password_confirmation”
+
     @SerializedName("password_confirmation")
     val passwordConfirmation: String,
 
-    // We are storing “location” (city)
+
     val location: String
 )
 
@@ -64,7 +64,7 @@ data class ChangePasswordRequestDto(
     @SerializedName("new_password")
     val newPassword: String,
 
-    // Laravel expects "new_password_confirmation" (matching your controller's "confirmed" rule)
+
     @SerializedName("new_password_confirmation")
     val newPasswordConfirmation: String
 )

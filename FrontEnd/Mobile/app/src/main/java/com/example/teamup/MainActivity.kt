@@ -17,39 +17,42 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.teamup.data.local.AppDatabase
 import com.example.teamup.data.local.SessionRepository
-import com.example.teamup.ui.AppNavGraph
+import com.example.teamup.ui.navigation.AppNavGraph
 import com.example.teamup.ui.theme.TeamUPTheme
 import com.google.android.libraries.places.api.Places
 import java.net.URLEncoder
 
 class MainActivity : ComponentActivity() {
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Initialize Google Places (maps)
+        // google places
         if (!Places.isInitialized()) {
             Places.initialize(applicationContext, getString(R.string.google_maps_key))
         }
 
         setContent {
             TeamUPTheme {
-                /* ───── In-app navigation controller ───── */
+
+                // controlador de navegaçao
                 val navController = rememberNavController()
 
-                /* ───── SessionRepository (Room) ───── */
+                 //sessao local
                 val context = LocalContext.current
                 val sessionRepo = remember {
                     SessionRepository(AppDatabase.get(context).sessionDao())
                 }
 
-                /* -------- Navigation graph first (so routes exist) -------- */
+                //Define as rotas da app com base no NavController.
                 AppNavGraph(navController = navController)
 
-                /* Prompt notification permission (Android 13+) */
+               // Pede permissão de notificações
                 NotificationPermissionRequester()
 
-                /* ───── Skip login if token exists ───── */
+               // Se existir token guardado, faz login automático
                 LaunchedEffect(Unit) {
                     sessionRepo.token.collect { token ->
                         if (token != null) {
@@ -66,15 +69,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Prompts the user for the POST_NOTIFICATIONS permission only on Android 13+.
- */
+// pede permissao para notificaçoes
 @Composable
 private fun NotificationPermissionRequester() {
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) { /* Optional callback – no-op for now */ }
+    ) {  }
 
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

@@ -12,10 +12,7 @@ import okio.ByteString
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-/**
- * Thin wrapper around OkHttp’s WebSocket that exposes an idiomatic Kotlin Flow
- * for new messages.  Connect once, collect forever.
- */
+// conecta websocket com o chat
 class ChatWebSocket(
     private val token: String,
     private val eventId: Int,
@@ -28,13 +25,13 @@ class ChatWebSocket(
 
     private var socket: WebSocket? = null
 
-    // Buffer up to 64 uncollected messages without suspending the sender
+
     private val _incoming = MutableSharedFlow<Message>(extraBufferCapacity = 64)
     val incoming: SharedFlow<Message> = _incoming
 
     fun connect() {
         val request = Request.Builder()
-            // NOTE: 10.0.2.2 = “localhost” from the Android emulator
+
             .url("ws://10.0.2.2:55333/?token=$token")
             .build()
 
@@ -56,24 +53,17 @@ class ChatWebSocket(
         socket?.close(1000, null)
     }
 
-    /** If you ever want to push directly over WS instead of POST’ing. */
+
     fun sendOverWebSocket(raw: String) {
         socket?.send(raw)
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Internals
-    // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Parses a raw JSON string from the server and, if it belongs to `eventId`,
-     * emits it into [_incoming].  Any exceptions are caught and logged.
-     */
+// le o json da mensagem recebida e converte
     private fun parseAndEmit(raw: String) {
         try {
             val json = JSONObject(raw)
 
-            // Ignore messages for other events
             if (json.getInt("event_id") != eventId) return
 
             val msg = Message(

@@ -7,7 +7,7 @@ data class ActivityDto(
     val id: Int,
     val name: String,
     val sport: String,
-    @SerializedName("starts_at") val startsAt: String?,   // ← can be null if backend still sends “date”
+    @SerializedName("starts_at") val startsAt: String?,
     @SerializedName("date")      val date: String? = null,
     val place: String,
     val status: String,

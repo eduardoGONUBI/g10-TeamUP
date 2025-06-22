@@ -13,7 +13,7 @@ object ChatApi {
 
     private val client = OkHttpClient()
 
-    /** POST /sendMessage/{eventId}  */
+   // enviar mensagem
     suspend fun sendMessage(
         token: String,
         eventId: Int,
@@ -35,8 +35,7 @@ object ChatApi {
         }
     }
 
-    /** GET /fetchMessages/{eventId}  */
-    // ChatApi.kt  – only the fetchHistory() function is shown here
+// buscar mensagens do chat
     suspend fun fetchHistory(
         token: String,
         eventId: Int
@@ -57,7 +56,7 @@ object ChatApi {
                 for (i in 0 until arr.length()) {
                     val j = arr.getJSONObject(i)
 
-                    // numeric fields arrive as strings → toIntOrNull()
+
                     val uid = j.optString("user_id").toIntOrNull() ?: -1
                     val eid = j.optString("event_id").toIntOrNull() ?: eventId
 
@@ -68,8 +67,8 @@ object ChatApi {
                             userId = uid,
                             author = j.optString("user_name"),
                             text = j.optString("message"),
-                            timestamp = j.optString("created_at"),   // ← HERE
-                            fromMe = false                        // fixed later
+                            timestamp = j.optString("created_at"),
+                            fromMe = false
                         )
                     )
                 }

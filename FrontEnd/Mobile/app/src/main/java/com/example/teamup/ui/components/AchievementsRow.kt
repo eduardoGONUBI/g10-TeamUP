@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/components/AchievementsRow.kt
 package com.example.teamup.ui.components
 
 import androidx.compose.foundation.clickable
@@ -21,12 +20,13 @@ import com.example.teamup.data.remote.model.AchievementDto
 import com.example.teamup.data.remote.BaseUrlProvider
 import java.net.URI
 
+// lista de achievemetns
 @Composable
 fun AchievementsRow(
     achievements: List<AchievementDto>,
     modifier: Modifier = Modifier
 ) {
-    // Track which achievement (if any) was tapped:
+    // verifica o achievemente que foi clicado
     var selectedAchievement by remember { mutableStateOf<AchievementDto?>(null) }
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -34,7 +34,7 @@ fun AchievementsRow(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp), // slightly shorter placeholder
+                    .height(64.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -59,7 +59,7 @@ fun AchievementsRow(
             }
         }
 
-        // Only show the description (no title) when tapped:
+        // mostra a descriçao do achievemente se for clicado
         selectedAchievement?.let { ach ->
             AlertDialog(
                 onDismissRequest = { selectedAchievement = null },
@@ -84,26 +84,22 @@ private fun AchievementIcon(
     achievement: AchievementDto,
     onClick: (AchievementDto) -> Unit
 ) {
-    // 1) Grab whatever "icon" URL backend gave us:
+
     var rawUrl = achievement.icon
 
-    // 2) Strip out any "127.0.0.1:8000" → "10.0.2.2:8085" hack (emulator)
     if (rawUrl.contains("127.0.0.1:8000")) {
         rawUrl = rawUrl.replace("127.0.0.1:8000", "10.0.2.2:8085")
     }
-
-    // 3) Extract only the path portion ("/achievements/XYZ.png"):
     val path = try {
         URI(rawUrl).path
     } catch (e: Exception) {
         rawUrl.substringAfter("/", "/")
     }
 
-    // 4) Build final URL = BASE + path:
     val base    = BaseUrlProvider.getBaseUrl().trimEnd('/')
     val iconUrl = "$base$path"
 
-    // Render the icon without any Card or background:
+
     AsyncImage(
         model = iconUrl,
         contentDescription = null,

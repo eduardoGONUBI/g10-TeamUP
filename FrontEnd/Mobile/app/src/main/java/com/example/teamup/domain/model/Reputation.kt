@@ -9,6 +9,7 @@ data class Reputation(
     val afk: Int?
 )
 
+
 data class FeedbackRequest(
     val userId: Int,
     val attribute: String

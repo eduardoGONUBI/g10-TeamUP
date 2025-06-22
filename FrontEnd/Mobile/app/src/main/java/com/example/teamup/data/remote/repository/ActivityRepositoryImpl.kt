@@ -17,10 +17,12 @@ class ActivityRepositoryImpl(
 
     override var hasMore: Boolean = true
 
+    // garante o prefixo bearer no header
     private fun auth(token: String): String =
         if (token.trim().startsWith("Bearer ")) token.trim()
         else "Bearer ${'$'}{token.trim()}"
 
+    // extrai o id do user pelo token
      fun extractUserId(token: String): Int {
         return try {
             val raw = token.removePrefix("Bearer ").trim()
@@ -38,6 +40,7 @@ class ActivityRepositoryImpl(
         }
     }
 
+     // vai buscar atividades que user esta a participar ou criou
     override suspend fun getMyActivities(token: String, page: Int): List<Activity> {
         val uid = extractUserId(token)
         val resp = api.getMyActivities(auth(token), page)
@@ -45,6 +48,7 @@ class ActivityRepositoryImpl(
         return resp.data.map { it.toDomain(currentUserId = uid) }
     }
 
+    // procura atividades por filtros
     override suspend fun searchActivities(
         token: String,
         page: Int,
@@ -68,12 +72,13 @@ class ActivityRepositoryImpl(
         return resp.data.map { it.toDomain(currentUserId = uid) }
     }
 
+    // cria atividade
     override suspend fun createActivity(
         token: String,
         body: CreateEventRequestDomain
     ): Activity {
-        // Mapping inline to preserve existing behavior
-        val dto = body.toDto()                           // <-- convert
+
+        val dto = body.toDto()
         val raw = api.createEvent(auth(token), dto)
         val e = raw.event
         val uid = extractUserId(token)
@@ -94,10 +99,12 @@ class ActivityRepositoryImpl(
         )
     }
 
+    // lista os desportos
     override suspend fun getSports(token: String): List<Sport> =
         api.getSports(auth(token))
             .map { it.toDomain() }
 
+    // vai buscar todos as atividades menos as concluidas
     override suspend fun getAllEvents(
         token: String,
         page: Int,
@@ -111,6 +118,7 @@ class ActivityRepositoryImpl(
             .filter { it.status != "concluded" }
     }
 
+    // lista de chats
     override suspend fun myChats(
         token: String,
         page: Int

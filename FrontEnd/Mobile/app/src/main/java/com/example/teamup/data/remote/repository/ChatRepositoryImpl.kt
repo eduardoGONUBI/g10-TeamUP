@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/teamup/data/remote/repository/ChatRepositoryImpl.kt
+
 package com.example.teamup.data.remote.repository
 
 import android.util.Base64
@@ -14,6 +14,7 @@ class ChatRepositoryImpl(
     private fun bearer(token: String): String =
         if (token.startsWith("Bearer ")) token else "Bearer $token"
 
+    // extrai id do user pelo token
     private fun extractUserId(token: String): Int {
         return try {
             val raw = token.removePrefix("Bearer ").trim()
@@ -31,28 +32,26 @@ class ChatRepositoryImpl(
         }
     }
 
+    // vai buscar as mensagens do chat
     override suspend fun fetchMessages(token: String, eventId: Int): List<Message> {
         val uid = extractUserId(token)
-        // ChatApi.fetchHistory returns List<Message> already
         return api.fetchHistory(bearer(token), eventId)
             .map { msg ->
-                // mark fromMe based on userId
                 msg.copy(fromMe = (msg.userId == uid))
             }
     }
 
+    // manda mensagem para o chat
     override suspend fun sendMessage(token: String, eventId: Int, text: String): Message {
         val uid = extractUserId(token)
-        // sendMessage doesn’t return a Message DTO, so we fire-and-forget...
         api.sendMessage(bearer(token), eventId, text)
-        // ...and return a minimal Message representing what we just sent
         return Message(
             id        = null,
             eventId   = eventId,
             userId    = uid,
-            author    = "",        // you could fill in the user’s name if you know it
+            author    = "",
             text      = text,
-            timestamp = "",        // or supply a timestamp if you have one
+            timestamp = "",
             fromMe    = true
         )
     }

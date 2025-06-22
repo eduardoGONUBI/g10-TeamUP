@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/teamup/ui/popups/DeleteAccountDialog.kt
+
 package com.example.teamup.ui.popups
 
 import androidx.compose.foundation.BorderStroke
@@ -19,7 +19,7 @@ fun DeleteAccountDialog(
     onCancel: () -> Unit,
     onDelete: () -> Unit
 ) {
-    // Primary red color for buttons and border
+
     val primaryColor = Color(0xFFCD1606)
 
     // Determine 90% of screen width

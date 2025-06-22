@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/teamup/ui/components/ActivityInfoCard.kt
+
 package com.example.teamup.ui.components
 
 import androidx.compose.foundation.layout.*
@@ -22,21 +22,14 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.graphics.Color
 
-/**
- * A compact, icon-driven card showing:
- *   • Organizer
- *   • Sport
- *   • Date & Time
- *   • Place
- *   • Status
- */
+// detalhes de uma atividade
 @Composable
 fun ActivityInfoCard(
     activity: ActivityDto,
     modifier: Modifier = Modifier ,
     containerColor: Color = MaterialTheme.colorScheme.surface
 ) {
-    // Safely parse startsAt into ZonedDateTime (ISO-8601) or fallback to splitting
+
     val raw = activity.startsAt ?: ""
     val parsedInstant = runCatching { Instant.parse(raw) }.getOrNull()
     val zone = ZoneId.systemDefault()
@@ -55,12 +48,6 @@ fun ActivityInfoCard(
             ?.take(5)
         ?: "–"
 
-    /*
-        Layout strategy:
-        • Card with small padding and reduced elevation
-        • Each row is Icon + a bit of horizontal space + value text
-        • We group “Date” and “Time” side by side, others span full width
-     */
     Card(
         modifier = modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -69,7 +56,7 @@ fun ActivityInfoCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // 1) Organizer
+            // Criador
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -88,7 +75,7 @@ fun ActivityInfoCard(
                 )
             }
 
-            // 2) Sport
+            // Desporto
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -105,11 +92,11 @@ fun ActivityInfoCard(
                 )
             }
 
-            // 3) Date & Time side-by-side
+            // Data e hora
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             ) {
-                // Date column
+                // data
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
@@ -125,7 +112,7 @@ fun ActivityInfoCard(
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
                     )
                 }
-                // Time column
+                // hora
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
@@ -143,7 +130,7 @@ fun ActivityInfoCard(
                 }
             }
 
-            // 4) Place (Location)
+            // location
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -160,7 +147,7 @@ fun ActivityInfoCard(
                 )
             }
 
-            // 5) Status
+            // status
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()

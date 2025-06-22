@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/EditProfileScreen.kt
 package com.example.teamup.ui.screens
 
 import android.net.Uri
