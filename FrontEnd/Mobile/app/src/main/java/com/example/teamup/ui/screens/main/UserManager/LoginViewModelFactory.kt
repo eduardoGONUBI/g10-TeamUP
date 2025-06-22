@@ -2,7 +2,7 @@ package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.example.teamup.data.domain.usecase.LoginUseCase
+import com.example.teamup.domain.usecase.LoginUseCase
 import com.example.teamup.data.local.SessionRepository
 
 class LoginViewModelFactory(

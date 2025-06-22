@@ -3,7 +3,6 @@ package com.example.teamup.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -12,8 +11,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.teamup.data.remote.Repository.AuthRepositoryImpl
-import com.example.teamup.data.domain.usecase.LoginUseCase
+import com.example.teamup.data.remote.repository.AuthRepositoryImpl
+import com.example.teamup.domain.usecase.LoginUseCase
 import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.data.local.AppDatabase
 import com.example.teamup.data.local.SessionRepository
@@ -21,7 +20,6 @@ import com.example.teamup.ui.components.RootScaffold
 import com.example.teamup.ui.screens.*
 import com.example.teamup.ui.screens.Activity.EditActivityScreen
 import com.example.teamup.ui.screens.ChatDetailScreen
-import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.main.UserManager.*
 import java.net.URLDecoder
 import java.net.URLEncoder

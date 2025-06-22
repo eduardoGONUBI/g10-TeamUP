@@ -3,11 +3,8 @@ package com.example.teamup.ui.screens.activityManager
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
@@ -22,15 +19,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Sport
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.AutocompletePrediction
-import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
-
+import androidx.compose.foundation.lazy.items
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateActivityScreen(
@@ -54,7 +51,7 @@ fun CreateActivityScreen(
 
     // 3) Observe form, sports list, and UI state
     val form by viewModel.form.collectAsState()
-    val sports by viewModel.sports.collectAsState()
+    val sports: List<Sport> by viewModel.sports.collectAsState()
     val uiState by viewModel.state.collectAsState()
 
     val context = LocalContext.current
@@ -65,7 +62,7 @@ fun CreateActivityScreen(
         if (!Places.isInitialized()) {
             Places.initialize(context.applicationContext, context.getString(com.example.teamup.R.string.google_maps_key))
         }
-        viewModel.loadSports(token)
+        viewModel.loadSports("Bearer $token")
     }
 
     // Prepare PlacesClient for inline autocomplete
@@ -285,7 +282,7 @@ fun CreateActivityScreen(
         )
 
         Button(
-            onClick = { viewModel.submit(token) },
+            onClick = { viewModel.submit("Bearer $token") },
             enabled = uiState !is CreateUiState.Loading,
             modifier = Modifier.fillMaxWidth()
         ) {

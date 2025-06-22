@@ -14,16 +14,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.ui.components.ActivityCard
 
 @Composable
 fun YourActivitiesScreen(
     token: String,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
     // 1) Build repository
     val repo: ActivityRepository = remember {
@@ -45,7 +45,7 @@ fun YourActivitiesScreen(
 
     // 4) Trigger initial load
     LaunchedEffect(token) {
-        vm.loadMyEvents(token)
+        vm.loadMyEvents("Bearer $token")
     }
 
     // 5) UI: show “visibleActivities” and a “Load more” button if needed

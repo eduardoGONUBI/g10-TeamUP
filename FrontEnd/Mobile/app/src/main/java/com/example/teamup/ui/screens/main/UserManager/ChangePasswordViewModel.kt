@@ -3,7 +3,7 @@ package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.remote.Repository.AuthRepositoryImpl
+import com.example.teamup.data.remote.repository.AuthRepositoryImpl
 import com.example.teamup.data.remote.api.AuthApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

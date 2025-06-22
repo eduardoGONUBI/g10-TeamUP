@@ -1,6 +1,6 @@
-package com.example.teamup.network
+package com.example.teamup.data.remote.api
 
-import com.example.teamup.model.Message
+import com.example.teamup.domain.model.Message
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -51,25 +51,25 @@ object ChatApi {
             require(res.isSuccessful) { "HTTP ${res.code}" }
 
             val root = JSONObject(res.body!!.string())
-            val arr  = root.optJSONArray("messages") ?: return@use emptyList<Message>()
+            val arr = root.optJSONArray("messages") ?: return@use emptyList<Message>()
 
             buildList {
                 for (i in 0 until arr.length()) {
                     val j = arr.getJSONObject(i)
 
                     // numeric fields arrive as strings → toIntOrNull()
-                    val uid  = j.optString("user_id").toIntOrNull() ?: -1
-                    val eid  = j.optString("event_id").toIntOrNull() ?: eventId
+                    val uid = j.optString("user_id").toIntOrNull() ?: -1
+                    val eid = j.optString("event_id").toIntOrNull() ?: eventId
 
                     add(
                         Message(
-                            id        = j.optInt("id"),
-                            eventId   = eid,
-                            userId    = uid,
-                            author    = j.optString("user_name"),
-                            text      = j.optString("message"),
+                            id = j.optInt("id"),
+                            eventId = eid,
+                            userId = uid,
+                            author = j.optString("user_name"),
+                            text = j.optString("message"),
                             timestamp = j.optString("created_at"),   // ← HERE
-                            fromMe    = false                        // fixed later
+                            fromMe = false                        // fixed later
                         )
                     )
                 }
@@ -77,4 +77,3 @@ object ChatApi {
         }
     }
 }
-

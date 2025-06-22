@@ -19,20 +19,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.presentation.profile.PublicProfileViewModel
-import com.example.teamup.R
 import com.example.teamup.ui.components.ActivityCard
 import com.example.teamup.ui.components.AchievementsRow
-import com.example.teamup.ui.popups.LogoutDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +37,7 @@ fun PublicProfileScreen(
     token: String,
     userId: Int,
     onBack: () -> Unit,
-    onEventClick: (ActivityItem) -> Unit
+    onEventClick: (Activity) -> Unit
 ) {
     // 1) Corona o ViewModel via factory (injetando o repo e o bearer)
     val viewModel: PublicProfileViewModel = viewModel(

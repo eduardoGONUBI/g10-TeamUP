@@ -10,7 +10,7 @@ import com.example.teamup.R              // small icon + app name
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlin.random.Random
-import com.example.teamup.util.ActiveChat
+import com.example.teamup.ui.util.ActiveChat
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 

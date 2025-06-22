@@ -10,8 +10,8 @@ import android.util.Base64
 import androidx.annotation.RequiresPermission
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.api.AuthApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -39,7 +39,7 @@ class HomeViewModel(
     }
 
     /* ────── raw data from server ────── */
-    private val _allActivities = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _allActivities = MutableStateFlow<List<Activity>>(emptyList())
     private val _error         = MutableStateFlow<String?>(null)
 
     /* ────── map centre ────── */
@@ -49,18 +49,18 @@ class HomeViewModel(
     /* ────── pagination state (local) ────── */
     private val pageSize            = 10
     private val currentPageLocal    = MutableStateFlow(1)
-    private val _visibleActivities  = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _visibleActivities  = MutableStateFlow<List<Activity>>(emptyList())
     private val _hasMoreLocal       = MutableStateFlow(false)
 
     /** Lista filtrada (não concluído + <=25 km) – usada no mapa */
-    private val _filteredActivities = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _filteredActivities = MutableStateFlow<List<Activity>>(emptyList())
 
     /* ────── public flows ────── */
     val error: StateFlow<String?>                     = _error
     val center: StateFlow<LatLng>                     = _center
-    val visibleActivities: StateFlow<List<ActivityItem>> = _visibleActivities
+    val visibleActivities: StateFlow<List<Activity>> = _visibleActivities
     val hasMore: StateFlow<Boolean>                   = _hasMoreLocal
-    val activities: StateFlow<List<ActivityItem>>     = _filteredActivities   // para o mapa
+    val activities: StateFlow<List<Activity>>     = _filteredActivities   // para o mapa
 
 
     init {
@@ -88,7 +88,7 @@ class HomeViewModel(
         try {
             val userId   = getUserIdFromToken(rawToken) ?: -1
             val token    = bearer(rawToken)
-            val allItems = mutableListOf<ActivityItem>()
+            val allItems = mutableListOf<Activity>()
             var page     = 1
             do {
                 // busca página 'page' com, por exemplo, perPage = 50

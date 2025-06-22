@@ -1,9 +1,10 @@
 package com.example.teamup.data.remote.api
 
-import com.example.teamup.data.domain.model.CreateEventRequest
+import com.example.teamup.domain.model.CreateEventRequestDomain
 import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.model.ActivityDto
 import com.example.teamup.data.remote.model.CreateEventRawResponse
+import com.example.teamup.data.remote.model.CreateEventRequestDto
 import com.example.teamup.data.remote.model.EventUpdateRequest
 import com.example.teamup.data.remote.model.PaginatedResponse
 import com.example.teamup.data.remote.model.SportDto
@@ -41,11 +42,11 @@ interface ActivityApi {
         @Path("id") id: Int
     ): Response<Unit>
 
-    @GET("/api/events")
+    /*@GET("/api/events")
     suspend fun getAllEvents(
         @Header("Authorization") token: String
     ): List<ActivityDto>
-
+*/
     @DELETE("/api/events/{eventId}/participants/{participantId}")
     suspend fun kickParticipant(
         @Header("Authorization") token: String,
@@ -91,7 +92,7 @@ interface ActivityApi {
     @POST("/api/events")
     suspend fun createEvent(
         @Header("Authorization") token: String,
-        @Body body: CreateEventRequest
+        @Body body: CreateEventRequestDto        // <- changed
     ): CreateEventRawResponse
 
     /**

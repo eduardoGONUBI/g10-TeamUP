@@ -21,7 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.example.teamup.R
-import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.domain.model.Activity
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -29,7 +29,7 @@ import java.util.Locale
 
 @Composable
 fun ActivityCard(
-    activity: ActivityItem,
+    activity: Activity,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     // If bgBrush is non-null, draw gradient; otherwise fill with bgColor

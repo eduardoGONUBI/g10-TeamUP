@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -27,20 +26,25 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.teamup.R
 import com.example.teamup.data.remote.BaseUrlProvider
-import com.example.teamup.data.remote.Repository.UserRepositoryImpl
+import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.repository.UserRepositoryImpl
 import com.example.teamup.data.remote.api.AuthApi
-import com.example.teamup.data.remote.model.SportDto
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Sport
 import com.example.teamup.presentation.profile.EditProfileViewModel
 import com.example.teamup.ui.popups.DeleteAccountDialog
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.*
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
+import androidx.lifecycle.ViewModelProvider
+import androidx.compose.foundation.lazy.items
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,14 +61,17 @@ fun EditProfileScreen(
 ) {
     /* ──────── View-model ──────── */
     val vm: EditProfileViewModel = viewModel(
-        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+        factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                EditProfileViewModel(UserRepositoryImpl(AuthApi.create())) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                EditProfileViewModel(
+                    userRepo     = UserRepositoryImpl(AuthApi.create(), ActivityApi.create()),
+                    activityRepo = ActivityRepositoryImpl(ActivityApi.create())
+                ) as T
         }
     )
     val uiState          by vm.ui.collectAsState()
-    val allSports        by vm.sports.collectAsState()
+    val allSports: List<Sport> by vm.sports.collectAsState()
     val errorLoadingSports by vm.error.collectAsState()
 
     /* ──────── Local form state ──────── */

@@ -19,16 +19,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.domain.model.Activity
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ActivityTabsScreen(
     token: String,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
     // 1) Create a single repository instance
     val repo = remember { ActivityRepositoryImpl(ActivityApi.create()) }

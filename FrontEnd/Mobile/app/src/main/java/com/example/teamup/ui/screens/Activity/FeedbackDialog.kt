@@ -69,7 +69,7 @@ fun FeedbackDialog(
                                 "Bearer $token",
                                 eventId,
                                 FeedbackRequestDto(
-                                    user_id   = target.id,
+                                    userId   = target.id,
                                     attribute = attr
                                 )
                             )

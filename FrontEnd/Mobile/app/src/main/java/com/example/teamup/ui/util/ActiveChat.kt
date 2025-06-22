@@ -1,4 +1,4 @@
-package com.example.teamup.util
+package com.example.teamup.ui.util
 
 /** Keeps track of the chat screen that is currently visible (if any). */
 object ActiveChat {

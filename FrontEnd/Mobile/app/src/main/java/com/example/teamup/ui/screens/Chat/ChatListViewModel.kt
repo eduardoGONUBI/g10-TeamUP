@@ -3,8 +3,8 @@ package com.example.teamup.ui.screens.Chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ChatItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Chat
+import com.example.teamup.domain.repository.ActivityRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -14,11 +14,11 @@ import kotlinx.coroutines.launch
  * UI state for the chat‐list screen with paging support.
  */
 data class ChatListState(
-    val fullActive: List<ChatItem> = emptyList(),
-    val fullArchive: List<ChatItem> = emptyList(),
+    val fullActive: List<Chat> = emptyList(),
+    val fullArchive: List<Chat> = emptyList(),
 
-    val visibleActive: List<ChatItem> = emptyList(),
-    val visibleArchive: List<ChatItem> = emptyList(),
+    val visibleActive: List<Chat> = emptyList(),
+    val visibleArchive: List<Chat> = emptyList(),
 
     val activeRemotePage: Int = 1,
     val archiveRemotePage: Int = 1,

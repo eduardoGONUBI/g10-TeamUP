@@ -80,6 +80,16 @@ data class CreateEventRawDto(
     val weather: JsonElement
 )
 
+data class CreateEventRequestDto(
+    val name: String,
+    @SerializedName("sport_id")         val sportId: Int,
+    val place: String,
+    @SerializedName("max_participants") val maxParticipants: Int,
+    @SerializedName("starts_at")        val startsAt: String,
+    val latitude:  Double?,
+    val longitude: Double?
+)
+
 data class StatusUpdateRequest(
     val status: String
 )

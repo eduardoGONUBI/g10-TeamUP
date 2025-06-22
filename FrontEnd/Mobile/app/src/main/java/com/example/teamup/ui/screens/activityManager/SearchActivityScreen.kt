@@ -25,11 +25,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.data.remote.model.SportDto
+
+import com.example.teamup.domain.model.Sport
 import com.example.teamup.ui.components.ActivityCard
 import java.time.LocalDate
 import java.util.*
@@ -39,7 +40,7 @@ import java.util.*
 @Composable
 fun SearchActivityScreen(
     token: String,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -75,7 +76,7 @@ fun SearchActivityScreen(
     val hasMore by vm.hasMore.collectAsState()
 
     // 5) Local UI state for Sports dropdown
-    var sportsList by remember { mutableStateOf<List<SportDto>>(emptyList()) }
+    var sportsList by remember { mutableStateOf<List<Sport>>(emptyList()) }
     var sportExpanded by remember { mutableStateOf(false) }
 
     // 6) Local UI state for showing DatePickerDialog
@@ -87,7 +88,7 @@ fun SearchActivityScreen(
     // 8) Load sports from backend once
     LaunchedEffect(Unit) {
         try {
-            val fetched: List<SportDto> = repo.getSports(token)
+            val fetched: List<Sport> = repo.getSports("Bearer $token")
             sportsList = fetched
         } catch (_: Exception) {
             // ignore or log
@@ -189,11 +190,11 @@ fun SearchActivityScreen(
                                 expanded = sportExpanded,
                                 onDismissRequest = { sportExpanded = false }
                             ) {
-                                sportsList.forEach { sportDto ->
+                                sportsList.forEach { sport ->
                                     DropdownMenuItem(
-                                        text = { Text(sportDto.name) },
+                                        text = { Text(sport.name) },
                                         onClick = {
-                                            vm.updateFilter("sport", sportDto.name)
+                                            vm.updateFilter("sport", sport.name)
                                             sportExpanded = false
                                         }
                                     )

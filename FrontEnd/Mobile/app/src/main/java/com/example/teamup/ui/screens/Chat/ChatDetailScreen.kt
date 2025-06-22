@@ -16,10 +16,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import com.example.teamup.model.Message
-import com.example.teamup.network.ChatApi
-import com.example.teamup.network.ChatWebSocket
-import com.example.teamup.util.ActiveChat
+import com.example.teamup.domain.model.Message
+import com.example.teamup.data.remote.api.ChatApi
+import com.example.teamup.data.remote.websocket.ChatWebSocket
+import com.example.teamup.ui.util.ActiveChat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -1,5 +1,7 @@
 package com.example.teamup.data.remote.model
 
+import com.google.gson.annotations.SerializedName
+
 
 data class AchievementDto(
     val code: String,
@@ -19,25 +21,4 @@ data class AchievementsResponse(
 )
 
 
-data class ReputationResponse(
-    val user_id: Int,
-    val score: Int,
-    val good_teammate_count: Int?,
-    val friendly_count: Int?,
-    val team_player_count: Int?,
-    val toxic_count: Int?,
-    val bad_sport_count: Int?,
-    val afk_count: Int?
-)
-
-
-data class UserAverageResponse(
-    val user_id: Int,
-    val average_rating: Double?,
-    )
-
-data class FeedbackRequestDto(
-    val user_id: Int,
-    val attribute: String
-)
 

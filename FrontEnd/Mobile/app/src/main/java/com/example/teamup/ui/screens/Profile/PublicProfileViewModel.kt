@@ -1,10 +1,9 @@
 // File: app/src/main/java/com/example/teamup/presentation/profile/PublicProfileViewModel.kt
 package com.example.teamup.presentation.profile
 
-import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.domain.model.Activity
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.api.AchievementsApi
 import com.example.teamup.data.remote.api.AuthApi
@@ -15,7 +14,6 @@ import com.example.teamup.data.remote.model.ReputationResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 
 /**
  * ViewModel para ecrã de perfil público de outro utilizador,
@@ -60,14 +58,14 @@ class PublicProfileViewModel(
     val error: StateFlow<String?>         = _error
 
     /* ─── Eventos criados (paginação local) ───────────────────────────── */
-    private val _fullEvents    = MutableStateFlow<List<ActivityItem>>(emptyList())
-    private val _visibleEvents = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _fullEvents    = MutableStateFlow<List<Activity>>(emptyList())
+    private val _visibleEvents = MutableStateFlow<List<Activity>>(emptyList())
     private val _currentPage   = MutableStateFlow(1)
     private val _hasMoreEvents = MutableStateFlow(false)
     private val _eventsError   = MutableStateFlow<String?>(null)
 
     /** Exposto à UI: fatia corrente de eventos */
-    val visibleEvents: StateFlow<List<ActivityItem>> = _visibleEvents
+    val visibleEvents: StateFlow<List<Activity>> = _visibleEvents
 
     /** Exposto à UI: se há mais páginas locais restantes */
     val hasMoreEvents: StateFlow<Boolean> = _hasMoreEvents
@@ -133,10 +131,10 @@ class PublicProfileViewModel(
             // fetch raw list (assume endpoint retornar todos de uma vez)
             val dtoList = activityApi.getEventsByUser(userId, bearer)
 
-            // mapear DTO → ActivityItem
+            // mapear DTO → Activity
             val mapped = dtoList.map { dto ->
                 val participantIds = dto.participants?.map { it.id }?.toSet() ?: emptySet()
-                ActivityItem(
+                Activity(
                     id              = dto.id.toString(),
                     title           = "${dto.name} : ${dto.sport}",
                     location        = dto.place,

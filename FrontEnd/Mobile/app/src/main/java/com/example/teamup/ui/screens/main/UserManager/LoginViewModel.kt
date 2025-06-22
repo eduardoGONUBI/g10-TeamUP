@@ -3,7 +3,7 @@ package com.example.teamup.ui.screens.main.UserManager
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.usecase.LoginUseCase
+import com.example.teamup.domain.usecase.LoginUseCase
 import com.example.teamup.data.local.SessionRepository
 import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.data.remote.api.StoreFcmTokenRequest

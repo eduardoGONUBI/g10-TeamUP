@@ -1,4 +1,4 @@
-package com.example.teamup.model
+package com.example.teamup.domain.model
 
 /**
  * Chat message coming from the backend.

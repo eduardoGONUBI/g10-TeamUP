@@ -2,17 +2,11 @@
 package com.example.teamup.ui.screens
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -24,13 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.ui.components.ActivityCard
 import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
@@ -51,7 +44,7 @@ import com.google.maps.android.compose.rememberMarkerState
 @Composable
 fun HomeScreen(
     token: String,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
     /* 1) ViewModel with injected repository */
     val vm: HomeViewModel = viewModel(
@@ -141,7 +134,7 @@ fun HomeScreen(
 @Composable
 private fun MapView(
     modifier: Modifier,
-    activities: List<ActivityItem>,
+    activities: List<Activity>,
     center: LatLng,
     locationGranted: Boolean,
     onBoundsChanged: (LatLngBounds) -> Unit
@@ -189,10 +182,10 @@ private fun MapView(
 
 @Composable
 private fun ActivitiesList(
-    activities: List<ActivityItem>,
+    activities: List<Activity>,
     hasMore: Boolean,
     onLoadMore: () -> Unit,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier

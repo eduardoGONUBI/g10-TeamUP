@@ -1,9 +1,13 @@
-package com.example.teamup.network
+package com.example.teamup.data.remote.websocket
 
-import com.example.teamup.model.Message
+import com.example.teamup.domain.model.Message
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import okhttp3.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import okio.ByteString
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -73,13 +77,13 @@ class ChatWebSocket(
             if (json.getInt("event_id") != eventId) return
 
             val msg = Message(
-                id        = json.optInt("id"),
-                eventId   = json.getInt("event_id"),
-                userId    = json.getInt("user_id"),
-                author    = json.getString("user_name"),
-                text      = json.getString("message"),
+                id = json.optInt("id"),
+                eventId = json.getInt("event_id"),
+                userId = json.getInt("user_id"),
+                author = json.getString("user_name"),
+                text = json.getString("message"),
                 timestamp = json.getString("timestamp"),
-                fromMe    = json.getInt("user_id") == myUserId
+                fromMe = json.getInt("user_id") == myUserId
             )
 
             _incoming.tryEmit(msg)

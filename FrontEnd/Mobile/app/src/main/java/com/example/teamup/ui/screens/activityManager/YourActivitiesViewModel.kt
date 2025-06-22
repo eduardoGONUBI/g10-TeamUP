@@ -3,8 +3,8 @@ package com.example.teamup.ui.screens.activityManager
 import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -13,8 +13,8 @@ import org.json.JSONObject
 // UI state permanece praticamente igual, mas "pageSize" já não é usado para slices locais
 // porque cada página remota será appendada por inteiro.
 data class YourActivitiesUiState(
-    val fullActivities: List<ActivityItem> = emptyList(),
-    val visibleActivities: List<ActivityItem> = emptyList(),
+    val fullActivities: List<Activity> = emptyList(),
+    val visibleActivities: List<Activity> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,
     val currentRemotePage: Int = 1,
@@ -37,7 +37,7 @@ class YourActivitiesViewModel(
         try {
             // reset paginação remota
             var page = 1
-            val aggregated = mutableListOf<ActivityItem>()
+            val aggregated = mutableListOf<Activity>()
             do {
                 val pageItems = repo.getMyActivities(token, page)
                 aggregated += pageItems

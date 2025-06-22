@@ -3,9 +3,9 @@ package com.example.teamup.ui.screens.activityManager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.CreateEventRequest
-import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.model.SportDto
+import com.example.teamup.domain.model.CreateEventRequestDomain
+import com.example.teamup.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Sport
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -22,7 +22,7 @@ sealed class CreateUiState {
 // ─── FORM DATA ─────────────────────────────────────────────────
 data class CreateFormState(
     val name : String     = "",
-    val sport: SportDto?  = null,
+    val sport: Sport?  = null,
     val place: String    = "",
     val date : String     = "",
     val time : String     = "",
@@ -36,15 +36,15 @@ class CreateActivityViewModel(
     private val repo: ActivityRepository
 ) : ViewModel() {
 
+
     private val _state = MutableStateFlow<CreateUiState>(CreateUiState.Idle)
     val state: StateFlow<CreateUiState> = _state
 
     private val _form = MutableStateFlow(CreateFormState())
     val form: StateFlow<CreateFormState> = _form
 
-    private val _sports = MutableStateFlow<List<SportDto>>(emptyList())
-    val sports: StateFlow<List<SportDto>> = _sports
-
+    private val _sports = MutableStateFlow<List<Sport>>(emptyList())
+    val sports: StateFlow<List<Sport>> = _sports
     /**
      * Load the list of sports from the repository.
      */
@@ -116,18 +116,20 @@ class CreateActivityViewModel(
             try {
                 // Combine date + time into "YYYY-MM-DD HH:MM:00"
                 val startsAt = "${f.date} ${f.time}:00"
-                val body = CreateEventRequest(
-                    name             = f.name.trim(),
-                    sport_id         = chosenSport.id,
-                    startsAt         = startsAt,
-                    place            = f.place.trim(),
-                    max_participants = maxInt
+                val body = CreateEventRequestDomain(
+                    name            = f.name.trim(),
+                    sportId         = chosenSport.id,
+                    startsAt        = startsAt,
+                    place           = f.place.trim(),
+                    maxParticipants = maxInt,
+                    latitude        = f.latitude ?: 0.0,
+                    longitude       = f.longitude ?: 0.0
                 )
 
-                // The repository returns an ActivityItem; use its id for Success
+                // The repository returns an Activity; use its id for Success
                 val createdItem = repo.createActivity(token, body)
 
-                // repo.createActivity(...) returned ActivityItem with an Int id, so convert to String
+                // repo.createActivity(...) returned Activity with an Int id, so convert to String
                 _state.value = CreateUiState.Success(createdItem.id.toString())
             } catch (e: Exception) {
                 // If it’s an HTTP error, show code + message; otherwise just show localizedMessage

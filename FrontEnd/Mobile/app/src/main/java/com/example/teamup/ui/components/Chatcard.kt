@@ -23,12 +23,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.example.teamup.R
-import com.example.teamup.data.domain.model.ChatItem
+import com.example.teamup.domain.model.Chat
 import java.util.Locale
 
 @Composable
 fun ChatCard(
-    chat: ChatItem,
+    chat: Chat,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {

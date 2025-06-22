@@ -28,11 +28,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.teamup.R
-import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.model.StatusUpdateRequest
-import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.screens.*
 import com.example.teamup.ui.screens.Activity.ActivityScreen
 import com.example.teamup.ui.screens.Activity.EditActivityScreen

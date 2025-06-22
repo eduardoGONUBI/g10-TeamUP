@@ -3,15 +3,14 @@ package com.example.teamup.presentation.profile
 import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.api.AchievementsApi
 import com.example.teamup.data.remote.api.AuthApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
-import okhttp3.Response
 import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -20,8 +19,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 // UI‐state para as actividades criadas (paginação local)
 // ───────────────────────────────────────────────────────────
 data class CreatedUi(
-    val full: List<ActivityItem> = emptyList(),
-    val visible: List<ActivityItem> = emptyList(),
+    val full: List<Activity> = emptyList(),
+    val visible: List<Activity> = emptyList(),
     val currentPageLocal: Int = 1,
     val hasMore: Boolean = false
 )
@@ -68,7 +67,7 @@ class ProfileViewModel(
     private val _createdUi = MutableStateFlow(CreatedUi())
 
     // Exposto à UI como StateFlow
-    val visibleCreatedActivities: StateFlow<List<ActivityItem>> =
+    val visibleCreatedActivities: StateFlow<List<Activity>> =
         _createdUi
             .map { it.visible }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -156,11 +155,11 @@ class ProfileViewModel(
         }
 
         try {
-            savedToken        = token
+            savedToken        = bearer(token)
             currentRemotePage = 1
             remoteHasMore     = true
 
-            val firstPage = repo.getMyActivities(token, page = currentRemotePage)
+            val firstPage = repo.getMyActivities(savedToken, page = currentRemotePage)
                 .filter { it.creatorId == userId }
                 .map    { it.copy(isCreator = true) }
             remoteHasMore = repo.hasMore
