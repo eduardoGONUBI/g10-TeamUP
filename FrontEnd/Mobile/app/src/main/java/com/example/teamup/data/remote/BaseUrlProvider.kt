@@ -8,6 +8,7 @@ object BaseUrlProvider {
      * Detect “generic” fingerprint to see if running on an emulator.
      * On an emulator, Build.FINGERPRINT usually contains “generic”.
      */
+
     private fun isEmulator(): Boolean {
         return Build.FINGERPRINT.startsWith("generic") ||
                 Build.FINGERPRINT.contains("vbox")     ||

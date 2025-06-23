@@ -37,6 +37,7 @@ fun SplashLogoScreen(onContinue: () -> Unit) {
     }
 }
 
+
 @Preview(showBackground = true, widthDp = 360, heightDp = 640)
 @Composable
 fun SplashPreview() {

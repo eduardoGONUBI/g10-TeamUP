@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/EditProfileScreen.kt
 package com.example.teamup.ui.screens
 
 import android.net.Uri
@@ -9,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -27,20 +25,25 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.teamup.R
 import com.example.teamup.data.remote.BaseUrlProvider
-import com.example.teamup.data.remote.Repository.UserRepositoryImpl
+import com.example.teamup.data.remote.api.ActivityApi
+import com.example.teamup.data.remote.repository.UserRepositoryImpl
 import com.example.teamup.data.remote.api.AuthApi
-import com.example.teamup.data.remote.model.SportDto
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Sport
 import com.example.teamup.presentation.profile.EditProfileViewModel
 import com.example.teamup.ui.popups.DeleteAccountDialog
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.*
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
+import androidx.lifecycle.ViewModelProvider
+import androidx.compose.foundation.lazy.items
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,19 +58,22 @@ fun EditProfileScreen(
     onChangePassword: () -> Unit,
     onChangeEmail: () -> Unit
 ) {
-    /* ──────── View-model ──────── */
     val vm: EditProfileViewModel = viewModel(
-        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+        factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                EditProfileViewModel(UserRepositoryImpl(AuthApi.create())) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                EditProfileViewModel(
+                    userRepo     = UserRepositoryImpl(AuthApi.create(), ActivityApi.create()),
+                    activityRepo = ActivityRepositoryImpl(ActivityApi.create())
+                ) as T
         }
     )
+
+    // estados
     val uiState          by vm.ui.collectAsState()
-    val allSports        by vm.sports.collectAsState()
+    val allSports: List<Sport> by vm.sports.collectAsState()
     val errorLoadingSports by vm.error.collectAsState()
 
-    /* ──────── Local form state ──────── */
     var username  by remember { mutableStateOf(usernameInitial) }
     var location  by remember { mutableStateOf(locationInitial) }
     var latitude  by remember { mutableStateOf<Double?>(null) }
@@ -81,6 +87,7 @@ fun EditProfileScreen(
     var showDeleteDlg   by remember { mutableStateOf(false) }
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
     val ctx = LocalContext.current
+
     /* ─────── Image picker ─────── */
     val pickImage = rememberLauncherForActivityResult(GetContent()) { uri: Uri? ->
         uri?.let {
@@ -89,7 +96,7 @@ fun EditProfileScreen(
         }
     }
 
-    /* ──────── Google Places (inline autocomplete) ──────── */
+    /* ──────── Google Places ──────── */
 
 
     LaunchedEffect(Unit) {
@@ -116,7 +123,7 @@ fun EditProfileScreen(
             .builder()
             .setSessionToken(sessionToken)
             .setQuery(location)
-            .setTypeFilter(TypeFilter.CITIES)   // only cities/villages
+            .setTypeFilter(TypeFilter.CITIES)
             .build()
 
         placesClient.findAutocompletePredictions(req)
@@ -124,7 +131,7 @@ fun EditProfileScreen(
             .addOnFailureListener  { suggestions = emptyList() }
     }
 
-    /* ──────── Load sports list once ──────── */
+    /* ──────── Load sports──────── */
     LaunchedEffect(token) {
         vm.loadSports("Bearer $token")
         sportsInitial.firstOrNull()?.let { initialId ->
@@ -135,14 +142,14 @@ fun EditProfileScreen(
         }
     }
 
-    /* Return to caller when done */
+
     LaunchedEffect(uiState.done) { if (uiState.done) onFinished(didDelete) }
 
-    /* Derived flag: user must have picked a *validated* place */
+    /* local tem de ser valido */
     val isLocationValid = if (location == locationInitial) {
-        true                       // unchanged → already good
+        true
     } else {
-        latitude != null && longitude != null   // user typed → must pick a place
+        latitude != null && longitude != null
     }
     /* ───────────────────────── UI ───────────────────────── */
     Box(
@@ -175,7 +182,7 @@ fun EditProfileScreen(
                     .size(120.dp)
                     .align(Alignment.CenterHorizontally)
             ) {
-                /* Imagem actual (Se avatarUri == null faz load do URL existente) */
+
                 val avatarUrl = avatarUri
                     ?: "${BaseUrlProvider.getBaseUrl()}api/auth/avatar/$userId"
 
@@ -190,7 +197,7 @@ fun EditProfileScreen(
                         .clip(CircleShape)
                 )
 
-                /* Botão flutuante para trocar */
+                /* Botão  para trocar foto */
                 Icon(
                     painter = painterResource(R.drawable.change_profile_pic),
                     contentDescription = "Mudar fotografia",
@@ -256,7 +263,7 @@ fun EditProfileScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                /* Location (inline autocomplete) */
+                /* Location  */
                 OutlinedTextField(
                     value = location,
                     onValueChange = { location = it },
@@ -284,7 +291,7 @@ fun EditProfileScreen(
                                 DropdownMenuItem(
                                     text = { Text(pred.getFullText(null).toString()) },
                                     onClick = {
-                                        /* fetch full place for lat/lng */
+
                                         val fields = listOf(
                                             Place.Field.NAME,
                                             Place.Field.LAT_LNG
@@ -301,7 +308,7 @@ fun EditProfileScreen(
                                             longitude = plc.latLng?.longitude
                                             suggestions = emptyList()
                                         }.addOnFailureListener {
-                                            /* keep text but still invalid */
+
                                             location  = pred.getPrimaryText(null).toString()
                                             suggestions = emptyList()
                                         }
@@ -338,7 +345,7 @@ fun EditProfileScreen(
                 Spacer(Modifier.height(12.dp))
 
                 OutlinedButton(
-                    onClick = { onChangePassword() },    // invoke the lambda passed from NavGraph
+                    onClick = { onChangePassword() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = "Change Password")
@@ -390,7 +397,7 @@ fun EditProfileScreen(
                 )
             }
         }
-        /* Progress circular enquanto carrega avatar */
+        /* Progress circule enquanto carrega avatar */
         if (uiState.avatarBusy) {
             CircularProgressIndicator(
                 modifier = Modifier

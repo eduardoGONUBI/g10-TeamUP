@@ -1,9 +1,7 @@
-/* ─── app/src/main/java/com/example/teamup/ui/AppNavGraph.kt ──────────────── */
-package com.example.teamup.ui
+package com.example.teamup.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -12,16 +10,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.teamup.data.remote.Repository.AuthRepositoryImpl
-import com.example.teamup.data.domain.usecase.LoginUseCase
+import com.example.teamup.data.remote.repository.AuthRepositoryImpl
+import com.example.teamup.domain.usecase.LoginUseCase
 import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.data.local.AppDatabase
 import com.example.teamup.data.local.SessionRepository
-import com.example.teamup.ui.components.RootScaffold
 import com.example.teamup.ui.screens.*
 import com.example.teamup.ui.screens.Activity.EditActivityScreen
 import com.example.teamup.ui.screens.ChatDetailScreen
-import com.example.teamup.ui.screens.Profile.PublicProfileScreen
 import com.example.teamup.ui.screens.main.UserManager.*
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -31,9 +27,11 @@ import java.nio.charset.StandardCharsets
 fun AppNavGraph(
     navController: NavHostController = rememberNavController()      // default for previews/tests
 ) {
-    val nav = navController  // alias preserves existing variable names
 
-    /* ───── SessionRepository scoped to this NavGraph ───── */
+
+    val nav = navController
+
+    /* repositorio de sessao local*/
     val context = LocalContext.current
     val sessionRepo = remember {
         SessionRepository(AppDatabase.get(context).sessionDao())
@@ -47,7 +45,7 @@ fun AppNavGraph(
                 factory = remember(sessionRepo) {
                     val repo    = AuthRepositoryImpl(AuthApi.create())
                     val useCase = LoginUseCase(repo)
-                    LoginViewModelFactory(useCase, sessionRepo)    // pass SessionRepository ✅
+                    LoginViewModelFactory(useCase, sessionRepo)
                 }
             )
 
@@ -142,7 +140,7 @@ fun AppNavGraph(
             )
         }
 
-        /* ─── 7) EDIT ACTIVITY (deep link) ───────────────────── */
+        /* ─── 7) EDIT ACTIVITY  ───────────────────── */
         composable(
             route = "edit_activity/{eventId}/{token}",
             arguments = listOf(

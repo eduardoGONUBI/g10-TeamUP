@@ -1,5 +1,4 @@
-// app/src/main/java/com/example/teamup/ui/components/RootScaffold.kt
-package com.example.teamup.ui.components
+package com.example.teamup.ui.navigation
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,11 +27,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.teamup.R
-import com.example.teamup.data.domain.model.ActivityItem
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.model.StatusUpdateRequest
-import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.screens.*
 import com.example.teamup.ui.screens.Activity.ActivityScreen
 import com.example.teamup.ui.screens.Activity.EditActivityScreen
@@ -50,6 +47,8 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /* ───────────────────────── Root scaffold ───────────────────────── */
+// Estrutura principal da aplicação após login
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootScaffold(
@@ -75,7 +74,7 @@ fun RootScaffold(
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
-    /* ── Parse myUserId from the JWT once ─────────────────────── */
+     // extrai o id a partir do token
     val myUserId: Int = remember(token) {
         fun extractId(jwt: String): Int? = runCatching {
             val payload = jwt.split(".")[1]
@@ -83,7 +82,7 @@ fun RootScaffold(
             JSONObject(json).getString("sub").toInt()
         }.getOrNull()
 
-        extractId(token) ?: -1   // fallback if parsing fails
+        extractId(token) ?: -1
     }
 
     Scaffold(
@@ -94,7 +93,7 @@ fun RootScaffold(
             BottomNavigationBar(
                 navController = navController,
                 currentRoute = currentRoute,
-                token        = token // needed for “Profile” route
+                token        = token
             )
         }
     ) { padding ->
@@ -119,7 +118,7 @@ fun RootScaffold(
                 )
             }
 
-            /* ─── Activities (three‐tab host) ─────────────────── */
+            /* ─── Activities ─────────────────── */
             composable("agenda") {
                 ActivityTabsScreen(
                     token = token,
@@ -136,7 +135,7 @@ fun RootScaffold(
 
 
 
-            /* ─── Profile (token in route) ─────────────────────── */
+            /* ─── Profile  ─────────────────────── */
             composable(
                 route = "perfil/{token}",
                 arguments = listOf(navArgument("token") { type = NavType.StringType })
@@ -178,16 +177,16 @@ fun RootScaffold(
 
                 val uid      = back.arguments!!.getInt("uid")
 
-                // You could fetch current values first; here we pass blanks for brevity
+
                 EditProfileScreen(
                     token            = decoded,
                     userId           = uid,
-                    usernameInitial  = "",      // pre-fill when you have them
+                    usernameInitial  = "",
                     locationInitial  = "",
                     sportsInitial    = emptyList(),
-                    onFinished       = {        // success OR deleted
+                    onFinished       = {
                         navController.popBackStack()
-                        if (it /*deleted*/ == true) {
+                        if (it  == true) {
                             appNav.navigate("login") {
                                 popUpTo(0) { inclusive = true }
                             }
@@ -206,7 +205,7 @@ fun RootScaffold(
                 )
             }
 
-            /* ─── CHANGE PASSWORD (nested under Profile) ────────────────────────── */
+            /* ─── CHANGE PASSWORD  ────────────────────────── */
             composable(
                 route = "change_password/{token}",
                 arguments = listOf(navArgument("token") { type = NavType.StringType })
@@ -393,7 +392,7 @@ fun RootScaffold(
                 NotificationScreen()
             }
 
-            /* ─── Public profile (any user can see) ────────────────── */
+            /* ─── Public profile  ────────────────── */
             composable(
                 route = "public_profile/{uid}/{token}",
                 arguments = listOf(
@@ -419,7 +418,7 @@ fun RootScaffold(
             composable("chats") {
                 ChatListScreen(
                     navController = appNav,
-                    token         = token,      //  ←  pass token
+                    token         = token,
                     myUserId      = myUserId
                 )
             }

@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/Chat/ChatListScreen.kt
 package com.example.teamup.ui.screens.Chat
 
 import androidx.compose.foundation.layout.*
@@ -21,10 +20,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.data.domain.model.ChatItem
+import com.example.teamup.domain.model.Chat
 import com.example.teamup.ui.components.ChatCard
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
@@ -36,7 +35,6 @@ fun ChatListScreen(
     token: String,
     myUserId: Int
 ) {
-    // 1) ViewModel setup
     val vm: ChatListScreenViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -47,15 +45,14 @@ fun ChatListScreen(
         }
     )
 
-    // 2) Initial load
+    // load inicial
     LaunchedEffect(token) {
-        vm.loadFirstPage(token)
+        vm.loadFirstPage("Bearer $token")
     }
 
-    // 3) Observe UI state
+    // estado
     val ui by vm.state.collectAsState()
 
-    // 4) Pager & Tabs setup
     val pagerState: PagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
     val titles = listOf("Chats", "Archive")
@@ -77,7 +74,7 @@ fun ChatListScreen(
                 .weight(1f)
                 .fillMaxWidth()
         ) { pageIdx ->
-            // Determine active vs archive
+            // determina se e ativo ou arquivado
             val visibleList = if (pageIdx == 0) ui.visibleActive else ui.visibleArchive
             val hasMore     = if (pageIdx == 0) ui.hasMoreActive  else ui.hasMoreArchive
 
@@ -140,10 +137,10 @@ fun ChatListScreen(
 
 @Composable
 private fun ChatListColumn(
-    chats: List<ChatItem>,
+    chats: List<Chat>,
     hasMore: Boolean,
     onLoadMore: () -> Unit,
-    onClick: (ChatItem) -> Unit
+    onClick: (Chat) -> Unit
 ) {
     LazyColumn(
         modifier            = Modifier

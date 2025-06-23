@@ -3,7 +3,7 @@ package com.example.teamup.ui.screens.main.UserManager
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.usecase.LoginUseCase
+import com.example.teamup.domain.usecase.LoginUseCase
 import com.example.teamup.data.local.SessionRepository
 import com.example.teamup.data.remote.api.AuthApi
 import com.example.teamup.data.remote.api.StoreFcmTokenRequest
@@ -16,7 +16,7 @@ import kotlinx.coroutines.tasks.await
 
 class LoginViewModel(
     private val loginUseCase: LoginUseCase,
-    private val sessionRepo: SessionRepository,              // ← NEW
+    private val sessionRepo: SessionRepository,
     private val authApi: AuthApi = AuthApi.create()
 ) : ViewModel() {
 
@@ -24,13 +24,14 @@ class LoginViewModel(
         private const val TAG = "LoginViewModel"
     }
 
+    // estado
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState
 
-    /** UI can collect this to show Toast/Snackbar messages */
     private val _toast = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val toast = _toast                    // expose as read‑only
 
+    // login
     fun login(email: String, password: String) = viewModelScope.launch {
         Log.d(TAG, "🔑 login() called with email=$email")
         _loginState.value = LoginState.Loading
@@ -42,7 +43,7 @@ class LoginViewModel(
                 Log.d(TAG, "✅ loginUseCase success – got JWT (${jwt.take(12)}…)")
                 val bearer = "Bearer $jwt"
 
-                /* 1️⃣  Persist JWT locally so next app launch can skip login */
+                /* guarda o token localmente para local session*/
                 try {
                     sessionRepo.save(jwt)
                     Log.d(TAG, "💾 JWT cached in SessionRepository")
@@ -50,13 +51,13 @@ class LoginViewModel(
                     Log.e(TAG, "❌ Could not cache JWT", e)
                 }
 
-                /* 2️⃣  Get device FCM token */
+                /* pega no token fcm to dispositivo */
                 try {
                     Log.d(TAG, "📡 Fetching FCM token…")
                     val fcmToken = FirebaseMessaging.getInstance().token.await()
                     Log.d(TAG, "📨 FCM token fetched: $fcmToken")
 
-                    /* 3️⃣  Register it with backend */
+                    /* regista esse token no backend */
                     Log.d(TAG, "➡️  Sending token to backend …")
                     val resp = authApi.storeFcmToken(
                         auth = bearer,

@@ -1,21 +1,14 @@
-// ─── ChangeEmailViewModel.kt ─────────────────────────────────────────────
 package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.remote.Repository.AuthRepositoryImpl
+import com.example.teamup.data.remote.repository.AuthRepositoryImpl
 import com.example.teamup.data.remote.api.AuthApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-/**
- * UI state for Change Email flow:
- *   • Idle: no request
- *   • Loading: network call in progress
- *   • Success(message): email changed successfully
- *   • Error(message): validation or server error
- */
+
 sealed class ChangeEmailState {
     object Idle    : ChangeEmailState()
     object Loading : ChangeEmailState()
@@ -23,23 +16,18 @@ sealed class ChangeEmailState {
     data class Error(val message: String)   : ChangeEmailState()
 }
 
-/**
- * ViewModel coordinating the “Change Email” endpoint.
- */
+
 class ChangeEmailViewModel(
-    // You can inject AuthRepositoryImpl or let ViewModel create it directly:
+
     private val repository: AuthRepositoryImpl = AuthRepositoryImpl(AuthApi.create())
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ChangeEmailState>(ChangeEmailState.Idle)
     val state: StateFlow<ChangeEmailState> = _state
 
-    /**
-     * Called when the user taps “Change Email” in the UI.
-     * Performs client‐side checks and then calls the repository.
-     */
+// change email
     fun changeEmail(token: String, newEmail: String, password: String) {
-        // 1) client‐side validation
+        // client‐side validation
         if (newEmail.isBlank()) {
             _state.value = ChangeEmailState.Error("New email is required")
             return
@@ -53,7 +41,7 @@ class ChangeEmailViewModel(
             return
         }
 
-        // 2) call backend
+        //  call backend
         _state.value = ChangeEmailState.Loading
         viewModelScope.launch {
             val result = repository.changeEmail(token, newEmail, password)
@@ -68,7 +56,6 @@ class ChangeEmailViewModel(
         }
     }
 
-    /** Reset back to Idle (e.g. user navigates away). */
     fun resetState() {
         _state.value = ChangeEmailState.Idle
     }

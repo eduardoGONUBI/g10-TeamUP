@@ -10,8 +10,8 @@ import android.util.Base64
 import androidx.annotation.RequiresPermission
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.api.AuthApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -29,52 +29,54 @@ import java.util.Locale
 import kotlin.math.*
 
 class HomeViewModel(
-    private val repo: ActivityRepository
+    private val repo: ActivityRepository   // interface do dominio
 ) : ViewModel() {
 
-    /* ▼ NEW: last visible map area */
+
+    // limites do mapa para filtrar atividades
     private val _mapBounds = MutableStateFlow<LatLngBounds?>(null)
-    fun updateMapBounds(bounds: LatLngBounds) {          // call from the map
+    fun updateMapBounds(bounds: LatLngBounds) {
         _mapBounds.value = bounds
     }
 
-    /* ────── raw data from server ────── */
-    private val _allActivities = MutableStateFlow<List<ActivityItem>>(emptyList())
+    /* dados do backend */
+    private val _allActivities = MutableStateFlow<List<Activity>>(emptyList())
     private val _error         = MutableStateFlow<String?>(null)
 
-    /* ────── map centre ────── */
+    /* centro do mapa*/
     private val defaultCenter  = LatLng(41.5381, -8.6151)
     private val _center        = MutableStateFlow(defaultCenter)
 
-    /* ────── pagination state (local) ────── */
+    /* paginaçao  */
     private val pageSize            = 10
     private val currentPageLocal    = MutableStateFlow(1)
-    private val _visibleActivities  = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _visibleActivities  = MutableStateFlow<List<Activity>>(emptyList())
     private val _hasMoreLocal       = MutableStateFlow(false)
 
-    /** Lista filtrada (não concluído + <=25 km) – usada no mapa */
-    private val _filteredActivities = MutableStateFlow<List<ActivityItem>>(emptyList())
+    /* Lista filtrada pelo mapa*/
+    private val _filteredActivities = MutableStateFlow<List<Activity>>(emptyList())
 
-    /* ────── public flows ────── */
+
+
     val error: StateFlow<String?>                     = _error
     val center: StateFlow<LatLng>                     = _center
-    val visibleActivities: StateFlow<List<ActivityItem>> = _visibleActivities
+    val visibleActivities: StateFlow<List<Activity>> = _visibleActivities
     val hasMore: StateFlow<Boolean>                   = _hasMoreLocal
-    val activities: StateFlow<List<ActivityItem>>     = _filteredActivities   // para o mapa
+    val activities: StateFlow<List<Activity>>     = _filteredActivities
 
 
     init {
-        // Whenever server list, map centre **or bounds** change → rebuild paging
+        // sempre que mudam o mapa refaz a lista de atividades
         viewModelScope.launch {
             combine(_allActivities, _center, _mapBounds) { list, _, bounds ->
                 list.filter { item ->
-                    // ① hide concluded, ② keep only items inside the map
+                    // nao pode tar concluida
                     !item.status.equals("concluded", true) &&
                             (bounds == null ||                       // first launch
                                     bounds.contains(LatLng(item.latitude, item.longitude)))
                 }
             }.collect { filtered ->
-                _filteredActivities.value = filtered       // list for the map pins
+                _filteredActivities.value = filtered       //  lista para os pins
                 currentPageLocal.value = 1                 // restart local paging
                 _visibleActivities.value = filtered.take(pageSize)
                 _hasMoreLocal.value = filtered.size > pageSize
@@ -83,20 +85,19 @@ class HomeViewModel(
     }
 
 
-    /** Busca **todas** as páginas do backend, acumulando resultados */
+    /* vai buscar todas as paginas de todas as atividades */
     fun loadActivities(rawToken: String) = viewModelScope.launch {
         try {
             val userId   = getUserIdFromToken(rawToken) ?: -1
             val token    = bearer(rawToken)
-            val allItems = mutableListOf<ActivityItem>()
+            val allItems = mutableListOf<Activity>()
             var page     = 1
             do {
-                // busca página 'page' com, por exemplo, perPage = 50
+
                 val pageItems = repo.getAllEvents(token, page = page, perPage = 50)
                 allItems += pageItems
                 page++
             } while (repo.hasMore)
-            // anota “isCreator” e dispara para a UI
             _allActivities.value = allItems.map { it.copy(isCreator = (it.creatorId == userId)) }
             _error.value         = null
         } catch (e: Exception) {
@@ -104,7 +105,7 @@ class HomeViewModel(
         }
     }
 
-    /** Fallback para encontrar centro do mapa */
+    /* obtem localizaçao e */
     fun loadFallbackCenter(rawToken: String, ctx: Context) = viewModelScope.launch {
         try {
             val token  = bearer(rawToken)
@@ -121,7 +122,7 @@ class HomeViewModel(
         } catch (_: Exception) { /* mantém centro corrente */ }
     }
 
-    /** Avança uma página local (10 itens) sem chamar backend */
+    /* load more  */
     fun loadMore() {
         val filtered = _filteredActivities.value
         val nextPage = currentPageLocal.value + 1
@@ -168,7 +169,7 @@ class HomeViewModel(
 
         val tokenSrc = CancellationTokenSource()
         fused.getCurrentLocation(
-            Priority.PRIORITY_HIGH_ACCURACY,           // ← was BALANCED
+            Priority.PRIORITY_HIGH_ACCURACY,
             tokenSrc.token
         ).addOnSuccessListener { loc ->
             loc?.let { pushCenterAlways(it.latitude, it.longitude) }
@@ -184,7 +185,7 @@ class HomeViewModel(
     private fun requestSingleUpdate(fused: FusedLocationProviderClient) {
         val req = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
-            2_000L                                     // 2 s – must be > 0
+            2_000L
         )
             .setMaxUpdates(1)
             .build()

@@ -1,4 +1,3 @@
-// src/main/java/com/example/teamup/ui/screens/main/UserManager/LoginScreen.kt
 package com.example.teamup.ui.screens.main.UserManager
 
 import android.widget.Toast                                   // ← NEW
@@ -42,15 +41,15 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
 
     val loginState by loginViewModel.loginState.collectAsState()
-    val context = LocalContext.current                          // ← NEW
+    val context = LocalContext.current
 
-    /* ───────────── Toast collector ───────────── */
+    // mensagens temporarias toast
     LaunchedEffect(Unit) {
         loginViewModel.toast.collect { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
     }
-    /* ─────────────────────────────────────────── */
+
 
     val primaryBlue      = Color(0xFF0052CC)
     val backgroundColor  = Color(0xFFF4F3F3)

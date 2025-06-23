@@ -3,37 +3,33 @@ package com.example.teamup.presentation.profile
 import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.api.AchievementsApi
 import com.example.teamup.data.remote.api.AuthApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
-import okhttp3.Response
 import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-// ───────────────────────────────────────────────────────────
-// UI‐state para as actividades criadas (paginação local)
-// ───────────────────────────────────────────────────────────
+
+// estado ui para paginaçao das atividades criadas
 data class CreatedUi(
-    val full: List<ActivityItem> = emptyList(),
-    val visible: List<ActivityItem> = emptyList(),
+    val full: List<Activity> = emptyList(),
+    val visible: List<Activity> = emptyList(),
     val currentPageLocal: Int = 1,
     val hasMore: Boolean = false
 )
 
-// ───────────────────────────────────────────────────────────
-// ViewModel
-// ───────────────────────────────────────────────────────────
+
 class ProfileViewModel(
     private val repo: ActivityRepository
 ) : ViewModel() {
 
-    /* ── Perfil básico ─────────────────────────────────────── */
+    /* ── perfil basico ─────────────────────────────────────── */
     private val _username = MutableStateFlow("Loading…")
     val username: StateFlow<String> = _username
 
@@ -43,7 +39,7 @@ class ProfileViewModel(
     private val _sports = MutableStateFlow<List<String>>(emptyList())
     val sports: StateFlow<List<String>> = _sports
 
-    /* ── Métricas ─────────────────────────────────────────── */
+    /* ── level xp reputaçao ─────────────────────────────────────────── */
     private val _level = MutableStateFlow(0)
     val level: StateFlow<Int> = _level
 
@@ -68,7 +64,7 @@ class ProfileViewModel(
     private val _createdUi = MutableStateFlow(CreatedUi())
 
     // Exposto à UI como StateFlow
-    val visibleCreatedActivities: StateFlow<List<ActivityItem>> =
+    val visibleCreatedActivities: StateFlow<List<Activity>> =
         _createdUi
             .map { it.visible }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -93,9 +89,9 @@ class ProfileViewModel(
     val avatarUrl: StateFlow<String?> = _avatarUrl
 
 
-    // ─────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────
+
+
+    // ─────────Helpers────────────────────────────────────────────────
     private fun bearer(tok: String): String =
         if (tok.trim().startsWith("Bearer")) tok.trim()
         else "Bearer ${tok.trim()}"
@@ -108,6 +104,7 @@ class ProfileViewModel(
         }
     } catch (_: Exception) { null }
 
+    // cria uma instancia com o token ja incluido
     private fun authApi(token: String): AuthApi {
         val bearer = bearer(token)
         val client = OkHttpClient.Builder()
@@ -127,11 +124,10 @@ class ProfileViewModel(
             .create(AuthApi::class.java)
     }
 
-    // ─────────────────────────────────────────────────────────
-    // Loaders
-    // ─────────────────────────────────────────────────────────
 
-    /** 1) Carrega perfil básico via AuthApi (interceptor já põe Bearer) */
+    // ────────Loaders─────────────────────────────────────────────────
+
+    /* load informaçoes basicas do perfil */
     fun loadUser(token: String) = viewModelScope.launch {
         _error.value = null
         try {
@@ -146,7 +142,7 @@ class ProfileViewModel(
         }
     }
 
-    /** 2) Carrega 1ª página de /events/mine e filtra só criados */
+    /* load a primeira pagina das atividadees criadas*/
     fun loadCreatedActivities(token: String) = viewModelScope.launch {
         _activitiesError.value = null
         userId = parseUserId(token)
@@ -156,11 +152,11 @@ class ProfileViewModel(
         }
 
         try {
-            savedToken        = token
+            savedToken        = bearer(token)
             currentRemotePage = 1
             remoteHasMore     = true
 
-            val firstPage = repo.getMyActivities(token, page = currentRemotePage)
+            val firstPage = repo.getMyActivities(savedToken, page = currentRemotePage)
                 .filter { it.creatorId == userId }
                 .map    { it.copy(isCreator = true) }
             remoteHasMore = repo.hasMore
@@ -177,11 +173,11 @@ class ProfileViewModel(
         }
     }
 
-    /** 3) “Load more” carrega próxima página remota se a local estiver esgotada */
+    /* load more  */
     fun loadMoreCreated() = viewModelScope.launch {
         val ui = _createdUi.value
 
-        // a) Avança só slice local se ainda houver
+
         val nextLocalEnd = (ui.currentPageLocal + 1) * pageSizeLocal
         if (nextLocalEnd <= ui.full.size) {
             _createdUi.value = ui.copy(
@@ -192,7 +188,7 @@ class ProfileViewModel(
             return@launch
         }
 
-        // b) Se esgotou local mas backend ainda tem páginas, busca mais
+        // b) Se esgotou local mas backend ainda tem páginas busca mais
         if (!remoteHasMore) return@launch
 
         try {
@@ -203,7 +199,7 @@ class ProfileViewModel(
 
             remoteHasMore = repo.hasMore
 
-            // Apenas concatena: ui.full já está em ordem desc; pageItems também
+
             val newFull = ui.full + pageItems
 
             val newLocalEnd = (ui.currentPageLocal + 1) * pageSizeLocal
@@ -218,7 +214,7 @@ class ProfileViewModel(
         }
     }
 
-    /** 4) Carrega estatísticas e achievements */
+    /** 4) load achievements e stats */
     fun loadStats(token: String) = viewModelScope.launch {
         _error.value = null
         if (userId == null) userId = parseUserId(token)

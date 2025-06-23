@@ -1,4 +1,3 @@
-// RegisterScreen.kt
 package com.example.teamup.ui.screens.main.UserManager
 
 import android.app.Activity
@@ -28,13 +27,7 @@ import com.google.android.libraries.places.widget.Autocomplete
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import kotlinx.coroutines.launch
 
-/**
- * A Composable screen that allows a new user to register.
- *
- * @param registerViewModel   The ViewModel that holds formState & registerState
- * @param onBackToLogin       Called when the top-bar back arrow is pressed
- * @param onRegistrationDone  Called after successful registration (e.g. navigate back to Login)
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
@@ -42,17 +35,17 @@ fun RegisterScreen(
     onBackToLogin: () -> Unit,
     onRegistrationDone: () -> Unit
 ) {
-    // 1) Observe the form-values from the ViewModel
+    // estados
     val formState by registerViewModel.formState.collectAsState()
-    // 2) Observe the current registration/network state
+
     val registerState by registerViewModel.registerState.collectAsState()
 
-    // 3) A SnackbarHostState to show error or success messages
+    // snackbar
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope   = rememberCoroutineScope()
     val context          = LocalContext.current
 
-    // Ensure Places SDK is initialized (do this once, e.g. in your Application.onCreate())
+    // api google maps places
     if (!Places.isInitialized()) {
         Places.initialize(context.applicationContext, "<YOUR_GOOGLE_API_KEY>")
     }
@@ -63,7 +56,6 @@ fun RegisterScreen(
                 title = { Text("Register") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        // Reset ViewModel state before going back
                         registerViewModel.resetState()
                         onBackToLogin()
                     }) {
@@ -75,7 +67,6 @@ fun RegisterScreen(
                 }
             )
         },
-        // 4) Hook up the Snackbar host
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         Column(
@@ -86,7 +77,6 @@ fun RegisterScreen(
             verticalArrangement   = Arrangement.Top,
             horizontalAlignment   = Alignment.CenterHorizontally
         ) {
-            // ────────────────────────────────────────────────────
             // Username Field
             OutlinedTextField(
                 value            = formState.name,
@@ -102,7 +92,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ────────────────────────────────────────────────────
             // Email Field
             OutlinedTextField(
                 value            = formState.email,
@@ -119,7 +108,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ────────────────────────────────────────────────────
             // Password Field
             var passwordVisible by remember { mutableStateOf(false) }
             OutlinedTextField(
@@ -150,7 +138,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ────────────────────────────────────────────────────
             // Confirm Password Field
             var confirmPasswordVisible by remember { mutableStateOf(false) }
             OutlinedTextField(
@@ -181,8 +168,8 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ────────────────────────────────────────────────────
-            // City / Location Field: launch Google Places Autocomplete
+
+            // City / launch Google Places Autocomplete
             CityAutocompleteField(
                 currentCity  = formState.location,
                 onCitySelected = { selectedCity ->
@@ -192,7 +179,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ────────────────────────────────────────────────────
             // Register Button
             Button(
                 onClick         = { registerViewModel.register() },
@@ -209,7 +195,6 @@ fun RegisterScreen(
             }
         }
 
-        // ────────────────────────────────────────────────────
         // Show a Snackbar on Error or Success
         LaunchedEffect(registerState) {
             when (registerState) {
@@ -221,12 +206,12 @@ fun RegisterScreen(
                             duration = SnackbarDuration.Short
                         )
                     }
-                    // Reset back to Idle so user can correct input
+
                     registerViewModel.resetState()
                 }
 
                 is RegisterState.Success -> {
-                    // First show “Check your email” Snackbar, wait until dismissed...
+                    // Check your email
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar(
                             message  = (registerState as RegisterState.Success).message,
@@ -239,21 +224,15 @@ fun RegisterScreen(
                 }
 
                 else -> {
-                    // Idle or Loading → no Snackbar
+
                 }
             }
         }
     }
 }
 
-/**
- * A lightweight wrapper that uses Google Places Autocomplete in "FULLSCREEN" mode
- * to force the user to pick a city/village name.  You must have added:
- *
- *   implementation "com.google.android.libraries.places:places:<latest-version>"
- *
- * and called `Places.initialize(...)` in your Application or before this screen is first shown.
- */
+
+// force the user to pick a city name
 @Composable
 fun CityAutocompleteField(
     currentCity: String,
@@ -261,7 +240,6 @@ fun CityAutocompleteField(
 ) {
     val context = LocalContext.current
 
-    // Register for Activity Result to receive a Place object
     val autocompleteLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult()
@@ -269,21 +247,20 @@ fun CityAutocompleteField(
             if (result.resultCode == Activity.RESULT_OK) {
                 val data: Intent? = result.data
                 val place = Autocomplete.getPlaceFromIntent(data!!)
-                // We only asked for Place.Field.NAME, so that's guaranteed non‐null
                 onCitySelected(place.name!!)
             }
         }
 
     OutlinedTextField(
         value            = currentCity,
-        onValueChange    = { /* read‐only; must pick from Autocomplete */ },
+        onValueChange    = {  },
         enabled          = false,
         label            = { Text("City") },
         singleLine       = true,
         modifier         = Modifier
             .fillMaxWidth()
             .clickable {
-                // When clicked, launch Google’s Autocomplete overlay limited to cities
+                // google autocomplete
                 val fields = listOf(Place.Field.ID, Place.Field.NAME)
                 val intent = Autocomplete.IntentBuilder(
                     AutocompleteActivityMode.FULLSCREEN,

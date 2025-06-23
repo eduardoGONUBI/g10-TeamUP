@@ -1,9 +1,6 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/ProfileScreen.kt
 package com.example.teamup.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,7 +15,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -39,10 +34,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.teamup.R
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.BaseUrlProvider
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.presentation.profile.ProfileViewModel
 import com.example.teamup.ui.components.ActivityCard
@@ -54,9 +49,9 @@ fun ProfileScreen(
     token: String,
     onEditProfile: () -> Unit,
     onLogout: () -> Unit,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
-    // Hoist ViewModel with injected repository
+
     val viewModel: ProfileViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -67,7 +62,7 @@ fun ProfileScreen(
         }
     )
 
-    // Collect state
+    // estado
     val username        by viewModel.username.collectAsState()
     val location        by viewModel.location.collectAsState()
     val sports          by viewModel.sports.collectAsState()
@@ -119,9 +114,9 @@ fun ProfileScreen(
                         .padding(top = 24.dp)
                 ) {
                     val fullUrl = when {
-                        avatarUrl.isNullOrBlank()            -> null                     // usa fallback
-                        avatarUrl!!.startsWith("http")       -> avatarUrl                // URL absoluta
-                        else -> {                                                      // caminho relativo
+                        avatarUrl.isNullOrBlank()            -> null
+                        avatarUrl!!.startsWith("http")       -> avatarUrl
+                        else -> {
                             BaseUrlProvider.getBaseUrl().trimEnd('/') +
                                     "/" + avatarUrl!!.trimStart('/')
                         }
@@ -158,7 +153,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Location & Favourite Sports
+            // Location / Favourite Sports
             item {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -182,7 +177,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Stats Card
+            // Stats
             item {
                 Card(
                     modifier = Modifier
@@ -204,7 +199,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Achievements Header
+            // Achievements
             item {
                 Text(
                     text = "Unlocked Achievements",
@@ -213,12 +208,12 @@ fun ProfileScreen(
                 )
             }
 
-            // Achievements Row
+            // fila Achievements
             item {
                 AchievementsRow(achievements)
             }
 
-            // Edit & Logout Buttons
+            // Edit / Logout
             item {
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -239,7 +234,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Recent Activities Header
+            // atividades criadas
             item {
                 Text(
                     text = "Recent Activities Created",
@@ -248,7 +243,7 @@ fun ProfileScreen(
                 )
             }
 
-            // Recent Activities List / Error / Load More
+
             when {
                 activitiesError != null -> item {
                     Text(
@@ -295,7 +290,7 @@ fun ProfileScreen(
             }
         }
 
-        // Generic error banner
+        // erro
         if (error != null) {
             Snackbar(
                 modifier = Modifier

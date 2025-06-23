@@ -1,18 +1,11 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/HomeScreen.kt
 package com.example.teamup.ui.screens
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -24,13 +17,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.ui.components.ActivityCard
 import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
@@ -51,9 +43,9 @@ import com.google.maps.android.compose.rememberMarkerState
 @Composable
 fun HomeScreen(
     token: String,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
-    /* 1) ViewModel with injected repository */
+    // Cria o HomeViewModel com o repo injetado
     val vm: HomeViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -65,7 +57,7 @@ fun HomeScreen(
     )
 
 
-    /* 2) UI-state from the VM */
+    /* estados do viewmodel*/
     val allActivities     by vm.activities.collectAsState()
     val visibleActivities by vm.visibleActivities.collectAsState()
     val hasMore           by vm.hasMore.collectAsState()
@@ -73,7 +65,7 @@ fun HomeScreen(
     val center            by vm.center.collectAsState()
 
 
-    /* 3) Context & fine-location permission */
+    /* permissao de localizaçao*/
     val ctx = LocalContext.current
     val locPerm = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
     val locationGranted = locPerm.status is PermissionStatus.Granted
@@ -89,7 +81,7 @@ fun HomeScreen(
     LaunchedEffect(token) {
         vm.loadActivities(token)
     }
-    // 2) Only react to permission changes for centering the map
+    // Only react to permission changes for centering the map
     LaunchedEffect(locPerm.status) {
         if (locPerm.status is PermissionStatus.Granted) {
             vm.fetchAndCenterOnGps(ctx)
@@ -99,10 +91,10 @@ fun HomeScreen(
     }
 
 
-    /* 5) UI layout */
+    /* UI layout */
     Column(modifier = Modifier.fillMaxSize()) {
 
-        /* Map with “My location” FAB layered on top */
+
         Box(
             modifier = Modifier
                 .height(300.dp)
@@ -141,7 +133,7 @@ fun HomeScreen(
 @Composable
 private fun MapView(
     modifier: Modifier,
-    activities: List<ActivityItem>,
+    activities: List<Activity>,
     center: LatLng,
     locationGranted: Boolean,
     onBoundsChanged: (LatLngBounds) -> Unit
@@ -189,10 +181,10 @@ private fun MapView(
 
 @Composable
 private fun ActivitiesList(
-    activities: List<ActivityItem>,
+    activities: List<Activity>,
     hasMore: Boolean,
     onLoadMore: () -> Unit,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier

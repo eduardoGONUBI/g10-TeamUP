@@ -1,9 +1,10 @@
-// src/main/java/com/example/teamup/data/local/SessionRepository.kt
+
 package com.example.teamup.data.local
 
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject   // ignore if you don’t use DI yet
 
+//Faz a ponte entre o DAO e o resto da app
 class SessionRepository @Inject constructor(
     private val dao: SessionDao
 ) {

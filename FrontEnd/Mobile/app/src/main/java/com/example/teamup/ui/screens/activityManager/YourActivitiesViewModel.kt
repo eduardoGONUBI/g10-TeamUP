@@ -3,55 +3,54 @@ package com.example.teamup.ui.screens.activityManager
 import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-// UI state permanece praticamente igual, mas "pageSize" já não é usado para slices locais
-// porque cada página remota será appendada por inteiro.
+// estado
 data class YourActivitiesUiState(
-    val fullActivities: List<ActivityItem> = emptyList(),
-    val visibleActivities: List<ActivityItem> = emptyList(),
+    val fullActivities: List<Activity> = emptyList(),
+    val visibleActivities: List<Activity> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,
     val currentRemotePage: Int = 1,
-    val hasMore: Boolean = false                // vem do repo.hasMore
+    val hasMore: Boolean = false
 )
 
 class YourActivitiesViewModel(
     private val repo: ActivityRepository
 ) : ViewModel() {
 
+
     private val _state = MutableStateFlow(YourActivitiesUiState())
     val state: StateFlow<YourActivitiesUiState> = _state
 
     private var savedToken: String = ""
 
-    /** Primeiro carregamento / refresh total */
+     //  carrega a primeira pagina de atividades
     fun loadMyEvents(token: String) = viewModelScope.launch {
         savedToken = token
         _state.value = _state.value.copy(loading = true, error = null)
         try {
-            // reset paginação remota
+
             var page = 1
-            val aggregated = mutableListOf<ActivityItem>()
+            val aggregated = mutableListOf<Activity>()
             do {
                 val pageItems = repo.getMyActivities(token, page)
                 aggregated += pageItems
                 page++
             } while (repo.hasMore.not() && false) // nao buscar todas as páginas de uma vez
-            // O requisito actual: só a 1ª página, restantes via "Load more"
 
-            val currentUserId = parseUserIdFromJwt(token)
+            val currentUserId = parseUserIdFromJwt(token)  // busca o id pelo token para ver se e o criador
 
             val sorted = aggregated.map { it.copy(isCreator = (it.creatorId == currentUserId)) }
 
-            _state.value = _state.value.copy(
+            _state.value = _state.value.copy(  // atualiza o estao com a 1 pagina
                 fullActivities    = sorted,
-                visibleActivities = sorted,           // mostra tudo o que veio (1ª página)
+                visibleActivities = sorted,
                 loading           = false,
                 currentRemotePage = 1,
                 hasMore           = repo.hasMore
@@ -64,7 +63,7 @@ class YourActivitiesViewModel(
         }
     }
 
-    /** Load more: busca próxima página remota se existir e faz append */
+     // load more
     fun loadMore() = viewModelScope.launch {
         val ui = _state.value
         if (!ui.hasMore) return@launch
@@ -76,7 +75,7 @@ class YourActivitiesViewModel(
             val combined = ui.fullActivities + annotated
             _state.value = ui.copy(
                 fullActivities    = combined,
-                visibleActivities = combined,   // mostra tudo acumulado
+                visibleActivities = combined,
                 currentRemotePage = nextRemotePage,
                 hasMore           = repo.hasMore
             )
@@ -85,7 +84,7 @@ class YourActivitiesViewModel(
         }
     }
 
-    /* helper para extrair sub claim */
+    /* helper para extrair id */
     private fun parseUserIdFromJwt(jwtToken: String): Int {
         return try {
             val parts = jwtToken.removePrefix("Bearer ").split(".")

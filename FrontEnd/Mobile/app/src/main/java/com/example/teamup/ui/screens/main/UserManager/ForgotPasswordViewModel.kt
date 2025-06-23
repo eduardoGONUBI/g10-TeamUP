@@ -2,20 +2,13 @@ package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.remote.model.ForgotPasswordRequestDto
 import com.example.teamup.data.remote.api.AuthApi
-import com.example.teamup.data.remote.Repository.AuthRepositoryImpl
+import com.example.teamup.data.remote.repository.AuthRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-/**
- * Represents the state of a “forgot password” request:
- *  • Idle    : no request in progress
- *  • Loading : request is in progress
- *  • Success : request succeeded (message contains server’s message)
- *  • Error   : request failed (message contains error description)
- */
+
 sealed class ForgotPasswordState {
     object Idle : ForgotPasswordState()
     object Loading : ForgotPasswordState()
@@ -27,10 +20,10 @@ class ForgotPasswordViewModel : ViewModel() {
     private val _state = MutableStateFlow<ForgotPasswordState>(ForgotPasswordState.Idle)
     val state: StateFlow<ForgotPasswordState> = _state
 
-    // We reuse AuthRepositoryImpl for simplicity
+
     private val repository = AuthRepositoryImpl(AuthApi.create())
 
-    /** Called when user taps “Send reset link” with an email. */
+    /* reset link */
     fun requestReset(email: String) {
         // 1) Simple client‐side validation
         if (email.isBlank()) {
@@ -42,7 +35,7 @@ class ForgotPasswordViewModel : ViewModel() {
             return
         }
 
-        // 2) Make network call
+        // chama api
         _state.value = ForgotPasswordState.Loading
         viewModelScope.launch {
             val result = repository.forgotPassword(email)
@@ -57,7 +50,7 @@ class ForgotPasswordViewModel : ViewModel() {
         }
     }
 
-    /** Reset back to Idle if you want to allow re‐trying or clear errors. */
+
     fun resetState() {
         _state.value = ForgotPasswordState.Idle
     }

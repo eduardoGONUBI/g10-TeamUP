@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/activityManager/SearchActivityScreen.kt
 package com.example.teamup.ui.screens.activityManager
 
 import android.app.DatePickerDialog
@@ -25,11 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.data.remote.model.SportDto
+
+import com.example.teamup.domain.model.Sport
 import com.example.teamup.ui.components.ActivityCard
 import java.time.LocalDate
 import java.util.*
@@ -39,16 +39,14 @@ import java.util.*
 @Composable
 fun SearchActivityScreen(
     token: String,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
     val context = LocalContext.current
 
-    // 1) Build repository
     val repo: ActivityRepository = remember {
         ActivityRepositoryImpl(ActivityApi.create())
     }
 
-    // 2) Create ViewModel internally
     val vm: SearchActivityViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -58,12 +56,12 @@ fun SearchActivityScreen(
         }
     )
 
-    // 3) Kick off loading all events once
+    //  busca as atividades
     LaunchedEffect(token) {
         vm.loadAllEvents(token)
     }
 
-    // 4) Collect each piece of state separately
+    // estados
     val name by vm.name.collectAsState()
     val sport by vm.sport.collectAsState()
     val place by vm.place.collectAsState()
@@ -74,27 +72,25 @@ fun SearchActivityScreen(
     val visibleResults by vm.visibleResults.collectAsState()
     val hasMore by vm.hasMore.collectAsState()
 
-    // 5) Local UI state for Sports dropdown
-    var sportsList by remember { mutableStateOf<List<SportDto>>(emptyList()) }
+    var sportsList by remember { mutableStateOf<List<Sport>>(emptyList()) }
     var sportExpanded by remember { mutableStateOf(false) }
 
-    // 6) Local UI state for showing DatePickerDialog
+
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // 7) Collapsible Filters state
+
     var filtersExpanded by remember { mutableStateOf(false) }
 
-    // 8) Load sports from backend once
+    // load sports
     LaunchedEffect(Unit) {
         try {
-            val fetched: List<SportDto> = repo.getSports(token)
+            val fetched: List<Sport> = repo.getSports("Bearer $token")
             sportsList = fetched
         } catch (_: Exception) {
-            // ignore or log
         }
     }
 
-    // 9) Show native DatePickerDialog if requested
+    //  escolher data
     if (showDatePicker) {
         val today = Calendar.getInstance()
         DatePickerDialog(
@@ -112,15 +108,15 @@ fun SearchActivityScreen(
         }.show()
     }
 
-    // 10) Main UI
+    //  Main UI
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // ─────────────────────────────────────────────────────────────────
+
         // Collapsible Filter Panel
-        // ─────────────────────────────────────────────────────────────────
+
         Card(
             colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
             modifier = Modifier
@@ -128,7 +124,7 @@ fun SearchActivityScreen(
                 .animateContentSize()
         ) {
             Column {
-                // Header row: “Filters” + toggle arrow
+                // Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -155,7 +151,7 @@ fun SearchActivityScreen(
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        // a) Search by Name
+                        //  Search by Name
                         OutlinedTextField(
                             value = name,
                             onValueChange = { vm.updateFilter("name", it) },
@@ -168,14 +164,14 @@ fun SearchActivityScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // b) Search by Sport (dropdown)
+                        //  Search by Sport (dropdown)
                         ExposedDropdownMenuBox(
                             expanded = sportExpanded,
                             onExpandedChange = { sportExpanded = !sportExpanded }
                         ) {
                             OutlinedTextField(
                                 value = sport,
-                                onValueChange = { /* read-only */ },
+                                onValueChange = {  },
                                 label = { Text("Search by Sport") },
                                 readOnly = true,
                                 trailingIcon = {
@@ -189,11 +185,11 @@ fun SearchActivityScreen(
                                 expanded = sportExpanded,
                                 onDismissRequest = { sportExpanded = false }
                             ) {
-                                sportsList.forEach { sportDto ->
+                                sportsList.forEach { sport ->
                                     DropdownMenuItem(
-                                        text = { Text(sportDto.name) },
+                                        text = { Text(sport.name) },
                                         onClick = {
-                                            vm.updateFilter("sport", sportDto.name)
+                                            vm.updateFilter("sport", sport.name)
                                             sportExpanded = false
                                         }
                                     )
@@ -203,7 +199,7 @@ fun SearchActivityScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // c) Search by Location (simple text field)
+                        //  Search by Location
                         OutlinedTextField(
                             value = place,
                             onValueChange = { vm.updateFilter("place", it) },
@@ -216,7 +212,7 @@ fun SearchActivityScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // d) Search by Date (native DatePicker or type)
+                        // Search by Date
                         OutlinedTextField(
                             value = date,
                             onValueChange = { vm.updateFilter("date", it) },
@@ -238,7 +234,7 @@ fun SearchActivityScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Optional: “Refresh Results” button
+                        // Refresh Results button
                         Button(
                             onClick = { vm.loadAllEvents(token) },
                             modifier = Modifier
@@ -254,9 +250,7 @@ fun SearchActivityScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ─────────────────────────────────────────────────────────────────
-        // Results / Loading / Error (fill remaining space)
-        // ─────────────────────────────────────────────────────────────────
+        // Results / Loading / Error
         when {
             loading -> {
                 Box(

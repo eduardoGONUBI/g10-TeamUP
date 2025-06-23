@@ -16,10 +16,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import com.example.teamup.model.Message
-import com.example.teamup.network.ChatApi
-import com.example.teamup.network.ChatWebSocket
-import com.example.teamup.util.ActiveChat
+import com.example.teamup.domain.model.Message
+import com.example.teamup.data.remote.api.ChatApi
+import com.example.teamup.data.remote.websocket.ChatWebSocket
+import com.example.teamup.ui.util.ActiveChat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,11 +32,11 @@ fun ChatDetailScreen(
 ) {
 
     DisposableEffect(Unit) {
-        ActiveChat.currentEventId = eventId          // ← NEW
-        onDispose { ActiveChat.currentEventId = null }  // ← NEW
+        ActiveChat.currentEventId = eventId
+        onDispose { ActiveChat.currentEventId = null }
     }
 
-    /* ── State ──────────────────────────────────────────────────────────── */
+     // estado
     val messages       = remember { mutableStateListOf<Message>() }
     var input          by remember { mutableStateOf("") }
     var loadingHistory by remember { mutableStateOf(true) }
@@ -49,7 +49,7 @@ fun ChatDetailScreen(
         // Collect incoming WS messages
         val job = scope.launch {
             ws.incoming.collectLatest { msg ->
-                messages.add(0, msg)               // top because reverseLayout = true
+                messages.add(0, msg)
             }
         }
 
@@ -65,7 +65,7 @@ fun ChatDetailScreen(
             .onSuccess { history ->
                 val initial = history
                     .map { it.copy(fromMe = it.userId == myUserId) }
-                    .asReversed()                  // newest last → addAll keeps order
+                    .asReversed()
                 messages.addAll(initial)
             }
             .onFailure { it.printStackTrace() }
@@ -108,7 +108,7 @@ fun ChatDetailScreen(
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     reverseLayout = true
                 ) {
-                    items(messages) { msg ->        // already newest at top
+                    items(messages) { msg ->
                         MessageBubble(msg)
                     }
                 }

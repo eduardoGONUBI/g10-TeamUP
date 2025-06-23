@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/teamup/ui/components/WeatherCard.kt
+
 package com.example.teamup.ui.components
 
 import androidx.compose.foundation.layout.*
@@ -14,9 +14,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.teamup.data.remote.model.WeatherDto
 
-/**
- * Picks an icon based on the (lowercase) description text.
- */
+// mostra os detalhes da metereologia
 @Composable
 private fun weatherIconFor(description: String?): ImageVector {
     val desc = description?.lowercase() ?: ""
@@ -36,7 +34,7 @@ fun WeatherCard(
     weather: WeatherDto,
     modifier: Modifier = Modifier
 ) {
-    // Defensive defaults
+
     val t       = weather.temp        ?: "—"
     val hi      = weather.high_temp   ?: "—"
     val lo      = weather.low_temp    ?: "—"
@@ -46,10 +44,10 @@ fun WeatherCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),           // small vertical padding
+            .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Icon, centered
+        // Icon
         androidx.compose.material3.Icon(
             imageVector = weatherIconFor(descRaw),
             contentDescription = descRaw,
@@ -59,7 +57,7 @@ fun WeatherCard(
 
         Spacer(Modifier.height(8.dp))
 
-        // Temperature (e.g. “26.1°C”)
+        // Temperature
         Text(
             text = "$t°C",
             style = MaterialTheme.typography.headlineMedium.copy(
@@ -77,7 +75,7 @@ fun WeatherCard(
 
         Spacer(Modifier.height(4.dp))
 
-        // Description (e.g. “Few clouds”)
+        // Description
         Text(
             text = desc,
             style = MaterialTheme.typography.bodySmall

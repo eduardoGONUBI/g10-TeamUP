@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/teamup/ui/screens/activityManager/ActivityTabsScreen.kt
 package com.example.teamup.ui.screens.activityManager
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,49 +18,20 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.domain.model.Activity
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.data.remote.Repository.ActivityRepositoryImpl
+import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ActivityTabsScreen(
     token: String,
-    onActivityClick: (ActivityItem) -> Unit
+    onActivityClick: (Activity) -> Unit
 ) {
-    // 1) Create a single repository instance
-    val repo = remember { ActivityRepositoryImpl(ActivityApi.create()) }
 
-    // 2) Hoist both ViewModels only once (so Compose doesn't recreate them on rotation, etc.)
-    val searchVm: SearchActivityViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return SearchActivityViewModel(repo) as T
-            }
-        }
-    )
 
-    val createVm: CreateActivityViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return CreateActivityViewModel(repo) as T
-            }
-        }
-    )
-
-    val yourActivitiesVm: YourActivitiesViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return YourActivitiesViewModel(repo) as T
-            }
-        }
-    )
-
-    // 3) Pager with 3 pages
+    // 3) Page with 3 pages
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
 
@@ -101,7 +71,6 @@ fun ActivityTabsScreen(
                 1 -> CreateActivityScreen(
                     token = token,
                     onCreated = {
-                        // As soon as creation succeeds, jump to the “Your Activities” tab (index 2)
                         scope.launch { pagerState.animateScrollToPage(2) }
                     }
                 )
@@ -115,14 +84,3 @@ fun ActivityTabsScreen(
     }
 }
 
-@Composable
-private fun YourActivitiesPlaceholder() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Your Activities screen coming soon.")
-    }
-}

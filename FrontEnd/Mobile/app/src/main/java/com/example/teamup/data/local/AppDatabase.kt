@@ -1,10 +1,13 @@
-// src/main/java/com/example/teamup/data/local/AppDatabase.kt
+
 package com.example.teamup.data.local
 
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+
+
+// Configura a base de dados SQLite local usando Room para guardar dados como o token de sessao
 
 @Database(entities = [SessionEntity::class], version = 1, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {

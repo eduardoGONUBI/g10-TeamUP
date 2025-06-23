@@ -2,8 +2,8 @@ package com.example.teamup.ui.screens.activityManager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamup.data.domain.model.ActivityItem
-import com.example.teamup.data.domain.repository.ActivityRepository
+import com.example.teamup.domain.model.Activity
+import com.example.teamup.domain.repository.ActivityRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -18,7 +18,7 @@ class SearchActivityViewModel(
     private val _date  = MutableStateFlow("")
 
     /* ── dados remotos ──────────────────────── */
-    private val _allEvents   = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _allEvents   = MutableStateFlow<List<Activity>>(emptyList())
     private val _loading     = MutableStateFlow(false)
     private val _error       = MutableStateFlow<String?>(null)
 
@@ -30,16 +30,16 @@ class SearchActivityViewModel(
     /* ── paginação LOCAL ────────────────────── */
     private val pageSizeLocal       = 10
     private val _currentPageLocal   = MutableStateFlow(1)
-    private val _visibleResults     = MutableStateFlow<List<ActivityItem>>(emptyList())
+    private val _visibleResults     = MutableStateFlow<List<Activity>>(emptyList())
     private val _hasMoreLocal       = MutableStateFlow(false)
 
-    /* ── combine → lista filtrada ───────────── */
-    private val _filtered: StateFlow<List<ActivityItem>> = combine(
+    /* ── combina filtros  + dados remotos ───────────── */
+    private val _filtered: StateFlow<List<Activity>> = combine(
         _name, _sport, _place, _date, _allEvents
     ) { name, sport, place, date, all ->
         all.filter { item ->
             val matchesName  = name.isBlank() || item.title.contains(name, ignoreCase = true)
-            val matchesSport = sport.isBlank() || item.title.substringAfter(":").contains(sport, ignoreCase = true)
+            val matchesSport = sport.isBlank() || item.title.substringAfter(":").trim().contains(sport, ignoreCase = true)
             val matchesPlace = place.isBlank() || item.location.contains(place, ignoreCase = true)
             val matchesDate  = date.isBlank() || item.startsAt.startsWith(date)
             val notInvolved  = !item.isCreator && !item.isParticipant
@@ -63,11 +63,11 @@ class SearchActivityViewModel(
     val date: StateFlow<String>                    = _date
     val loading: StateFlow<Boolean>                = _loading
     val error: StateFlow<String?>                  = _error
-    val filtered: StateFlow<List<ActivityItem>>    = _filtered
-    val visibleResults: StateFlow<List<ActivityItem>> = _visibleResults
+    val filtered: StateFlow<List<Activity>>    = _filtered
+    val visibleResults: StateFlow<List<Activity>> = _visibleResults
     val hasMore: StateFlow<Boolean>                = _hasMoreLocal
 
-    /** 1) Primeira chamada: carrega todas as páginas remotas */
+    // primeira chamada carrega todas as paginas antes de filtrar
     fun loadAllEvents(rawToken: String) = viewModelScope.launch {
         _loading.value = true
         _error.value   = null
@@ -75,7 +75,7 @@ class SearchActivityViewModel(
         backendPage    = 1
         lastBackendPage = false
         try {
-            val all = mutableListOf<ActivityItem>()
+            val all = mutableListOf<Activity>()
             do {
                 val pageItems = repo.getAllEvents(
                     bearer(rawToken),
@@ -93,7 +93,7 @@ class SearchActivityViewModel(
         }
     }
 
-    /** 2) Atualiza filtros */
+     // atualiza filtros
     fun updateFilter(field: String, value: String) {
         when (field) {
             "name"  -> _name.value  = value
@@ -103,7 +103,8 @@ class SearchActivityViewModel(
         }
     }
 
-    /** 3) Carrega mais: local primeiro, depois remoto se necessário */
+
+    // load more, primeiro local depois remoto se necessario
     fun loadMore() = viewModelScope.launch {
         val filteredList = _filtered.value
         val nextLocalIdx = (_currentPageLocal.value + 1) * pageSizeLocal
@@ -135,13 +136,13 @@ class SearchActivityViewModel(
     }
 
     /* ─── Helpers ─────────────────────────────────────────────────── */
-    private fun resetLocalPaging(fullList: List<ActivityItem>) {
+    private fun resetLocalPaging(fullList: List<Activity>) {
         _currentPageLocal.value = 1
         _visibleResults.value   = fullList.take(pageSizeLocal)
         _hasMoreLocal.value     = fullList.size > pageSizeLocal || !lastBackendPage
     }
 
-    private fun advanceLocalPage(fullList: List<ActivityItem>) {
+    private fun advanceLocalPage(fullList: List<Activity>) {
         val nextPage = _currentPageLocal.value + 1
         val toIdx    = (nextPage * pageSizeLocal).coerceAtMost(fullList.size)
         _currentPageLocal.value = nextPage

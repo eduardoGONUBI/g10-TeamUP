@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/components/ActivityCard.kt
 package com.example.teamup.ui.components
 
 import androidx.compose.foundation.background
@@ -21,25 +20,24 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.example.teamup.R
-import com.example.teamup.data.domain.model.ActivityItem
+import com.example.teamup.domain.model.Activity
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
 
+// cartao da atividade nas listas
 @Composable
 fun ActivityCard(
-    activity: ActivityItem,
+    activity: Activity,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    // If bgBrush is non-null, draw gradient; otherwise fill with bgColor
     bgColor: Color = Color(0xFFE1DCEF),
     bgBrush: Brush? = null,
-    // Two optional labels, shown below date/time if non-null
     labelCreator: String? = null,
     labelConcluded: String? = null
 ) {
-    // 1) Choose sport icon:
+     // icons do desporto
     val sportName = activity.title.substringAfter(":").trim().lowercase(Locale.ROOT)
     val iconRes = when (sportName) {
         "volleyball"          -> R.drawable.voleyball
@@ -53,7 +51,7 @@ fun ActivityCard(
         else                  -> R.drawable.football
     }
 
-    // 2) Parse startsAt → datePart (YYYY-MM-DD) and timePart (HH:MM)
+    // parse data
     val raw = activity.startsAt
     val (datePart, timePart) = parseDateTime(raw)
 
@@ -64,7 +62,6 @@ fun ActivityCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = if (bgBrush != null) {
-            // If gradient is provided, make the card's container transparent
             CardDefaults.cardColors(containerColor = Color.Transparent)
         } else {
             CardDefaults.cardColors(containerColor = bgColor)
@@ -85,7 +82,6 @@ fun ActivityCard(
                     .fillMaxWidth()
                     .padding(12.dp)
             ) {
-                // Sport icon in a circle
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.surface,
@@ -140,7 +136,7 @@ fun ActivityCard(
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
 
-                    // ─── Labels (below date/time) ───────────────────────
+                    // ─── Labels ───────────────────────
                     labelCreator?.let {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -164,7 +160,7 @@ fun ActivityCard(
                 }
             }
 
-            // ─── Participants count (top-right) ───────────────────────
+            // ─── Participants ───────────────────────
             Text(
                 text = "${activity.participants}/${activity.maxParticipants}",
                 style = MaterialTheme.typography.bodySmall,
@@ -174,7 +170,7 @@ fun ActivityCard(
                     .padding(end = 8.dp, top = 8.dp)
             )
 
-            // ─── Chevron (bottom-right) ───────────────────────────────
+            // >>>>>>>>>
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "See Activity",
@@ -188,10 +184,10 @@ fun ActivityCard(
     }
 }
 
+// parsa o start_at
 private fun parseDateTime(raw: String): Pair<String, String> {
     if (raw.isBlank()) return "" to ""
 
-    // 1) Try full ISO (e.g. “2025-06-10T18:30:00Z”)
     try {
         val zdt = ZonedDateTime.parse(raw)
         val local = zdt.withZoneSameInstant(ZoneId.systemDefault())
@@ -200,7 +196,6 @@ private fun parseDateTime(raw: String): Pair<String, String> {
         return date to time
     } catch (_: DateTimeParseException) { }
 
-    // 2) Try “yyyy-MM-dd HH:mm:ss”
     try {
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
         val ldt = LocalDateTime.parse(raw, fmt)
@@ -209,6 +204,5 @@ private fun parseDateTime(raw: String): Pair<String, String> {
         return date to time
     } catch (_: DateTimeParseException) { }
 
-    // 3) Fallback: return raw as date only
     return raw to ""
 }

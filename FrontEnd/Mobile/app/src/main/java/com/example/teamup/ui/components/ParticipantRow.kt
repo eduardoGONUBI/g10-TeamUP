@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/teamup/ui/model/ParticipantRow.kt
+
 package com.example.teamup.ui.model
 
 import androidx.compose.foundation.clickable
@@ -18,17 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.teamup.data.remote.model.ParticipantUi
 
-/**
- * A single row in the “participants” list.
- *
- * @param p             The ParticipantUi (contains id, name, level, isCreator, etc.)
- * @param isConcluded   True if the event’s status is exactly "concluded"
- * @param isKickable    True if the current user (creator) can kick this participant right now
- * @param onKickClick   Called when the “Kick” button is tapped
- * @param onClick       Called when the user taps on the name/level to view that user’s profile
- * @param showFeedback  True if (1) event is concluded, (2) this participant has not yet received feedback, (3) this participant is not the creator
- * @param onFeedback    Called when “Give feedback” is tapped
- */
+// lista de participantes
 @Composable
 fun ParticipantRow(
     p: ParticipantUi,
@@ -45,7 +35,7 @@ fun ParticipantRow(
             .padding(horizontal = 24.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Clicking on the Column (name/level) should view that user’s profile:
+        // clicar no participante leva ao perfil
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -64,7 +54,7 @@ fun ParticipantRow(
         }
 
         when {
-            // 1) If this participant *is* the event’s creator, show a star icon (no feedback/kick)
+            // se for criador aparece uma estrela
             p.isCreator -> {
                 Icon(
                     imageVector = Icons.Default.Star,
@@ -73,8 +63,8 @@ fun ParticipantRow(
                 )
             }
 
-            // 2) If event is concluded, this user has not yet received feedback, and is not the creator:
-            //    Show “Give feedback” button
+
+            //   condiçoes para mostrar o give feedback
             showFeedback && isConcluded -> {
                 Button(
                     onClick = onFeedback,
@@ -90,8 +80,8 @@ fun ParticipantRow(
                 }
             }
 
-            // 3) If the event is not concluded AND the creator can still kick this participant:
-            //    Show kick button
+
+            //    condiçoes para mostrar o botao de expulsar participante
             isKickable && !isConcluded -> {
                 IconButton(onClick = onKickClick) {
                     Icon(
@@ -102,8 +92,8 @@ fun ParticipantRow(
                 }
             }
 
-            // 4) If we reach here *and* the event is concluded (but no “showFeedback”):
-            //    That means feedback was already sent → show “Feedback sent”
+            //
+            //    se chegar aqui quer dizer que feedback ja foi mandado
             isConcluded -> {
                 Text(
                     text = "Feedback sent",
@@ -113,7 +103,7 @@ fun ParticipantRow(
                 )
             }
 
-            // 5) Otherwise (event not concluded, not creator, not kickable, no feedback yet) → show nothing
+            // mostra nada
             else -> {
                 Spacer(modifier = Modifier.width(0.dp))
             }
