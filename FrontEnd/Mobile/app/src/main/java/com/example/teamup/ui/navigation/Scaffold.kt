@@ -387,10 +387,7 @@ fun RootScaffold(
                 )
             }
 
-            /* ─── Notifications ───────────────────────────────── */
-            composable("notifications") {
-                NotificationScreen()
-            }
+
 
             /* ─── Public profile  ────────────────── */
             composable(
@@ -453,21 +450,6 @@ fun TopBar(
                         contentDescription = "Refresh",
                         modifier = Modifier.size(48.dp),
                         contentScale = ContentScale.Fit
-                    )
-                }
-            },
-            actions = {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable { navController.navigate("notifications") }
-                        .padding(12.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.notifications),
-                        contentDescription = "Notifications",
-                        modifier = Modifier.size(24.dp),
-                        tint = Color(0xFF335EB5)
                     )
                 }
             },
