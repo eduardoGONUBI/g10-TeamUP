@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/Profile/PublicProfileScreen.kt
 package com.example.teamup.ui.screens.Profile
 
 import androidx.compose.foundation.background
@@ -39,7 +38,7 @@ fun PublicProfileScreen(
     onBack: () -> Unit,
     onEventClick: (Activity) -> Unit
 ) {
-    // 1) Corona o ViewModel via factory (injetando o repo e o bearer)
+
     val viewModel: PublicProfileViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -53,7 +52,7 @@ fun PublicProfileScreen(
         }
     )
 
-    // 2) Collect all StateFlows
+    // estado
     val name         by viewModel.name.collectAsState()
     val avatarUrl    by viewModel.avatarUrl.collectAsState()
     val location     by viewModel.location.collectAsState()
@@ -64,7 +63,7 @@ fun PublicProfileScreen(
     val achievements by viewModel.achievements.collectAsState()
     val errorMsg     by viewModel.error.collectAsState()
 
-    // ─── Paginated events ─────────────────────────────────────────────
+    // paginaçao
     val visibleEvents by viewModel.visibleEvents.collectAsState()
     val hasMoreEvents by viewModel.hasMoreEvents.collectAsState()
     val eventsError   by viewModel.eventsError.collectAsState()
@@ -136,7 +135,7 @@ fun PublicProfileScreen(
                 )
             }
 
-            // Location & Sports
+            // Location /Sports
             item {
                 Column(Modifier.padding(horizontal = 24.dp)) {
                     Text(
@@ -155,7 +154,7 @@ fun PublicProfileScreen(
                 }
             }
 
-            // Stats Card
+            // Stats
             item {
                 Spacer(Modifier.height(16.dp))
                 Card(
@@ -206,7 +205,7 @@ fun PublicProfileScreen(
             // Spacer
             item { Spacer(Modifier.height(24.dp)) }
 
-            // Events Header
+            //  Header atividades
             item {
                 Text(
                     text = "Events Created",
@@ -215,7 +214,7 @@ fun PublicProfileScreen(
                 )
             }
 
-            // Events Error
+            // error
             if (eventsError != null) {
                 item {
                     Text(
@@ -228,7 +227,7 @@ fun PublicProfileScreen(
                 }
             }
 
-            // No events placeholder
+            // No ativitites placeholder
             if (visibleEvents.isEmpty() && eventsError == null) {
                 item {
                     Text(
@@ -241,7 +240,7 @@ fun PublicProfileScreen(
                 }
             }
 
-            // Event items
+            // ativity items
             if (visibleEvents.isNotEmpty()) {
                 items(visibleEvents, key = { it.id }) { act ->
                     ActivityCard(
@@ -297,6 +296,7 @@ fun PublicProfileScreen(
     }
 }
 
+// stats ordenados
 @Composable
 private fun ProfileStat(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {

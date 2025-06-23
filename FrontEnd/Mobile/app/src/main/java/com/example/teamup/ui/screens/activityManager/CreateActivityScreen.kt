@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/teamup/ui/screens/activityManager/CreateActivityScreen.kt
 package com.example.teamup.ui.screens.activityManager
 
 import android.app.DatePickerDialog
@@ -34,12 +33,10 @@ fun CreateActivityScreen(
     token: String,
     onCreated: (Int) -> Unit
 ) {
-    // 1) Build repository
     val repo: ActivityRepository = remember {
         ActivityRepositoryImpl(ActivityApi.create())
     }
 
-    // 2) Create ViewModel internally
     val viewModel: CreateActivityViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -49,14 +46,14 @@ fun CreateActivityScreen(
         }
     )
 
-    // 3) Observe form, sports list, and UI state
+    // estados
     val form by viewModel.form.collectAsState()
     val sports: List<Sport> by viewModel.sports.collectAsState()
     val uiState by viewModel.state.collectAsState()
 
     val context = LocalContext.current
 
-    // ─── Trigger initial load of sports when screen first appears ─────────────────
+    // load sports
     LaunchedEffect(token) {
         // Make sure Places SDK is initialized
         if (!Places.isInitialized()) {
@@ -65,11 +62,10 @@ fun CreateActivityScreen(
         viewModel.loadSports("Bearer $token")
     }
 
-    // Prepare PlacesClient for inline autocomplete
+    // auto complete places
     val placesClient: PlacesClient = remember { Places.createClient(context) }
     var suggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
 
-    // Debounced request for predictions whenever form.place changes
     LaunchedEffect(form.place) {
         val query = form.place
         if (query.length >= 3) {
@@ -93,7 +89,7 @@ fun CreateActivityScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        when (uiState) {
+        when (uiState) {  // mostra erro ou sucesso
             is CreateUiState.Loading -> {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(16.dp))
@@ -111,11 +107,11 @@ fun CreateActivityScreen(
                 val newIdString = (uiState as CreateUiState.Success).createdId
                 LaunchedEffect(newIdString) {
                     val newIdInt = newIdString.toIntOrNull() ?: return@LaunchedEffect
-                    onCreated(newIdInt)
+                    onCreated(newIdInt)   // avisa a navegaçao que criou
                     viewModel.clearStatus()
                 }
             }
-            else -> { /* Idle → show form */ }
+            else -> {  }
         }
 
         OutlinedTextField(
@@ -154,7 +150,7 @@ fun CreateActivityScreen(
                 expanded = sportExpanded,
                 onDismissRequest = { sportExpanded = false }
             ) {
-                // If sports is still empty, we can show a disabled “Loading…” item
+                // loading sports
                 if (sports.isEmpty()) {
                     DropdownMenuItem(
                         text = { Text("Loading sports...") },

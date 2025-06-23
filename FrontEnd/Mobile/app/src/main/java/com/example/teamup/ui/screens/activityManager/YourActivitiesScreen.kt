@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/activityManager/YourActivitiesScreen.kt
 package com.example.teamup.ui.screens.activityManager
 
 import androidx.compose.foundation.layout.*
@@ -25,12 +24,10 @@ fun YourActivitiesScreen(
     token: String,
     onActivityClick: (Activity) -> Unit
 ) {
-    // 1) Build repository
     val repo: ActivityRepository = remember {
         ActivityRepositoryImpl(ActivityApi.create())
     }
 
-    // 2) Hoist ViewModel
     val vm: YourActivitiesViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -40,37 +37,38 @@ fun YourActivitiesScreen(
         }
     )
 
-    // 3) Observe state
+
+
     val uiState by vm.state.collectAsState()
 
-    // 4) Trigger initial load
+      // carega a primeira pagina
     LaunchedEffect(token) {
         vm.loadMyEvents("Bearer $token")
     }
 
-    // 5) UI: show “visibleActivities” and a “Load more” button if needed
+    // lista atividades e load more
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // If there are any visible activities, display them
+        // mostra cada ativbity card
         if (uiState.visibleActivities.isNotEmpty()) {
             items(uiState.visibleActivities, key = { it.id }) { activity ->
-                // Decide background (flat color or gradient) and labels:
+                // define as cores de cada atividade
                 val bgColor: Color
                 var bgBrush: Brush? = null
                 var labelCreator: String? = null
                 var labelConcluded: String? = null
 
                 when {
-                    // 1) Creator & concluded → gradient from pale blue → orange
+                    // criador e concluido -> mistura solid orange e pale blue
                     activity.isCreator && activity.status == "concluded" -> {
                         bgBrush = Brush.horizontalGradient(
                             listOf(
-                                Color(0xFFE3F2FD), // very pale blue
-                                Color(0xFFFFA500)  // orange
+                                Color(0xFFE3F2FD),
+                                Color(0xFFFFA500)
                             )
                         )
                         bgColor = Color.Transparent
@@ -78,28 +76,28 @@ fun YourActivitiesScreen(
                         labelConcluded = "Event concluded"
                     }
 
-                    // 2) Only creator (and not concluded) → pale blue
+                    // criador → pale blue
                     activity.isCreator -> {
-                        bgColor = Color(0xFFE3F2FD) // #E3F2FD
+                        bgColor = Color(0xFFE3F2FD)
                         labelCreator = "You are the creator"
                         labelConcluded = null
                     }
 
-                    // 3) Only concluded (and not creator) → solid orange
+                    // apenas concluido → solid orange
                     activity.status == "concluded" -> {
                         bgColor = Color(0xFFFFA500)
                         labelCreator = null
                         labelConcluded = "Event concluded"
                     }
 
-                    // 4) Only participant (not creator, not concluded) → also pale gray
+                    // apenas participante → pale gray
                     activity.isParticipant -> {
                         bgColor = Color(0xFFF5F5F5)
                         labelCreator = null
                         labelConcluded = null
                     }
 
-                    // 5) Neither → default lavender/light gray
+                    // default
                     else -> {
                         bgColor = Color(0xFFF5F5F5)
                         labelCreator = null
@@ -117,7 +115,7 @@ fun YourActivitiesScreen(
                 )
             }
         }
-        // If there are no activities at all (and not loading & no error), show placeholder
+        // nao ha atividades polaceholder
         else if (!uiState.loading && uiState.error == null && uiState.fullActivities.isEmpty()) {
             item {
                 Text(
@@ -130,7 +128,7 @@ fun YourActivitiesScreen(
             }
         }
 
-        // If there was an error when loading
+        // erro
         uiState.error?.let { err ->
             item {
                 Text(
@@ -143,7 +141,7 @@ fun YourActivitiesScreen(
             }
         }
 
-        // “Load more” button at the bottom if there are more pages
+        // load more
         if (uiState.hasMore) {
             item {
                 Box(

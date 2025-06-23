@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/Chat/ChatListScreenViewModel.kt
 package com.example.teamup.ui.screens.Chat
 
 import androidx.lifecycle.ViewModel
@@ -10,9 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/**
- * UI state for the chat‐list screen with paging support.
- */
+// estado com paginaçao
 data class ChatListState(
     val fullActive: List<Chat> = emptyList(),
     val fullArchive: List<Chat> = emptyList(),
@@ -39,15 +36,14 @@ class ChatListScreenViewModel(
 
     private var savedToken: String = ""
 
-    /**
-     * Load the first page of chats (page = 1).
-     * Splits results into active vs archived.
-     */
+
+    // load a primeira pagina de chats
     fun loadFirstPage(token: String) = viewModelScope.launch {
         savedToken = token
         _state.update { it.copy(loading = true, error = null) }
         try {
             val page1 = repo.myChats(token, page = 1)
+            // divide entre ativo e arquivado
             val active = page1.filter  { it.status == "in progress" }
             val archive = page1.filter { it.status != "in progress" }
 
@@ -75,9 +71,7 @@ class ChatListScreenViewModel(
         }
     }
 
-    /**
-     * Load next remote page in the "Chats" tab.
-     */
+ // load more ativo
     fun loadMoreActive() = viewModelScope.launch {
         val ui = _state.value
         if (!ui.hasMoreActive) return@launch
@@ -100,9 +94,7 @@ class ChatListScreenViewModel(
         }
     }
 
-    /**
-     * Load next remote page in the "Archive" tab.
-     */
+   // load more arquivado
     fun loadMoreArchive() = viewModelScope.launch {
         val ui = _state.value
         if (!ui.hasMoreArchive) return@launch

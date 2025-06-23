@@ -64,7 +64,7 @@ internal fun CreatorDto.toDomain(): User = User(
 
 internal fun UserDto.toDomain(): User = User(
     id        = id,
-    name      = name,
+    name      = name ?: "—",
     email     = email,
     location  = location,
     latitude  = latitude,

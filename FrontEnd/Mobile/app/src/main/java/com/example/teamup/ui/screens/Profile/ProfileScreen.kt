@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/ProfileScreen.kt
 package com.example.teamup.ui.screens
 
 import androidx.compose.foundation.background
@@ -52,7 +51,7 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onActivityClick: (Activity) -> Unit
 ) {
-    // Hoist ViewModel with injected repository
+
     val viewModel: ProfileViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -63,7 +62,7 @@ fun ProfileScreen(
         }
     )
 
-    // Collect state
+    // estado
     val username        by viewModel.username.collectAsState()
     val location        by viewModel.location.collectAsState()
     val sports          by viewModel.sports.collectAsState()
@@ -115,9 +114,9 @@ fun ProfileScreen(
                         .padding(top = 24.dp)
                 ) {
                     val fullUrl = when {
-                        avatarUrl.isNullOrBlank()            -> null                     // usa fallback
-                        avatarUrl!!.startsWith("http")       -> avatarUrl                // URL absoluta
-                        else -> {                                                      // caminho relativo
+                        avatarUrl.isNullOrBlank()            -> null
+                        avatarUrl!!.startsWith("http")       -> avatarUrl
+                        else -> {
                             BaseUrlProvider.getBaseUrl().trimEnd('/') +
                                     "/" + avatarUrl!!.trimStart('/')
                         }
@@ -154,7 +153,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Location & Favourite Sports
+            // Location / Favourite Sports
             item {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -178,7 +177,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Stats Card
+            // Stats
             item {
                 Card(
                     modifier = Modifier
@@ -200,7 +199,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Achievements Header
+            // Achievements
             item {
                 Text(
                     text = "Unlocked Achievements",
@@ -209,12 +208,12 @@ fun ProfileScreen(
                 )
             }
 
-            // Achievements Row
+            // fila Achievements
             item {
                 AchievementsRow(achievements)
             }
 
-            // Edit & Logout Buttons
+            // Edit / Logout
             item {
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -235,7 +234,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Recent Activities Header
+            // atividades criadas
             item {
                 Text(
                     text = "Recent Activities Created",
@@ -244,7 +243,7 @@ fun ProfileScreen(
                 )
             }
 
-            // Recent Activities List / Error / Load More
+
             when {
                 activitiesError != null -> item {
                     Text(
@@ -291,7 +290,7 @@ fun ProfileScreen(
             }
         }
 
-        // Generic error banner
+        // erro
         if (error != null) {
             Snackbar(
                 modifier = Modifier

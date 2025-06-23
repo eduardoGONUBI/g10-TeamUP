@@ -1,4 +1,3 @@
-// ─── ChangePasswordViewModel.kt ───────────────────────────────────────────
 package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.lifecycle.ViewModel
@@ -9,13 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-/**
- * Represents UI state for “Change Password”:
- *  • Idle: nothing happening
- *  • Loading: in-flight request
- *  • Success(message): password changed
- *  • Error(message): failed or validation error
- */
+
 sealed class ChangePasswordState {
     object Idle    : ChangePasswordState()
     object Loading : ChangePasswordState()
@@ -23,9 +16,7 @@ sealed class ChangePasswordState {
     data class Error(val message: String)   : ChangePasswordState()
 }
 
-/**
- * ViewModel that calls the AuthRepositoryImpl.changePassword(...) endpoint.
- */
+
 class ChangePasswordViewModel(
     private val repository: AuthRepositoryImpl = AuthRepositoryImpl(AuthApi.create())
 ) : ViewModel() {
@@ -33,16 +24,14 @@ class ChangePasswordViewModel(
     private val _state = MutableStateFlow<ChangePasswordState>(ChangePasswordState.Idle)
     val state: StateFlow<ChangePasswordState> = _state
 
-    /**
-     * Call this from the UI when user taps “Change Password” after filling all fields.
-     */
+    //change password
     fun changePassword(
         token: String,
         currentPassword: String,
         newPassword: String,
         newPasswordConfirmation: String
     ) {
-        // 1) Basic client‐side validation
+        // Basic client‐side validation
         if (currentPassword.isBlank()) {
             _state.value = ChangePasswordState.Error("Current password is required")
             return
@@ -56,7 +45,7 @@ class ChangePasswordViewModel(
             return
         }
 
-        // 2) Launch network call
+        //  Launch api call
         _state.value = ChangePasswordState.Loading
         viewModelScope.launch {
             val result = repository.changePassword(
@@ -77,9 +66,7 @@ class ChangePasswordViewModel(
         }
     }
 
-    /**
-     * Reset the state back to Idle (e.g. if the user navigates away or wants to retry).
-     */
+
     fun resetState() {
         _state.value = ChangePasswordState.Idle
     }

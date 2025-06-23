@@ -1,4 +1,3 @@
-// ─── ChangePasswordScreen.kt ──────────────────────────────────────────────
 package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.compose.foundation.layout.*
@@ -18,18 +17,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-/**
- * A simple “Change Password” screen.  The user must enter:
- *  - Current password
- *  - New password
- *  - Confirm new password
- *
- * @param changePasswordViewModel  The ViewModel to call changePassword(...)
- * @param token                    The JWT token (without “Bearer “).
- *                                 We'll add “Bearer ” inside the ViewModel.
- * @param onBack                   Called when top‐bar arrow is pressed
- * @param onPasswordChanged        Called after a successful password change; typically popBackStack
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangePasswordScreen(
@@ -38,14 +26,14 @@ fun ChangePasswordScreen(
     onBack: () -> Unit,
     onPasswordChanged: () -> Unit
 ) {
-    // 1) Local form fields
+    // estado
     var currentPassword by remember { mutableStateOf("") }
     var newPassword     by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible  by remember { mutableStateOf(false) }
 
-    // 2) Observe network/validation state
+
     val state by changePasswordViewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -189,7 +177,7 @@ fun ChangePasswordScreen(
                     changePasswordViewModel.resetState()
                 }
                 else -> {
-                    // Idle or Loading → do nothing
+
                 }
             }
         }

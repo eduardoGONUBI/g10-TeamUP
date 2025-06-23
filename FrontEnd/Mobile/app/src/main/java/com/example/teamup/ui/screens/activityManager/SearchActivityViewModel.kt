@@ -33,7 +33,7 @@ class SearchActivityViewModel(
     private val _visibleResults     = MutableStateFlow<List<Activity>>(emptyList())
     private val _hasMoreLocal       = MutableStateFlow(false)
 
-    /* ── combine → lista filtrada ───────────── */
+    /* ── combina filtros  + dados remotos ───────────── */
     private val _filtered: StateFlow<List<Activity>> = combine(
         _name, _sport, _place, _date, _allEvents
     ) { name, sport, place, date, all ->
@@ -67,7 +67,7 @@ class SearchActivityViewModel(
     val visibleResults: StateFlow<List<Activity>> = _visibleResults
     val hasMore: StateFlow<Boolean>                = _hasMoreLocal
 
-    /** 1) Primeira chamada: carrega todas as páginas remotas */
+    // primeira chamada carrega todas as paginas antes de filtrar
     fun loadAllEvents(rawToken: String) = viewModelScope.launch {
         _loading.value = true
         _error.value   = null
@@ -93,7 +93,7 @@ class SearchActivityViewModel(
         }
     }
 
-    /** 2) Atualiza filtros */
+     // atualiza filtros
     fun updateFilter(field: String, value: String) {
         when (field) {
             "name"  -> _name.value  = value
@@ -103,7 +103,8 @@ class SearchActivityViewModel(
         }
     }
 
-    /** 3) Carrega mais: local primeiro, depois remoto se necessário */
+
+    // load more, primeiro local depois remoto se necessario
     fun loadMore() = viewModelScope.launch {
         val filteredList = _filtered.value
         val nextLocalIdx = (_currentPageLocal.value + 1) * pageSizeLocal

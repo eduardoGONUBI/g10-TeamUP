@@ -15,17 +15,7 @@ import com.example.teamup.data.remote.model.ParticipantUi
 import kotlinx.coroutines.launch
 import retrofit2.Response
 
-/**
- * A Dialog that (1) lets the user choose one “badge” and then (2) calls the
- * POST /api/events/{event_id}/feedback endpoint.  It only closes itself
- * once the server returns success (2xx).  Any non‐2xx sets `errorMessage`.
- *
- * @param target      The ParticipantUi we’re giving feedback to.
- * @param eventId     The numeric ID of the event (used in the path).
- * @param token       The raw JWT string (no “Bearer ” prefix).  Inside we do "Bearer $token".
- * @param onDismiss   Called whenever the dialog should disappear (either user‐cancel or after success).
- * @param onSuccess   Called only if the POST /feedback returned HTTP 2xx.  Usually used to add to sentFeedbackIds & show the “confirmation” alert.
- */
+// give feedback menu
 @Composable
 fun FeedbackDialog(
     target: ParticipantUi,
@@ -34,7 +24,7 @@ fun FeedbackDialog(
     onDismiss: () -> Unit,
     onSuccess: () -> Unit
 ) {
-    // 1) List of all possible badge options:
+    // lista dos feedbacks
     val options = listOf(
         "good_teammate" to "✅ Good teammate",
         "friendly"      to "😊 Friendly",
@@ -44,6 +34,7 @@ fun FeedbackDialog(
         "afk"           to "🚶 No show"
     )
 
+    // estados
     var selected     by remember { mutableStateOf<String?>(null) }
     var isLoading    by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -51,7 +42,6 @@ fun FeedbackDialog(
 
     AlertDialog(
         onDismissRequest = {
-            // Only allow dismiss if we’re not in the middle of a network call
             if (!isLoading) {
                 onDismiss()
             }
@@ -76,11 +66,9 @@ fun FeedbackDialog(
                             isLoading = false
 
                             if (resp.isSuccessful) {
-                                // Only fire onSuccess if we got a 2xx
                                 onSuccess()
                                 onDismiss()
                             } else {
-                                // Show the error code (e.g. 404)
                                 errorMessage = "Failed to send feedback (code ${resp.code()})"
                             }
                         }
@@ -88,7 +76,6 @@ fun FeedbackDialog(
                 }
             ) {
                 if (isLoading) {
-                    // Show a tiny spinner + “Submitting…”
                     CircularProgressIndicator(
                         modifier = Modifier
                             .size(16.dp)

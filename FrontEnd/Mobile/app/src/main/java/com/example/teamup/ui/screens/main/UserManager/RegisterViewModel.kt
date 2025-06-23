@@ -1,4 +1,3 @@
-// RegisterViewModel.kt
 package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.lifecycle.ViewModel
@@ -11,13 +10,7 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import org.json.JSONObject
 
-/**
- * Represents the current UI state of the registration flow:
- *  • Idle: nothing happening
- *  • Loading: network call in progress
- *  • Success: registration succeeded (message contains backend text)
- *  • Error: backend or client‐side validation error (message contains error description)
- */
+// estado da ui
 sealed class RegisterState {
     object Idle : RegisterState()
     object Loading : RegisterState()
@@ -25,10 +18,7 @@ sealed class RegisterState {
     data class Error(val message: String) : RegisterState()
 }
 
-/**
- * Holds the raw form values (without error messages).  In this version we
- * only store the five inputs (username, email, password, confirm, city).
- */
+// estado formulario
 data class RegisterFormState(
     val name: String = "",
     val email: String = "",
@@ -39,32 +29,27 @@ data class RegisterFormState(
 
 class RegisterViewModel : ViewModel() {
 
-    // 1) The form fields themselves
+    // form state
     private val _formState = MutableStateFlow(RegisterFormState())
     val formState: StateFlow<RegisterFormState> = _formState
 
-    // 2) The “network/validation state”
+    //  api state
     private val _registerState = MutableStateFlow<RegisterState>(RegisterState.Idle)
     val registerState: StateFlow<RegisterState> = _registerState
 
-    // 3) Retrofit instance for AuthApi
+    // instancia api
     private val api: AuthApi = AuthApi.create()
 
-    /** Called by UI when any text field changes. */
+    // atualiza os campos quando o user digita
     fun updateForm(updater: (RegisterFormState) -> RegisterFormState) {
         _formState.value = updater(_formState.value)
     }
 
-    /**
-     * Called when the user taps “Register”.  This will:
-     *  1. perform simple client‐side validation
-     *  2. if valid, call `api.register(...)` inside a coroutine
-     *  3. emit Success or Error accordingly
-     */
+  // quando clica registar
     fun register() {
         val form = _formState.value
 
-        // 1) Client‐side validation
+        // validaçao
         val name     = form.name.trim()
         val email    = form.email.trim()
         val password = form.password
@@ -101,12 +86,12 @@ class RegisterViewModel : ViewModel() {
             return
         }
 
-        // 2) If validation passed, call backend
+        // chama o backend
         _registerState.value = RegisterState.Loading
 
         viewModelScope.launch {
             try {
-                // Build the request DTO (matches your Laravel controller)
+                //  build DTO
                 val body = RegisterRequestDto(
                     name = name,
                     email = email,
@@ -116,13 +101,13 @@ class RegisterViewModel : ViewModel() {
                 )
                 val response = api.register(body)
 
-                if (response.isSuccessful) {
-                    // On success, read the JSON body’s “message” field
+                if (response.isSuccessful) { // sucesso
+
                     val respBody = response.body()
                     val msg = respBody?.message ?: "Registered! Check your email."
                     _registerState.value = RegisterState.Success(msg)
                 } else {
-                    // Extract Laravel‐style validation errors if present
+                    // erros de validaçao do backend
                     val errorJson = response.errorBody()?.string() ?: ""
                     val parsedMsg = try {
                         val obj = JSONObject(errorJson)
@@ -150,7 +135,7 @@ class RegisterViewModel : ViewModel() {
         }
     }
 
-    /** Call this if you want to reset the UI state back to “idle” (e.g. on Leaving screen). */
+
     fun resetState() {
         _registerState.value = RegisterState.Idle
     }

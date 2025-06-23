@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/Activity/ActivityScreen.kt
 package com.example.teamup.ui.screens.Activity
 
 import android.util.Base64
@@ -47,7 +46,7 @@ import retrofit2.Response
 @Composable
 fun ActivityScreen(
     eventId: Int,
-    token: String,                    // raw JWT (no “Bearer ” prefix)
+    token: String,
     role: ActivityRole,
     onBack: () -> Unit,
     onEdit: (() -> Unit)? = null,
@@ -58,7 +57,7 @@ fun ActivityScreen(
     onReopen: (() -> Unit)? = null,
     onUserClick: ((Int) -> Unit)? = null
 ) {
-    // ─── 1) Shared ViewModel to load “ActivityDto + enriched participants” ─
+
     val viewModel: ActivityDetailViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -68,11 +67,14 @@ fun ActivityScreen(
         }
     )
 
+
     val eventState by viewModel.event.collectAsState()
+
     val api        = remember { ActivityApi.create() }
+
     val scope      = rememberCoroutineScope()
 
-    // ─── 2) Show spinner until eventState != null ──────────────────────────
+    // circulo de loading
     if (eventState == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -80,13 +82,13 @@ fun ActivityScreen(
         return
     }
 
-    // ─── 3) Once loaded: extract ActivityDto ──────────────────────────────
+    //  atividade carregada
     val e: ActivityDto = eventState!!
 
-    // ─── 4) Compute “isConcluded” only if status == "concluded" ───────────
+    // verifica se atividade esta concluida
     val isConcluded = e.status.trim().equals("concluded", ignoreCase = true)
 
-    // ─── 5) Parse currentUserId from JWT (same logic as ViewModel) ────────
+    // extrai id do token
     val currentUserId: Int? = remember(token) {
         try {
             val rawJwt = token.removePrefix("Bearer ").trim()
@@ -100,7 +102,7 @@ fun ActivityScreen(
         }
     }
 
-    // ─── 6) Build ParticipantUi list with enriched levels ─────────────────
+    // lista de participantes com lvl
     val uiParticipants: List<ParticipantUi> = e.participants.orEmpty()
         .distinctBy { it.id }
         .map { dto ->
@@ -112,7 +114,7 @@ fun ActivityScreen(
             )
         }
 
-    // ─── 7) Track which participants already received feedback ─────────────
+    // estado para feedback e kick
     val sentFeedbackIds = remember { mutableStateListOf<Int>() }
     var feedbackTarget   by remember { mutableStateOf<ParticipantUi?>(null) }
     var confirmedName    by remember { mutableStateOf<String?>(null) }
@@ -138,7 +140,7 @@ fun ActivityScreen(
                 actions = {
                     when (role) {
                         ActivityRole.CREATOR -> {
-                            // ─── CREATOR: Edit / Cancel / Conclude / Reopen ───
+                            // ─── CREATOR ────────────
                             onEdit?.let {
                                 IconButton(onClick = it) {
                                     Icon(Icons.Default.Edit, contentDescription = "Edit")
@@ -176,7 +178,7 @@ fun ActivityScreen(
                         }
 
                         ActivityRole.PARTICIPANT -> {
-                            // ─── PARTICIPANT: Only “Leave” ────────────────
+                            // ─── PARTICIPANT ────────────────
                             onLeave?.let { leaveLambda ->
                                 IconButton(onClick = leaveLambda) {
                                     Icon(
@@ -190,7 +192,7 @@ fun ActivityScreen(
                         }
 
                         ActivityRole.VIEWER -> {
-                            // ─── VIEWER: Only “Join” ───────────────────
+                            // ─── VIEWER ───────────────────
                             onJoin?.let { joinLambda ->
                                 IconButton(onClick = joinLambda) {
                                     Icon(
@@ -208,15 +210,12 @@ fun ActivityScreen(
             )
         }
     ) { paddingValues ->
-        // ─── 8) Shared body: Info card, Map, Weather, Participant list + Feedback ─────────
         val layoutDir = LocalLayoutDirection.current
-        // keep the insets, but lift the whole list 8 dp upward
         val effectiveTop = (paddingValues.calculateTopPadding() - 8.dp)
             .coerceAtLeast(0.dp)
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                // only apply the bottom (and horizontal, if any) paddings:
                 .padding(
                     top    = effectiveTop,
                     start  = paddingValues.calculateStartPadding(layoutDir),
@@ -226,7 +225,7 @@ fun ActivityScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // 8a) Activity info
+            // detalhes da atividade
             item {
                 ActivityInfoCard(
                     activity = e,
@@ -236,7 +235,7 @@ fun ActivityScreen(
                 )
             }
 
-            // 8b) Map
+            // MAPA
             item {
                 val coords      = LatLng(e.latitude, e.longitude)
                 val cameraState = rememberCameraPositionState {
@@ -261,12 +260,12 @@ fun ActivityScreen(
                 }
             }
 
-            // 8c) Weather
+            //  Weather
             item {
                 WeatherCard(weather = e.weather, modifier = Modifier.padding(horizontal = 24.dp))
             }
 
-            // 8d) Participant header
+            //  Participante header
             item {
                 Text(
                     text = "Participants (${uiParticipants.size})",
@@ -275,7 +274,7 @@ fun ActivityScreen(
                 )
             }
 
-            // 8e) Participant rows
+            // Participante rows
             items(uiParticipants, key = { it.id }) { p ->
                 val thisIsKickable   = (role == ActivityRole.CREATOR && !isConcluded && !p.isCreator)
                 val thisShowFeedback = (
@@ -297,7 +296,7 @@ fun ActivityScreen(
         }
     }
 
-    // ─── 9) “Cancel” dialog (only for CREATOR) ─────────────────────────────────────
+    // ─── Cancelar atividade (only  CREATOR) ─────────────────────────────────────
     if (showCancelDialog && role == ActivityRole.CREATOR) {
         Dialog(onDismissRequest = { showCancelDialog = false }) {
             DeleteActivityDialog(
@@ -317,7 +316,7 @@ fun ActivityScreen(
         }
     }
 
-    // ─── 10) “Kick” dialog (only CREATOR) ─────────────────────────────────────────
+    // ───  Kick  (only CREATOR) ─────────────────────────────────────────
     if (kickTarget != null && role == ActivityRole.CREATOR) {
         val target = kickTarget!!
         Dialog(onDismissRequest = { kickTarget = null }) {
@@ -343,7 +342,7 @@ fun ActivityScreen(
         }
     }
 
-    // ─── 11) “Feedback” dialog (only after isConcluded == true) ────────────────
+    // ───  Feedback  (depois de concluded) ────────────────
     if (feedbackTarget != null && isConcluded) {
         val target = feedbackTarget!!
         FeedbackDialog(
@@ -359,7 +358,7 @@ fun ActivityScreen(
         )
     }
 
-    // ─── 12) Confirmation pop‐up (“Feedback sent”) ────────────────────────────
+    // ───  Confirmation pop‐up - Feedback sent ────────────────────────────
     if (confirmedName != null) {
         AlertDialog(
             onDismissRequest = { confirmedName = null },

@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/ui/screens/Activity/EditActivityScreen.kt
 package com.example.teamup.ui.screens.Activity
 
 import android.app.DatePickerDialog
@@ -41,14 +40,14 @@ fun EditActivityScreen(
     eventId: Int,
     token: String,
     onBack: () -> Unit,
-    onSave: () -> Unit,    // Call this to navigate back + trigger detail refresh
+    onSave: () -> Unit,
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
     val api = remember { ActivityApi.create() }
     val coroutineScope = rememberCoroutineScope()
 
-    // ─── Snackbar state ───────────────────────────────────────────────
+
     val snackbarHostState = remember { SnackbarHostState() }
 
     // ─── Form state ───────────────────────────────────────────────────────
@@ -57,12 +56,12 @@ fun EditActivityScreen(
     var sportExpanded by remember { mutableStateOf(false) }
     var sportsList by remember { mutableStateOf<List<SportDto>>(emptyList()) }
 
-    var date by remember { mutableStateOf("") }    // “YYYY-MM-DD”
-    var time by remember { mutableStateOf("") }    // “HH:MM”
+    var date by remember { mutableStateOf("") }    // YYYY-MM-DD
+    var time by remember { mutableStateOf("") }    // HH:MM
 
     var participants by remember { mutableStateOf("") }
 
-    // Location field + autocomplete state:
+    // Location + autocomplete state
     var locationInput by remember { mutableStateOf("") }
     var locationValid by remember { mutableStateOf(false) }
     var locationSuggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
@@ -72,7 +71,7 @@ fun EditActivityScreen(
 
     val calendar = Calendar.getInstance()
 
-    // Initialize Google Places if not already
+    // Google Places
     LaunchedEffect(Unit) {
         if (!Places.isInitialized()) {
             Places.initialize(context, "YOUR_GOOGLE_MAPS_API_KEY")
@@ -81,20 +80,17 @@ fun EditActivityScreen(
     val placesClient: PlacesClient = remember { Places.createClient(context) }
     val sessionToken = remember { AutocompleteSessionToken.newInstance() }
 
-    /**
-     * 1) In one LaunchedEffect, load:
-     *    a) all sports → sportsList
-     *    b) the event detail → split its date/time, max_participants, place, etc.
-     */
+
+     // carrega lista de desportodos e detalhes da atividade
     LaunchedEffect(eventId) {
-        // 1a) load sports
+        //  load sports
         sportsList = try {
             api.getSports("Bearer $token")
         } catch (e: Exception) {
             emptyList()
         }
 
-        // 1b) load detail of this event
+        //  load detail
         try {
             val eventDto = api.getEventDetail(eventId, "Bearer $token")
             name = eventDto.name
@@ -119,7 +115,7 @@ fun EditActivityScreen(
             // prefill sport
             selectedSport = sportsList.firstOrNull { it.name == eventDto.sport }
 
-            // prefill locationInput (mark valid)
+            // prefill locationInput
             locationInput = eventDto.place
             locationValid = true
         } catch (_: Exception) {
@@ -156,7 +152,7 @@ fun EditActivityScreen(
             )
             Spacer(Modifier.height(12.dp))
 
-            // ─── Dropdown “Sport” ────────────────────────────────────────
+            // ─── Dropdown Sport ────────────────────────────────────────
             ExposedDropdownMenuBox(
                 expanded = sportExpanded,
                 onExpandedChange = { sportExpanded = !sportExpanded }
@@ -196,7 +192,7 @@ fun EditActivityScreen(
             }
             Spacer(Modifier.height(12.dp))
 
-            // ─── Date Picker ───────────────────────────────────────────────
+            // ─── Date ───────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -241,7 +237,7 @@ fun EditActivityScreen(
             }
             Spacer(Modifier.height(12.dp))
 
-            // ─── Time Picker ────────────────────────────────────────────────
+            // ─── HORA ────────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -301,7 +297,7 @@ fun EditActivityScreen(
             )
             Spacer(Modifier.height(12.dp))
 
-            // ─── Location (Autocomplete: ANY place type) ───────────────────
+            // ─── Location Autocomplete ───────────────────
             Column {
                 OutlinedTextField(
                     value = locationInput,
@@ -376,7 +372,7 @@ fun EditActivityScreen(
                                 updatedEvent = dto
                             )
                             if (resp.isSuccessful) {
-                                // Navigate back (detail screen will refresh on viewModel init)
+                                // Navigate back
                                 onSave()
                             } else {
                                 snackbarHostState.showSnackbar(

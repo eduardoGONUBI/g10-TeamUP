@@ -1,4 +1,3 @@
-// ─── ChangeEmailScreen.kt ────────────────────────────────────────────────
 package com.example.teamup.ui.screens.main.UserManager
 
 import androidx.compose.foundation.layout.*
@@ -17,13 +16,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-/**
- * A Composable screen that lets the user enter:
- *   • New email
- *   • Current password
- *
- * Then calls `changeEmailViewModel.changeEmail(...)`.
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangeEmailScreen(
@@ -32,12 +25,12 @@ fun ChangeEmailScreen(
     onBack: () -> Unit,
     onEmailChanged: () -> Unit
 ) {
-    // Local form fields
+    //  estado
     var newEmail        by remember { mutableStateOf("") }
     var password        by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // Observe ViewModel state
+
     val state by changeEmailViewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -146,7 +139,7 @@ fun ChangeEmailScreen(
                     }
                     changeEmailViewModel.resetState()
                 }
-                else -> { /* Idle or Loading → do nothing */ }
+                else -> {  }
             }
         }
     }

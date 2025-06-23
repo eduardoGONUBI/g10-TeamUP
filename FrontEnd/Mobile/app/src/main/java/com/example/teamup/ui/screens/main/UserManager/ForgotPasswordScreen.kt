@@ -13,13 +13,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-/**
- * A simple “Forgot Password” screen where the user enters their email and taps “Send reset link.”
- *
- * @param forgotPasswordViewModel  The ViewModel that handles the network call
- * @param onBack                   Called when the top app bar back arrow is pressed
- * @param onResetLinkSent          Called after a successful “send reset link” operation
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForgotPasswordScreen(
@@ -27,11 +21,10 @@ fun ForgotPasswordScreen(
     onBack: () -> Unit,
     onResetLinkSent: () -> Unit
 ) {
-    // 1) Observe the email form field and the network state from the ViewModel
+    // estado
     var email by remember { mutableStateOf("") }
     val state by forgotPasswordViewModel.state.collectAsState()
 
-    // 2) Snackbar host to show success/error messages
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -41,7 +34,7 @@ fun ForgotPasswordScreen(
                 title = { Text("Forgot Password") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        // reset any error/success in the VM, then navigate back
+
                         forgotPasswordViewModel.resetState()
                         onBack()
                     }) {
@@ -96,7 +89,7 @@ fun ForgotPasswordScreen(
             }
         }
 
-        // 3) Show a Snackbar on Success or Error
+        //  Show a Snackbar on Success or Error
         LaunchedEffect(state) {
             when (state) {
                 is ForgotPasswordState.Success -> {
@@ -107,7 +100,7 @@ fun ForgotPasswordScreen(
                             duration = SnackbarDuration.Short
                         )
                     }
-                    // After showing success, reset state and call onResetLinkSent()
+                    // After showing success, reset state e manda link de reset
                     forgotPasswordViewModel.resetState()
                     onResetLinkSent()
                 }
@@ -119,11 +112,11 @@ fun ForgotPasswordScreen(
                             duration = SnackbarDuration.Short
                         )
                     }
-                    // Reset to idle so user can try again
+
                     forgotPasswordViewModel.resetState()
                 }
                 else -> {
-                    // Idle or Loading: do nothing
+
                 }
             }
         }

@@ -58,7 +58,6 @@ fun EditProfileScreen(
     onChangePassword: () -> Unit,
     onChangeEmail: () -> Unit
 ) {
-    /* ──────── View-model ──────── */
     val vm: EditProfileViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -69,11 +68,12 @@ fun EditProfileScreen(
                 ) as T
         }
     )
+
+    // estados
     val uiState          by vm.ui.collectAsState()
     val allSports: List<Sport> by vm.sports.collectAsState()
     val errorLoadingSports by vm.error.collectAsState()
 
-    /* ──────── Local form state ──────── */
     var username  by remember { mutableStateOf(usernameInitial) }
     var location  by remember { mutableStateOf(locationInitial) }
     var latitude  by remember { mutableStateOf<Double?>(null) }
@@ -87,6 +87,7 @@ fun EditProfileScreen(
     var showDeleteDlg   by remember { mutableStateOf(false) }
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
     val ctx = LocalContext.current
+
     /* ─────── Image picker ─────── */
     val pickImage = rememberLauncherForActivityResult(GetContent()) { uri: Uri? ->
         uri?.let {
@@ -95,7 +96,7 @@ fun EditProfileScreen(
         }
     }
 
-    /* ──────── Google Places (inline autocomplete) ──────── */
+    /* ──────── Google Places ──────── */
 
 
     LaunchedEffect(Unit) {
@@ -122,7 +123,7 @@ fun EditProfileScreen(
             .builder()
             .setSessionToken(sessionToken)
             .setQuery(location)
-            .setTypeFilter(TypeFilter.CITIES)   // only cities/villages
+            .setTypeFilter(TypeFilter.CITIES)
             .build()
 
         placesClient.findAutocompletePredictions(req)
@@ -130,7 +131,7 @@ fun EditProfileScreen(
             .addOnFailureListener  { suggestions = emptyList() }
     }
 
-    /* ──────── Load sports list once ──────── */
+    /* ──────── Load sports──────── */
     LaunchedEffect(token) {
         vm.loadSports("Bearer $token")
         sportsInitial.firstOrNull()?.let { initialId ->
@@ -141,14 +142,14 @@ fun EditProfileScreen(
         }
     }
 
-    /* Return to caller when done */
+
     LaunchedEffect(uiState.done) { if (uiState.done) onFinished(didDelete) }
 
-    /* Derived flag: user must have picked a *validated* place */
+    /* local tem de ser valido */
     val isLocationValid = if (location == locationInitial) {
-        true                       // unchanged → already good
+        true
     } else {
-        latitude != null && longitude != null   // user typed → must pick a place
+        latitude != null && longitude != null
     }
     /* ───────────────────────── UI ───────────────────────── */
     Box(
@@ -181,7 +182,7 @@ fun EditProfileScreen(
                     .size(120.dp)
                     .align(Alignment.CenterHorizontally)
             ) {
-                /* Imagem actual (Se avatarUri == null faz load do URL existente) */
+
                 val avatarUrl = avatarUri
                     ?: "${BaseUrlProvider.getBaseUrl()}api/auth/avatar/$userId"
 
@@ -196,7 +197,7 @@ fun EditProfileScreen(
                         .clip(CircleShape)
                 )
 
-                /* Botão flutuante para trocar */
+                /* Botão  para trocar foto */
                 Icon(
                     painter = painterResource(R.drawable.change_profile_pic),
                     contentDescription = "Mudar fotografia",
@@ -262,7 +263,7 @@ fun EditProfileScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                /* Location (inline autocomplete) */
+                /* Location  */
                 OutlinedTextField(
                     value = location,
                     onValueChange = { location = it },
@@ -290,7 +291,7 @@ fun EditProfileScreen(
                                 DropdownMenuItem(
                                     text = { Text(pred.getFullText(null).toString()) },
                                     onClick = {
-                                        /* fetch full place for lat/lng */
+
                                         val fields = listOf(
                                             Place.Field.NAME,
                                             Place.Field.LAT_LNG
@@ -307,7 +308,7 @@ fun EditProfileScreen(
                                             longitude = plc.latLng?.longitude
                                             suggestions = emptyList()
                                         }.addOnFailureListener {
-                                            /* keep text but still invalid */
+
                                             location  = pred.getPrimaryText(null).toString()
                                             suggestions = emptyList()
                                         }
@@ -344,7 +345,7 @@ fun EditProfileScreen(
                 Spacer(Modifier.height(12.dp))
 
                 OutlinedButton(
-                    onClick = { onChangePassword() },    // invoke the lambda passed from NavGraph
+                    onClick = { onChangePassword() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = "Change Password")
@@ -396,7 +397,7 @@ fun EditProfileScreen(
                 )
             }
         }
-        /* Progress circular enquanto carrega avatar */
+        /* Progress circule enquanto carrega avatar */
         if (uiState.avatarBusy) {
             CircularProgressIndicator(
                 modifier = Modifier

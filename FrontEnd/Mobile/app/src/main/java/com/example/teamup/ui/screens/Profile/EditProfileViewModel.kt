@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/teamup/presentation/profile/EditProfileViewModel.kt
 package com.example.teamup.presentation.profile
 
 import androidx.lifecycle.ViewModel
@@ -16,9 +15,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 
+// estado da UI
 data class EditProfileUiState(
-    val saving: Boolean = false,
-    val avatarBusy: Boolean = false,
+    val saving: Boolean = false,  // guardar
+    val avatarBusy: Boolean = false,  // upload foto
     val error: String? = null,
     val done: Boolean = false
 )
@@ -28,6 +28,7 @@ class EditProfileViewModel(
     private val activityRepo: ActivityRepository
 ) : ViewModel() {
 
+    // estados
     private val _ui = MutableStateFlow(EditProfileUiState())
     val ui: StateFlow<EditProfileUiState> = _ui
 
@@ -37,7 +38,7 @@ class EditProfileViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
-    fun save(
+    fun save(   // salva alteraçaos ao perfil
         bearer: String,
         username: String,
         location: String,
@@ -66,6 +67,7 @@ class EditProfileViewModel(
         }
     }
 
+    // apaga a conta
     fun deleteAccount(token: String) {
         viewModelScope.launch {
             _ui.value = EditProfileUiState(saving = true)
@@ -78,6 +80,7 @@ class EditProfileViewModel(
         }
     }
 
+    // load sports
     fun loadSports(bearer: String) = viewModelScope.launch {
         _error.value = null
         try {
@@ -87,6 +90,7 @@ class EditProfileViewModel(
         }
     }
 
+    // upload foto de perfil
     fun uploadAvatar(bearer: String, uri: Uri, resolver: ContentResolver) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(avatarBusy = true, error = null)

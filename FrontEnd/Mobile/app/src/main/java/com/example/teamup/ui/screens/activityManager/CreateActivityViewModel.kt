@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/teamup/ui/screens/activityManager/CreateActivityViewModel.kt
 package com.example.teamup.ui.screens.activityManager
 
 import androidx.lifecycle.ViewModel
@@ -45,9 +44,8 @@ class CreateActivityViewModel(
 
     private val _sports = MutableStateFlow<List<Sport>>(emptyList())
     val sports: StateFlow<List<Sport>> = _sports
-    /**
-     * Load the list of sports from the repository.
-     */
+
+    // load sports
     fun loadSports(token: String) {
         viewModelScope.launch {
             _state.value = CreateUiState.Loading
@@ -61,27 +59,15 @@ class CreateActivityViewModel(
         }
     }
 
-    /**
-     * Update the current form state.
-     */
+  // atualiza o estado do formulario
     fun update(transform: (CreateFormState) -> CreateFormState) {
         _form.update { transform(it) }
     }
 
-    /**
-     * Called when the user taps “Create Activity.” First validate:
-     *  • name must not be blank
-     *  • sport must be selected
-     *  • place must not be blank
-     *  • date and time must not be blank
-     *  • max must parse to an integer ≥ 2
-     *
-     * If any of these checks fail, emit CreateUiState.Error(...) immediately.
-     * Otherwise, call the repository to create the event.
-     */
+     // criar atividade
     fun submit(token: String) {
         viewModelScope.launch {
-            // 1) Validate client‐side
+            // Validate client‐side
             val f = _form.value
 
             if (f.name.isBlank()) {
@@ -111,7 +97,7 @@ class CreateActivityViewModel(
                 return@launch
             }
 
-            // 2) If client‐side validation passes, proceed with API call
+            // se validado chama API
             _state.value = CreateUiState.Loading
             try {
                 // Combine date + time into "YYYY-MM-DD HH:MM:00"
@@ -126,13 +112,13 @@ class CreateActivityViewModel(
                     longitude       = f.longitude ?: 0.0
                 )
 
-                // The repository returns an Activity; use its id for Success
+                // repositorio retorna a atividade
                 val createdItem = repo.createActivity(token, body)
 
-                // repo.createActivity(...) returned Activity with an Int id, so convert to String
+                // passamos o  id da atividade para string
                 _state.value = CreateUiState.Success(createdItem.id.toString())
-            } catch (e: Exception) {
-                // If it’s an HTTP error, show code + message; otherwise just show localizedMessage
+            } catch (e: Exception) { //se for erro
+
                 val httpCode = (e as? retrofit2.HttpException)?.code() ?: null
                 val msg = if (httpCode != null) {
                     "HTTP $httpCode — ${e.localizedMessage}"
@@ -144,9 +130,7 @@ class CreateActivityViewModel(
         }
     }
 
-    /**
-     * After a successful creation, reset the state so that the “Success” only fires once.
-     */
+
     fun clearStatus() {
         _state.value = CreateUiState.Idle
     }
