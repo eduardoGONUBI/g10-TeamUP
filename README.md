@@ -33,7 +33,7 @@
    docker compose exec rating-app           php artisan migrate --seed
    docker compose exec achievements-app     php artisan migrate --seed
    ```
-
+⚠️ **Chat note:** The chat feature does **not** work with seeded activities. You must create a new activity through the app to test the chat functionality.
 ---
 ## 🌐 Web Frontend
 
