@@ -51,7 +51,7 @@
    [http://localhost:3000/](http://localhost:3000/)
 
 ## 📱 Mobile Frontend
-
+> **Note:** The SSL-enabled Web version is on the **`WEB`** branch.
 1. Open the **FrontEnd/Mobile** folder in Android Studio.
 
 ## 🧪 Test Account
