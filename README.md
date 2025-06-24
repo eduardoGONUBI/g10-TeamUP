@@ -21,9 +21,9 @@
    
 3. **Install PHP dependencies inside every micro-service** (runs once, after the first build):
    ```bash
-   for s in users-main-app event_manager-app chat-app rating-app achievements-app; do
-     docker compose exec "$s" composer install --no-dev --optimize-autoloader
-   done
+for s in users-main-app event_manager-app chat-app rating-app achievements-app; do
+  docker compose exec "$s" composer install --optimize-autoloader
+done
    ```
 4. Run the seed script (`database`), which will execute:
    ```bash
