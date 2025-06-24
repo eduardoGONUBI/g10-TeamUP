@@ -18,7 +18,7 @@
 2. Start the containers in detached mode:
    ```bash
    docker compose up -d
-   
+    ```
 3. **Install PHP dependencies inside every micro-service** (runs once, after the first build):
    ```bash
 for s in users-main-app event_manager-app chat-app rating-app achievements-app; do
