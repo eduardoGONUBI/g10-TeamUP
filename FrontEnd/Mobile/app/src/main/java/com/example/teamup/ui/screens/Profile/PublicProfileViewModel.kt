@@ -1,4 +1,4 @@
-package com.example.teamup.presentation.profile
+package com.example.teamup.ui.screens.Profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -6,6 +6,7 @@ import com.example.teamup.domain.model.Activity
 import com.example.teamup.data.remote.api.ActivityApi
 import com.example.teamup.data.remote.api.AchievementsApi
 import com.example.teamup.data.remote.api.AuthApi
+import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.data.remote.model.AchievementDto
 import com.example.teamup.data.remote.model.PublicUserDto
 import com.example.teamup.data.remote.model.ProfileResponse
@@ -13,7 +14,6 @@ import com.example.teamup.data.remote.model.ReputationResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-
 
 class PublicProfileViewModel(
     private val userId: Int,
@@ -62,10 +62,8 @@ class PublicProfileViewModel(
     private val _eventsError   = MutableStateFlow<String?>(null)
 
     val visibleEvents: StateFlow<List<Activity>> = _visibleEvents
-
-    val hasMoreEvents: StateFlow<Boolean> = _hasMoreEvents
-
-    val eventsError: StateFlow<String?> = _eventsError
+    val hasMoreEvents: StateFlow<Boolean>        = _hasMoreEvents
+    val eventsError: StateFlow<String?>          = _eventsError
 
     // numero de atividades por pagina
     private val pageSize = 10
@@ -75,22 +73,22 @@ class PublicProfileViewModel(
         loadUserEvents()
     }
 
-
     // load dados publico
     private fun loadPublicProfile() = viewModelScope.launch {
         try {
-            //  dados basicos do user
             val pu: PublicUserDto = authApi.getUser(userId, bearer)
-            _name.value      = pu.name
-            _avatarUrl.value = pu.avatar_url
-            _location.value  = pu.location
-            _sports.value    = pu.sports?.map { it.name } ?: emptyList()
+            _name.value = pu.name
 
-            //  xp + level
+            _avatarUrl.value = if (pu.avatar_url.isNullOrBlank()) null
+            else BaseUrlProvider.getBaseUrl().trimEnd('/') +
+                    "/api/auth/avatar/$userId?t=${System.currentTimeMillis()}"
+
+            _location.value = pu.location
+            _sports.value   = pu.sports?.map { it.name } ?: emptyList()
+
             val pr: ProfileResponse = achApi.getProfile(userId, bearer)
             _level.value = pr.level
 
-            //  reputação
             val rr: ReputationResponse = achApi.getReputation(userId, bearer)
             _behaviour.value = rr.score
             val counts = listOf(
@@ -106,7 +104,6 @@ class PublicProfileViewModel(
                 ?.let { "${it.first} (${it.second})" }
                 ?: "—"
 
-            //  achievements
             _achievements.value = achApi.listAchievements(userId, bearer).achievements
 
         } catch (e: Exception) {
@@ -118,10 +115,7 @@ class PublicProfileViewModel(
     private fun loadUserEvents() = viewModelScope.launch {
         _eventsError.value = null
         try {
-            //  retorna todos os eventos criados
             val dtoList = activityApi.getEventsByUser(userId, bearer)
-
-            // mapear DTO → Activity
             val mapped = dtoList.map { dto ->
                 val participantIds = dto.participants?.map { it.id }?.toSet() ?: emptySet()
                 Activity(
@@ -141,11 +135,8 @@ class PublicProfileViewModel(
                 )
             }
 
-            // ordenar
             val sorted = mapped
             _fullEvents.value = sorted
-
-            // slice inicial
             _visibleEvents.value = sorted.take(pageSize)
             _currentPage.value   = 1
             _hasMoreEvents.value = sorted.size > pageSize

@@ -26,7 +26,6 @@ import com.example.teamup.domain.model.Activity
 import com.example.teamup.domain.repository.ActivityRepository
 import com.example.teamup.data.remote.repository.ActivityRepositoryImpl
 import com.example.teamup.data.remote.api.ActivityApi
-import com.example.teamup.presentation.profile.PublicProfileViewModel
 import com.example.teamup.ui.components.ActivityCard
 import com.example.teamup.ui.components.AchievementsRow
 
@@ -98,7 +97,7 @@ fun PublicProfileScreen(
                     Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (avatarUrl != null) {
+                    if (!avatarUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = avatarUrl,
                             contentDescription = null,
