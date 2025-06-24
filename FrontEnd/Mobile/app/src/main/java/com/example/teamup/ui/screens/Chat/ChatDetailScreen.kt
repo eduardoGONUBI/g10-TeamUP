@@ -38,7 +38,7 @@ fun ChatDetailScreen(
 
      // estado
     val messages       = remember { mutableStateListOf<Message>() }
-    var input          by remember { mutableStateOf("") }
+    val input = remember { mutableStateOf("") }
     var loadingHistory by remember { mutableStateOf(true) }
     val scope          = rememberCoroutineScope()
 
@@ -122,28 +122,36 @@ fun ChatDetailScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
-                value = input,
-                onValueChange = { input = it },
+                value = input.value,
+                onValueChange = { input.value = it },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Message") },
                 singleLine = true,
                 keyboardOptions  = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions  = KeyboardActions(
+                keyboardActions = KeyboardActions(
                     onSend = {
-                        scope.launch {
-                            trySendMessage(token, eventId, input) { input = "" }
+                        val msg = input.value.trim()
+                        if (msg.isNotEmpty()) {
+                            input.value = ""          // limpa antes de suspender
+                            scope.launch {
+                                trySendMessage(token, eventId, msg)
+                            }
                         }
                     }
                 )
             )
             IconButton(
-                enabled = input.isNotBlank(),
+                enabled = input.value.isNotBlank(),
                 onClick = {
-                    scope.launch {
-                        trySendMessage(token, eventId, input) { input = "" }
+                    val msg = input.value.trim()
+                    if (msg.isNotEmpty()) {
+                        input.value = ""
+                        scope.launch {
+                            trySendMessage(token, eventId, msg)
+                        }
                     }
                 }
-            ) {
+            ){
                 Icon(Icons.Default.Send, contentDescription = "Enviar")
             }
         }
@@ -152,15 +160,14 @@ fun ChatDetailScreen(
 
 /* ── Send message helper ───────────────────────────────────────────────── */
 private suspend fun trySendMessage(
-    token:     String,
-    eventId:   Int,
-    text:      String,
-    onSuccess: () -> Unit
+    token:   String,
+    eventId: Int,
+    text:    String
 ) = runCatching {
     ChatApi.sendMessage(token, eventId, text)
-}.onSuccess { onSuccess() }
-    .onFailure { it.printStackTrace() }
-
+}.onFailure {
+    it.printStackTrace()
+}
 /* ── Message bubble ────────────────────────────────────────────────────── */
 @Composable
 private fun MessageBubble(msg: Message) {
