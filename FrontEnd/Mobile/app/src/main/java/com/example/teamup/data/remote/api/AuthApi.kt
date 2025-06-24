@@ -80,6 +80,12 @@ interface AuthApi {
         @Part avatar: MultipartBody.Part
     ): UserDto
 
+    // logout
+    @POST("/api/auth/logout")
+    suspend fun logout(
+        @Header("Authorization") auth: String
+    ): Response<GenericMessageResponseDto>
+
 
 
     companion object {

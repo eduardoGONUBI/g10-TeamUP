@@ -45,6 +45,10 @@ import kotlinx.coroutines.launch
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import androidx.compose.ui.platform.LocalContext
+import com.example.teamup.data.local.AppDatabase
+import com.example.teamup.data.local.SessionRepository
+import com.example.teamup.data.remote.api.AuthApi
 
 /* ───────────────────────── Root scaffold ───────────────────────── */
 // Estrutura principal da aplicação após login
@@ -56,10 +60,17 @@ fun RootScaffold(
     token: String,
     startRoute: String = "home"
 ) {
-    // 1) Create a NavController for this scaffold
+    // cria  a NavController
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
-    // 2) Instantiate HomeViewModel via ActivityRepositoryImpl
+
+    //sessao
+    val context      = LocalContext.current
+    val sessionRepo  = remember {
+        SessionRepository(AppDatabase.get(context).sessionDao())
+    }
+
+    //  Instancia HomeViewModel por ActivityRepositoryImpl
     val homeViewModel: HomeViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -70,7 +81,8 @@ fun RootScaffold(
         }
     )
 
-    // 3) Observe current route for bottom‐nav highlighting
+
+
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
@@ -151,10 +163,16 @@ fun RootScaffold(
                         navController.navigate("edit_profile/$e/$myUserId")
                     },
 
+                    // LOG OUT
                     onLogout = {
-                        appNav.navigate("login") {
-                            popUpTo(0) { inclusive = true }
+                        scope.launch {
+                            val bearer = if (decoded.startsWith("Bearer ")) decoded else "Bearer $decoded"
+                            runCatching { AuthApi.create().logout(bearer) }
+
+                            sessionRepo.clear()
                         }
+
+                        appNav.navigate("login") { popUpTo(0) { inclusive = true } }
                     },
 
                     onActivityClick = { activityItem ->
