@@ -23,4 +23,16 @@ object BaseUrlProvider {
             BuildConfig.BASE_URL_DEVICE
         }
     }
+
+    /** Devolve o host + porta sem protocolo (ex.: "192.168.1.73:8085"). */
+    fun getHost(): String =
+        getBaseUrl()
+            .removePrefix("http://")
+            .removePrefix("https://")
+            .removeSuffix("/")
+    /** WebSocket base (ws://HOST:55333) – muda a porta se passares o WS pelo Nginx. */
+    fun getWsUrl(): String = "ws://${getHost()}/ws/"
+
+
+
 }

@@ -1,5 +1,6 @@
 package com.example.teamup.data.remote.websocket
 
+import com.example.teamup.data.remote.BaseUrlProvider
 import com.example.teamup.domain.model.Message
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -32,7 +33,7 @@ class ChatWebSocket(
     fun connect() {
         val request = Request.Builder()
 
-            .url("ws://10.0.2.2:55333/?token=$token")
+            .url("${BaseUrlProvider.getWsUrl()}?token=$token")
             .build()
 
         socket = client.newWebSocket(request, object : WebSocketListener() {
