@@ -9,23 +9,23 @@
 
 ---
 
-## 🚀 Start the Server
+## 🚀 Start the server stack
 
-1. Go to the **services** folder:
+1. Move to the **services** folder:
    ```bash
    cd services
    ```
-2. Start the containers in detached mode:
+2. Build *and* start every container:
    ```bash
-   docker compose up -d
-    ```
-3. **Install PHP dependencies inside every micro-service** (runs once, after the first build):
-   ```bash
-for s in users-main-app event_manager-app chat-app rating-app achievements-app; do
-  docker compose exec "$s" composer install --optimize-autoloader
-done
+   docker compose up -d --build
    ```
-4. Run the seed script (`database`), which will execute:
+3. **Install PHP dependencies inside each micro-service** – run **once**, after the first build:
+   ```bash
+   for s in users-main-app event_manager-app chat-app rating-app achievements-app; do
+     docker compose exec "$s" composer install --optimize-autoloader
+   done
+   ```
+4. Run migrations + seeders:
    ```bash
    docker compose exec users-main-app       php artisan migrate --seed
    docker compose exec event_manager-app    php artisan migrate --seed
@@ -34,6 +34,7 @@ done
    docker compose exec achievements-app     php artisan migrate --seed
    ```
 
+---
 ## 🌐 Web Frontend
 
 1. Go to the **FrontEnd/WEB** folder:
@@ -42,6 +43,7 @@ done
    ```
 2. Start the containers:
    ```bash
+   composer install
    docker compose up -d
    ```
 
