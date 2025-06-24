@@ -36,7 +36,7 @@
 ⚠️ **Chat note:** The chat feature does **not** work with seeded activities. You must create a new activity through the app to test the chat functionality.
 ---
 ## 🌐 Web Frontend
-
+> **Note:** The SSL-enabled Web version is on the **`WEB`** branch.
 1. Go to the **FrontEnd/WEB** folder:
    ```bash
    cd FrontEnd/WEB
