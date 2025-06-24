@@ -29,18 +29,29 @@ class LoginViewModel(
     val loginState: StateFlow<LoginState> = _loginState
 
     private val _toast = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val toast = _toast                    // expose as read‑only
+    val toast = _toast
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
 
     // login
+// login
     fun login(email: String, password: String) = viewModelScope.launch {
         Log.d(TAG, "🔑 login() called with email=$email")
         _loginState.value = LoginState.Loading
+
+        /* validação minima de input */
+        if (email.isBlank() || password.isBlank()) {
+            _loginState.value = LoginState.Error("E-mail e palavra-passe são obrigatórios.")
+            return@launch
+        }
 
         val result = loginUseCase(email, password)
 
         result.fold(
             onSuccess = { jwt ->
                 Log.d(TAG, "✅ loginUseCase success – got JWT (${jwt.take(12)}…)")
+
                 val bearer = "Bearer $jwt"
 
                 /* guarda o token localmente para local session*/
@@ -66,7 +77,7 @@ class LoginViewModel(
                     Log.d(TAG, "⬅️  storeFcmToken() HTTP ${resp.code()} ${resp.message()}")
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ Could not register FCM token", e)
-                    _toast.tryEmit("Could not register push‑token: ${e.message}")
+                    _toast.tryEmit("Could not register push-token: ${e.message}")
                 }
 
                 _loginState.value = LoginState.Success(jwt)
@@ -74,9 +85,25 @@ class LoginViewModel(
 
             onFailure = { err ->
                 Log.e(TAG, "❌ loginUseCase failed", err)
-                _loginState.value = LoginState.Error(err.message ?: "Unknown error")
+                /* mostra mensagem vinda do repositório */
+                _loginState.value = LoginState.Error(err.message ?: "Falha inesperada.")
             }
         )
+    }
+
+
+    /* Remove a mensagem de erro do ecrã. */
+    fun clearError() {
+        if (_loginState.value is LoginState.Error) {
+            _loginState.value = LoginState.Idle
+        }
+    }
+
+    /* Mostra um toast vindo do ViewModel  */
+    fun showToast(message: String) {
+        viewModelScope.launch {
+            _toast.emit(message)
+        }
     }
 }
 

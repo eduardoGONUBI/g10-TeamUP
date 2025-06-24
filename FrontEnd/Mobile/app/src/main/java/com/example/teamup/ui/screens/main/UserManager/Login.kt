@@ -1,6 +1,6 @@
 package com.example.teamup.ui.screens.main.UserManager
-
-import android.widget.Toast                                   // ← NEW
+import android.util.Patterns
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,7 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext                // ← NEW
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -36,20 +36,19 @@ fun LoginScreen(
     onRegisterClick: () -> Unit = {},
     onLoginSuccess: (String) -> Unit = {}
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email           by remember { mutableStateOf("") }
+    var password        by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
     val loginState by loginViewModel.loginState.collectAsState()
-    val context = LocalContext.current
+    val context    = LocalContext.current
 
-    // mensagens temporarias toast
+    /* ─── Toasts vindos do ViewModel ───────────────────────── */
     LaunchedEffect(Unit) {
         loginViewModel.toast.collect { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
     }
-
 
     val primaryBlue      = Color(0xFF0052CC)
     val backgroundColor  = Color(0xFFF4F3F3)
@@ -70,6 +69,8 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            /* ─── Logo ───────────────────────────────────────── */
             Image(
                 painter = painterResource(R.drawable.noback),
                 contentDescription = "Logo",
@@ -78,7 +79,7 @@ fun LoginScreen(
                     .padding(bottom = 32.dp)
             )
 
-            /* Email field */
+            /* ─── Email ─────────────────────────────────────── */
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -87,7 +88,10 @@ fun LoginScreen(
             ) {
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        loginViewModel.clearError()          // limpa erro se existir
+                    },
                     label = { Text("Email", color = fieldHintColor) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -102,7 +106,7 @@ fun LoginScreen(
                 )
             }
 
-            /* Password field */
+            /* ─── Password ──────────────────────────────────── */
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -111,7 +115,10 @@ fun LoginScreen(
             ) {
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = {
+                        password = it
+                        loginViewModel.clearError()          // limpa erro se existir
+                    },
                     label = { Text("Password", color = fieldHintColor) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -123,9 +130,7 @@ fun LoginScreen(
                         cursorColor = fieldBorderColor
                     ),
                     visualTransformation = if (passwordVisible)
-                        VisualTransformation.None
-                    else
-                        PasswordVisualTransformation(),
+                        VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
@@ -140,7 +145,7 @@ fun LoginScreen(
                 )
             }
 
-            /* Forgot password */
+            /* ─── Forgot password ───────────────────────────── */
             Text(
                 text = "Forgot Password?",
                 fontSize = 14.sp,
@@ -151,9 +156,25 @@ fun LoginScreen(
                     .padding(top = 4.dp, bottom = 24.dp)
             )
 
-            /* Login button */
+            /* ─── Login button ──────────────────────────────── */
             Button(
-                onClick = { loginViewModel.login(email, password) },
+                onClick = {
+                    // validação *mínima* no client antes de chamar o ViewModel
+                    when {
+                        email.isBlank() -> {
+                            loginViewModel.showToast("Indique o e-mail.")
+                        }
+                        !Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
+                            loginViewModel.showToast("E-mail com formato inválido.")
+                        }
+                        password.isBlank() -> {
+                            loginViewModel.showToast("Indique a palavra-passe.")
+                        }
+                        else -> {
+                            loginViewModel.login(email.trim(), password)
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
@@ -175,7 +196,7 @@ fun LoginScreen(
                 }
             }
 
-            /* Error message */
+            /* ─── Error message ─────────────────────────────── */
             if (loginState is LoginState.Error) {
                 Text(
                     text = (loginState as LoginState.Error).message,
@@ -187,7 +208,7 @@ fun LoginScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            /* Register link */
+            /* ─── Register link ─────────────────────────────── */
             Text(
                 buildAnnotatedString {
                     append("Don't have an account? ")
@@ -198,7 +219,7 @@ fun LoginScreen(
             )
         }
 
-        /* Navigate away on success */
+        /* ─── Navega quando loginState → Success ───────────── */
         if (loginState is LoginState.Success) {
             LaunchedEffect(Unit) {
                 onLoginSuccess((loginState as LoginState.Success).token)

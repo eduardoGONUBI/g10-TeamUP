@@ -20,10 +20,23 @@ class AuthRepositoryImpl(
     // login
     override suspend fun login(email: String, password: String): Result<String> {
         return try {
-            val response = api.login(LoginRequestDto(email, password))
-            Result.success(response.token)
+            val dto   = LoginRequestDto(email, password)
+            val resp  = api.login(dto)
+            /* se não lançar exceção ⇒ 2xx */
+            Result.success(resp.token)
+
+        } catch (e: retrofit2.HttpException) {
+            val userMsg = when (e.code()) {
+                401 -> "E-mail ou palavra-passe incorretos."
+                403 -> "Precisa de confirmar o e-mail antes de iniciar sessão."
+                else -> "Erro no servidor (${e.code()})."
+            }
+            Result.failure(Exception(userMsg))
+
+        } catch (e: java.io.IOException) {
+            Result.failure(Exception("Sem ligação à internet."))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception("Falha inesperada: ${e.localizedMessage}"))
         }
     }
 
