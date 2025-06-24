@@ -18,8 +18,14 @@
 2. Start the containers in detached mode:
    ```bash
    docker compose up -d
+   
+3. **Install PHP dependencies inside every micro-service** (runs once, after the first build):
+   ```bash
+   for s in users-main-app event_manager-app chat-app rating-app achievements-app; do
+     docker compose exec "$s" composer install --no-dev --optimize-autoloader
+   done
    ```
-3. Run the seed script (`database`), which will execute:
+4. Run the seed script (`database`), which will execute:
    ```bash
    docker compose exec users-main-app       php artisan migrate --seed
    docker compose exec event_manager-app    php artisan migrate --seed
