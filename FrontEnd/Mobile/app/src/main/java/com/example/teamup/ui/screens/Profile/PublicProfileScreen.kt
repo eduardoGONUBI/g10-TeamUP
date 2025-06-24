@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,7 +71,7 @@ fun PublicProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { /* no title */ },
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -78,20 +79,28 @@ fun PublicProfileScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
     ) { paddingValues ->
+        /* ─── compensação topo para remover gap ─────────────── */
+        val layoutDir   = LocalLayoutDirection.current
+        val effectiveTop = (paddingValues.calculateTopPadding() - 8.dp).coerceAtLeast(0.dp)
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(
+                    top    = effectiveTop,
+                    start  = paddingValues.calculateStartPadding(layoutDir),
+                    end    = paddingValues.calculateEndPadding(layoutDir),
+                    bottom = paddingValues.calculateBottomPadding()
+                )
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // Spacer top
             item { Spacer(Modifier.height(16.dp)) }
-
-            // Avatar
+            /* ─── Avatar ─────────────────────────────────────── */
             item {
                 Box(
                     Modifier.fillMaxWidth(),
@@ -119,8 +128,7 @@ fun PublicProfileScreen(
                     }
                 }
             }
-
-            // Name
+            /* ─── Nome ───────────────────────────────────────── */
             item {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -133,8 +141,7 @@ fun PublicProfileScreen(
                     textAlign = TextAlign.Center
                 )
             }
-
-            // Location /Sports
+            /* ─── Localização / Desportos ────────────────────── */
             item {
                 Column(Modifier.padding(horizontal = 24.dp)) {
                     Text(
@@ -152,8 +159,7 @@ fun PublicProfileScreen(
                     )
                 }
             }
-
-            // Stats
+            /* ─── Estatísticas (level/rep) ───────────────────── */
             item {
                 Spacer(Modifier.height(16.dp))
                 Card(
@@ -174,8 +180,7 @@ fun PublicProfileScreen(
                     }
                 }
             }
-
-            // Achievements
+            /* ─── Achievements ──────────────────────────────── */
             item {
                 Spacer(Modifier.height(24.dp))
                 Text(
@@ -184,6 +189,7 @@ fun PublicProfileScreen(
                     modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
                 )
             }
+
             item {
                 if (achievements.isEmpty()) {
                     Text(
@@ -201,10 +207,9 @@ fun PublicProfileScreen(
                 }
             }
 
-            // Spacer
+            /* ─── Cabeçalho atividades ─────────────────────────── */
             item { Spacer(Modifier.height(24.dp)) }
 
-            //  Header atividades
             item {
                 Text(
                     text = "Events Created",
@@ -212,8 +217,7 @@ fun PublicProfileScreen(
                     modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
                 )
             }
-
-            // error
+            /* ─── Erro atividades ──────────────────────────────── */
             if (eventsError != null) {
                 item {
                     Text(
@@ -225,8 +229,7 @@ fun PublicProfileScreen(
                     )
                 }
             }
-
-            // No ativitites placeholder
+            /* ─── Placeholder sem atvidades ───────────────────── */
             if (visibleEvents.isEmpty() && eventsError == null) {
                 item {
                     Text(
@@ -239,7 +242,6 @@ fun PublicProfileScreen(
                 }
             }
 
-            // ativity items
             if (visibleEvents.isNotEmpty()) {
                 items(visibleEvents, key = { it.id }) { act ->
                     ActivityCard(
@@ -250,8 +252,7 @@ fun PublicProfileScreen(
                     Spacer(Modifier.height(8.dp))
                 }
             }
-
-            // Load more
+            /* ─── loadmore ──────────────────────────── */
             if (hasMoreEvents) {
                 item {
                     Box(
@@ -272,11 +273,10 @@ fun PublicProfileScreen(
                 }
             }
 
-            // Bottom padding
             item { Spacer(Modifier.height(32.dp)) }
         }
 
-        // Global error banner
+        // snack bar
         if (errorMsg != null) {
             Box(Modifier.fillMaxSize()) {
                 Snackbar(
@@ -295,7 +295,7 @@ fun PublicProfileScreen(
     }
 }
 
-// stats ordenados
+// dados do perfil
 @Composable
 private fun ProfileStat(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
